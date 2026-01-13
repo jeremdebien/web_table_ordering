@@ -20,22 +20,22 @@ class OrdersSupabaseDataSource {
 
   /// Subscribe to order updates for a specific table or all orders
   /// Useful for the Order Summary screen.
-  Stream<List<Map<String, dynamic>>> subscribeToOrderUpdates({String? tableNumber}) {
+  Stream<List<Map<String, dynamic>>> subscribeToOrderUpdates({String? tableUuid}) {
     final builder = _client.from('sales_orders').stream(primaryKey: ['id']);
 
-    if (tableNumber != null) {
-      return builder.eq('table_number', tableNumber).order('created_at', ascending: false);
+    if (tableUuid != null) {
+      return builder.eq('table_uuid', tableUuid).order('created_at', ascending: false);
     }
 
     return builder.order('created_at', ascending: false);
   }
 
   /// Fetch orders (e.g. for history)
-  Future<List<SalesOrderModel>> getOrders({String? tableNumber}) async {
+  Future<List<SalesOrderModel>> getOrders({String? tableUuid}) async {
     var query = _client.from('sales_orders').select('*, sales_order_items(*)'); // Join with items
 
-    if (tableNumber != null) {
-      query = query.eq('table_number', tableNumber);
+    if (tableUuid != null) {
+      query = query.eq('table_uuid', tableUuid);
     }
 
     final response = await query.order('created_at', ascending: false);

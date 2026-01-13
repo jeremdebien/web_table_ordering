@@ -5,7 +5,7 @@ class SalesOrderModel {
   final DateTime? createdAt;
   final String status;
   final double totalAmount;
-  final String? tableNumber;
+  final String? tableUuid;
   final List<SalesOrderItemModel> items;
 
   SalesOrderModel({
@@ -13,7 +13,7 @@ class SalesOrderModel {
     this.createdAt,
     this.status = 'pending',
     required this.totalAmount,
-    this.tableNumber,
+    this.tableUuid,
     required this.items,
   });
 
@@ -23,7 +23,7 @@ class SalesOrderModel {
       createdAt: json['created_at'] != null ? DateTime.parse(json['created_at'] as String) : null,
       status: json['status'] as String? ?? 'pending',
       totalAmount: (json['total_amount'] as num).toDouble(),
-      tableNumber: json['table_number'] as String?,
+      tableUuid: json['table_uuid'] as String?,
       items:
           (json['sales_order_items'] as List<dynamic>?)
               ?.map((e) => SalesOrderItemModel.fromJson(e as Map<String, dynamic>))
@@ -37,7 +37,7 @@ class SalesOrderModel {
       if (id != null) 'id': id,
       'status': status,
       'total_amount': totalAmount,
-      'table_number': tableNumber,
+      'table_uuid': tableUuid,
       // created_at is usually handled by DB default
       'items': items.map((e) => e.toJson()).toList(),
     };
