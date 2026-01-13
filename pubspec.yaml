@@ -39,6 +39,8 @@ dependencies:
   get_it: ^9.2.0
   equatable: ^2.0.8
   url_strategy: ^0.3.0
+  supabase_flutter: ^2.8.3
+  flutter_dotenv: ^5.2.1
 
 dev_dependencies:
   flutter_test:
