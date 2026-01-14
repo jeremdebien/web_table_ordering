@@ -38,6 +38,12 @@ class SalesOrderModel {
   });
 
   factory SalesOrderModel.fromJson(Map<String, dynamic> json) {
+    bool toBool(dynamic value) {
+      if (value is bool) return value;
+      if (value is int) return value == 1;
+      return false;
+    }
+
     return SalesOrderModel(
       id: json['id'] as int,
       salesOrderId: json['sales_order_id'] as int?,
@@ -47,15 +53,18 @@ class SalesOrderModel {
       orderType: json['order_type'] as int,
       paymentStatus: json['payment_status'] as int? ?? 0,
       appliedDiscountId: json['applied_discount_id'] as int?,
-      isSplitBill: (json['is_split_bill'] as int? ?? 0) == 1,
-      isCombine: (json['is_combine'] as int? ?? 0) == 1 || (json['is_combine'] as bool? ?? false),
+      isSplitBill: toBool(json['is_split_bill']),
+      isCombine: toBool(json['is_combine']),
       paymentDepositId: json['payment_deposit_id'] as int?,
       parentSalesOrderId: json['parent_sales_order_id'] as int?,
       createdAt: json['created_at'] != null ? DateTime.parse(json['created_at'] as String) : null,
       postingDate: json['posting_date'] != null ? DateTime.parse(json['posting_date'] as String) : null,
       updatedAt: json['updated_at'] != null ? DateTime.parse(json['updated_at'] as String) : null,
       items:
-          (json['sales_order_items'] as List<dynamic>?)
+          (json['sales_order_item']
+                  as List<
+                    dynamic
+                  >?) // IMPORTANT: Changed from sales_order_items to sales_order_item based on datasource select query
               ?.map((e) => SalesOrderItemModel.fromJson(e as Map<String, dynamic>))
               .toList() ??
           [],

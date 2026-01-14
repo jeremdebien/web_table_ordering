@@ -1,5 +1,8 @@
+import 'dart:async';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../data/models/sales_order_item_model.dart';
+import '../../../menu/data/models/item_model.dart';
+import '../../../menu/presentation/bloc/menu_bloc.dart';
 
 import '../../data/datasources/orders_supabase_datasource.dart';
 
@@ -8,50 +11,143 @@ part 'cart_state.dart';
 
 class CartBloc extends Bloc<CartEvent, CartState> {
   final OrdersSupabaseDataSource _ordersDataSource;
+  final MenuBloc _menuBloc;
+  StreamSubscription? _menuSubscription;
 
-  CartBloc(this._ordersDataSource) : super(const CartState()) {
+  CartBloc(this._ordersDataSource, this._menuBloc) : super(const CartState()) {
     on<AddToCart>(_onAddToCart);
     on<RemoveFromCart>(_onRemoveFromCart);
     on<ClearCart>(_onClearCart);
     on<SubmitOrder>(_onSubmitOrder);
+    on<LoadActiveOrder>(_onLoadActiveOrder);
+    on<UpdateCartItemNames>(_onUpdateCartItemNames);
+
+    _menuSubscription = _menuBloc.stream.listen((menuState) {
+      if (menuState is MenuLoaded) {
+        add(UpdateCartItemNames(menuState.items));
+      }
+    });
+  }
+
+  @override
+  Future<void> close() {
+    _menuSubscription?.cancel();
+    return super.close();
+  }
+
+  void _onUpdateCartItemNames(UpdateCartItemNames event, Emitter<CartState> emit) {
+    if (state.items.isEmpty) return;
+
+    final updatedItems = state.items.map((i) {
+      if (i.itemName.isEmpty || i.itemName == 'Unknown Item') {
+        final found = event.menuItems.where((m) => m.barcode == i.itemBarcode).firstOrNull;
+        if (found != null) {
+          return i.copyWith(itemName: found.name);
+        }
+      }
+      return i;
+    }).toList();
+
+    emit(state.copyWith(items: updatedItems));
+  }
+
+  Future<void> _onLoadActiveOrder(LoadActiveOrder event, Emitter<CartState> emit) async {
+    emit(state.copyWith(status: CartStatus.loading));
+    try {
+      final order = await _ordersDataSource.getActiveOrder(tableId: event.tableId);
+      if (order != null) {
+        var items = order.items;
+
+        // Map names immediately if menu is loaded
+        if (_menuBloc.state is MenuLoaded) {
+          final menuItems = (_menuBloc.state as MenuLoaded).items;
+          items = items.map((i) {
+            if (i.itemName.isEmpty) {
+              final found = menuItems.where((m) => m.barcode == i.itemBarcode).firstOrNull;
+              if (found != null) {
+                return i.copyWith(itemName: found.name);
+              }
+            }
+            return i;
+          }).toList();
+        }
+
+        emit(
+          state.copyWith(
+            status: CartStatus.success,
+            items: items,
+          ),
+        );
+      } else {
+        emit(state.copyWith(status: CartStatus.success, items: []));
+      }
+    } catch (e) {
+      emit(state.copyWith(status: CartStatus.failure, errorMessage: e.toString()));
+    }
   }
 
   Future<void> _onSubmitOrder(SubmitOrder event, Emitter<CartState> emit) async {
     emit(state.copyWith(status: CartStatus.loading));
     try {
-      await _ordersDataSource.submitSalesOrder(
-        tableId: event.tableId,
-        guestCount: event.guestCount,
-        items: state.items,
-      );
-      emit(state.copyWith(status: CartStatus.success, items: []));
+      // Filter only NEW items (originalQuantity == 0)
+      final itemsToSubmit = state.items.where((i) => i.originalQuantity == 0).toList();
+
+      if (itemsToSubmit.isNotEmpty) {
+        await _ordersDataSource.submitSalesOrder(
+          tableId: event.tableId,
+          guestCount: event.guestCount,
+          items: itemsToSubmit,
+        );
+      }
+
+      // Reload the active order to reflect merged state from backend
+      add(LoadActiveOrder(event.tableId));
     } catch (e) {
       emit(state.copyWith(status: CartStatus.failure, errorMessage: e.toString()));
     }
   }
 
   void _onAddToCart(AddToCart event, Emitter<CartState> emit) {
-    final existingIndex = state.items.indexWhere((i) => i.itemBarcode == event.item.itemBarcode);
-    if (existingIndex >= 0) {
+    // Find existing "New" item (originalQuantity == 0)
+    // We intentionally ignore items with originalQuantity > 0 (Preloaded items)
+    final existingNewIndex = state.items.indexWhere(
+      (i) => i.itemBarcode == event.item.itemBarcode && i.originalQuantity == 0,
+    );
+
+    if (existingNewIndex >= 0) {
       final updatedItems = List<SalesOrderItemModel>.from(state.items);
-      final existingItem = updatedItems[existingIndex];
+      final existingItem = updatedItems[existingNewIndex];
 
       // Calculate new quantity and amount
       final newQuantity = existingItem.quantity + event.item.quantity;
       final newAmount = existingItem.amount + event.item.amount;
 
-      updatedItems[existingIndex] = existingItem.copyWith(
+      updatedItems[existingNewIndex] = existingItem.copyWith(
         quantity: newQuantity,
         amount: newAmount,
       );
       emit(state.copyWith(items: updatedItems));
     } else {
+      // Add as a new row, even if an "Old" item exists
       emit(state.copyWith(items: [...state.items, event.item]));
     }
   }
 
   void _onRemoveFromCart(RemoveFromCart event, Emitter<CartState> emit) {
-    final updatedItems = state.items.where((i) => i.itemBarcode != event.item.itemBarcode).toList();
+    // Remove specific item instance (handling duplicates carefully if necessary,
+    // but here we likely rely on object identity or we might need a unique ID.
+    // For now assuming object instance or index removal is desired, but
+    // typical List.where removes ALL matches.
+    // Given we might have two "Burgers", we should probably remove by specific ID or
+    // if using instance reference, we need to be careful.
+    // Let's assume we remove by identity for now or index.
+    // Actually, checking equality: existing logic uses barcode.
+    // WE MUST CHANGE THIS to avoid removing both Old and New lines.
+
+    // Better strategy: Remove the specific item passed in the event.
+    // If the event.item is the exact object from the list:
+    final updatedItems = List<SalesOrderItemModel>.from(state.items);
+    updatedItems.remove(event.item);
     emit(state.copyWith(items: updatedItems));
   }
 

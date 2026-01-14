@@ -71,42 +71,100 @@ serve(async (req) => {
             salesOrderId = newOrder.sales_order_id
         }
 
-        // Prepare items for insertion
         if (items && items.length > 0) {
-            // Get next order_item_id start value for the branch
-            const { data: maxItem, error: maxItemError } = await supabase
+            // 1. Fetch existing items for this order to check for duplicates
+            const { data: existingItems, error: fetchItemsError } = await supabase
                 .from('sales_order_item')
-                .select('order_item_id')
-                .eq('branch_id', branch_id)
-                .order('order_item_id', { ascending: false })
-                .limit(1)
-                .maybeSingle()
+                .select('order_item_id, item_barcode, quantity, amount')
+                .eq('sales_order_id', salesOrderId)
+                .eq('branch_id', branch_id);
 
-            if (maxItemError) throw maxItemError
+            if (fetchItemsError) throw fetchItemsError;
 
-            let currentOrderItemId = (maxItem?.order_item_id || 0);
+            const updates: Promise<any>[] = [];
+            const newItemsToInsert: any[] = [];
 
-            const orderItems = items.map((item: any) => {
-                currentOrderItemId++;
-                return {
-                    sales_order_id: salesOrderId,
-                    branch_id,
-                    order_item_id: currentOrderItemId,
-                    item_barcode: item.item_barcode,
-                    quantity: item.quantity,
-                    amount: item.amount,
-                    item_modifiers: item.item_modifiers,
-                    is_disc_exempt: item.is_disc_exempt || false,
-                    item_discount: item.item_discount || 0,
-                    posting_date: new Date().toISOString()
-                };
-            });
+            // Helper to find existing item index in our local list (handling multiple updates to same barcode in one batch if needed, though rare)
+            // But relying on DB 'existingItems' is safer.
+            // We'll iterate incoming items.
+            for (const item of items) {
+                // Check if barcode exists in DB
+                const matchIndex = existingItems ? existingItems.findIndex((existing: any) => existing.item_barcode === item.item_barcode) : -1;
 
-            const { error: insertItemsError } = await supabase
-                .from('sales_order_item')
-                .insert(orderItems)
+                if (matchIndex > -1) {
+                    // Update existing item
+                    const validMatch = existingItems![matchIndex];
 
-            if (insertItemsError) throw insertItemsError
+                    // We prepare the update promise
+                    const newQuantity = validMatch.quantity + item.quantity;
+                    const newAmount = validMatch.amount + item.amount;
+
+                    updates.push(
+                        supabase
+                            .from('sales_order_item')
+                            .update({
+                                quantity: newQuantity,
+                                amount: newAmount,
+                                // details/modifiers? Keeping old ones or merging? User said "just add the quantity".
+                                // We keep old modifiers to not break the existing line's customization.
+                                // We assume the "new" item being merged implies "same item".
+                            })
+                            .eq('sales_order_id', salesOrderId)
+                            .eq('branch_id', branch_id)
+                            .eq('order_item_id', validMatch.order_item_id)
+                    );
+
+                    // Update local list to reflect change if multiple incoming items share same barcode (edge case)
+                    existingItems![matchIndex].quantity = newQuantity;
+                    existingItems![matchIndex].amount = newAmount;
+                } else {
+                    // It's a new item
+                    newItemsToInsert.push(item);
+                }
+            }
+
+            // 2. Execute Updates
+            if (updates.length > 0) {
+                await Promise.all(updates);
+            }
+
+            // 3. Execute Inserts
+            if (newItemsToInsert.length > 0) {
+                // Get next order_item_id start value for the branch
+                const { data: maxItem, error: maxItemError } = await supabase
+                    .from('sales_order_item')
+                    .select('order_item_id')
+                    .eq('branch_id', branch_id)
+                    .order('order_item_id', { ascending: false })
+                    .limit(1)
+                    .maybeSingle()
+
+                if (maxItemError) throw maxItemError
+
+                let currentOrderItemId = (maxItem?.order_item_id || 0);
+
+                const orderItems = newItemsToInsert.map((item: any) => {
+                    currentOrderItemId++;
+                    return {
+                        sales_order_id: salesOrderId,
+                        branch_id,
+                        order_item_id: currentOrderItemId,
+                        item_barcode: item.item_barcode,
+                        quantity: item.quantity,
+                        amount: item.amount,
+                        item_modifiers: item.item_modifiers,
+                        is_disc_exempt: item.is_disc_exempt || false,
+                        item_discount: item.item_discount || 0,
+                        posting_date: new Date().toISOString()
+                    };
+                });
+
+                const { error: insertItemsError } = await supabase
+                    .from('sales_order_item')
+                    .insert(orderItems)
+
+                if (insertItemsError) throw insertItemsError
+            }
         }
 
         return new Response(

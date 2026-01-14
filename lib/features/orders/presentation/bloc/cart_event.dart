@@ -20,3 +20,14 @@ class SubmitOrder extends CartEvent {
 
   SubmitOrder({required this.tableId, required this.guestCount});
 }
+
+class LoadActiveOrder extends CartEvent {
+  final int tableId;
+
+  LoadActiveOrder(this.tableId);
+}
+
+class UpdateCartItemNames extends CartEvent {
+  final List<ItemModel> menuItems;
+  UpdateCartItemNames(this.menuItems);
+}

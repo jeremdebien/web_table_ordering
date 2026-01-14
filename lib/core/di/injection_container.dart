@@ -11,8 +11,7 @@ final sl = GetIt.instance;
 
 Future<void> init() async {
   // Features - Home
-  // Bloc
-  sl.registerFactory(() => MenuBloc(sl()));
+  sl.registerLazySingleton(() => MenuBloc(sl()));
 
   // Use cases
 
@@ -25,7 +24,7 @@ Future<void> init() async {
 
   // Blocd
   sl.registerFactory(() => TableBloc(sl()));
-  sl.registerFactory(() => CartBloc(sl()));
+  sl.registerFactory(() => CartBloc(sl(), sl()));
 
   // Core
 

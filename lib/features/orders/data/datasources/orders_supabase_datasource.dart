@@ -47,22 +47,44 @@ class OrdersSupabaseDataSource {
 
   /// Subscribe to order updates for a specific table or all orders
   /// Useful for the Order Summary screen.
-  Stream<List<Map<String, dynamic>>> subscribeToOrderUpdates({String? tableUuid}) {
-    final builder = _client.from('sales_orders').stream(primaryKey: ['id']);
+  /// Subscribe to order updates for a specific table or all orders
+  /// Useful for the Order Summary screen.
+  Stream<List<Map<String, dynamic>>> subscribeToOrderUpdates({int? tableId}) {
+    final builder = _client.from('sales_order').stream(primaryKey: ['id']);
 
-    if (tableUuid != null) {
-      return builder.eq('table_uuid', tableUuid).order('created_at', ascending: false);
+    if (tableId != null) {
+      return builder.eq('table_id', tableId).order('created_at', ascending: false);
     }
 
     return builder.order('created_at', ascending: false);
   }
 
-  /// Fetch orders (e.g. for history)
-  Future<List<SalesOrderModel>> getOrders({String? tableUuid}) async {
-    var query = _client.from('sales_orders').select('*, sales_order_items(*)'); // Join with items
+  /// Fetch active order for a table
+  Future<SalesOrderModel?> getActiveOrder({required int tableId}) async {
+    try {
+      final response = await _client
+          .from('sales_order')
+          .select('*, sales_order_item(*)') // Join with items
+          .eq('table_id', tableId)
+          .eq('payment_status', 0) // Active orders only
+          .maybeSingle();
 
-    if (tableUuid != null) {
-      query = query.eq('table_uuid', tableUuid);
+      if (response == null) return null;
+      return SalesOrderModel.fromJson(response);
+    } catch (e) {
+      // Handle error or return null
+      // For now rethrow or print
+      print('Error fetching active order: $e');
+      return null;
+    }
+  }
+
+  // Keeping generic getOrders if needed, but updated to tableId
+  Future<List<SalesOrderModel>> getOrders({int? tableId}) async {
+    var query = _client.from('sales_order').select('*, sales_order_item(*)');
+
+    if (tableId != null) {
+      query = query.eq('table_id', tableId);
     }
 
     final response = await query.order('created_at', ascending: false);

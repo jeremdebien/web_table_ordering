@@ -12,6 +12,7 @@ class SalesOrderItemModel {
   final DateTime? postingDate;
   final DateTime? createdAt;
   final DateTime? updatedAt;
+  final int originalQuantity; // Added to distinguish new vs existing items
 
   double get unitPrice => quantity > 0 ? amount / quantity : 0;
 
@@ -29,22 +30,32 @@ class SalesOrderItemModel {
     this.postingDate,
     this.createdAt,
     this.updatedAt,
+    this.originalQuantity = 0,
   });
 
   factory SalesOrderItemModel.fromJson(Map<String, dynamic> json) {
+    final qty = json['quantity'] as int;
+
+    bool toBool(dynamic value) {
+      if (value is bool) return value;
+      if (value is int) return value == 1;
+      return false;
+    }
+
     return SalesOrderItemModel(
       id: json['id'] as int?,
       orderItemId: json['order_item_id'] as int?,
       salesOrderId: json['sales_order_id'] as int?,
       itemBarcode: json['item_barcode'] as String,
-      quantity: json['quantity'] as int,
+      quantity: qty,
       amount: (json['amount'] as num).toDouble(),
       itemModifiers: json['item_modifiers'] as String?,
-      isDiscExempt: (json['is_disc_exempt'] as int? ?? 0) == 1 || (json['is_disc_exempt'] as bool? ?? false),
+      isDiscExempt: toBool(json['is_disc_exempt']),
       itemDiscount: (json['item_discount'] as num?)?.toDouble(),
       postingDate: json['posting_date'] != null ? DateTime.parse(json['posting_date'] as String) : null,
       createdAt: json['created_at'] != null ? DateTime.parse(json['created_at'] as String) : null,
       updatedAt: json['updated_at'] != null ? DateTime.parse(json['updated_at'] as String) : null,
+      originalQuantity: qty, // Set originalQuantity to quantity for DB items
     );
   }
 
@@ -79,6 +90,7 @@ class SalesOrderItemModel {
     DateTime? postingDate,
     DateTime? createdAt,
     DateTime? updatedAt,
+    int? originalQuantity,
   }) {
     return SalesOrderItemModel(
       id: id ?? this.id,
@@ -94,6 +106,7 @@ class SalesOrderItemModel {
       postingDate: postingDate ?? this.postingDate,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
+      originalQuantity: originalQuantity ?? this.originalQuantity,
     );
   }
 }

@@ -36,30 +36,75 @@ class OrderSummary extends StatelessWidget {
               if (state.items.isEmpty) const Expanded(child: Center(child: Text('Your cart is empty'))),
               if (state.items.isNotEmpty)
                 Expanded(
-                  child: ListView.builder(
-                    itemCount: state.items.length,
-                    itemBuilder: (context, index) {
-                      final item = state.items[index];
-                      return ListTile(
-                        title: Text(item.itemName),
-                        subtitle: Text('${item.quantity} x ${item.unitPrice.toStringAsFixed(2)}'),
-                        trailing: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Text(
-                              '${item.amount.toStringAsFixed(2)}',
-                              style: const TextStyle(fontWeight: FontWeight.bold),
+                  child: SingleChildScrollView(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // Old Items Section
+                        if (state.items.any((i) => i.originalQuantity > 0)) ...[
+                          const Padding(
+                            padding: EdgeInsets.symmetric(vertical: 8.0),
+                            child: Text(
+                              'Order:',
+                              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.grey),
                             ),
-                            IconButton(
-                              icon: const Icon(Icons.delete, color: Colors.red),
-                              onPressed: () {
-                                context.read<CartBloc>().add(RemoveFromCart(item));
-                              },
+                          ),
+                          ...state.items.where((i) => i.originalQuantity > 0).map((item) {
+                            return ListTile(
+                              title: Text(item.itemName.isEmpty ? 'Unknown Item' : item.itemName),
+                              subtitle: Text('${item.quantity} x ${item.unitPrice.toStringAsFixed(2)}'),
+                              trailing: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Text(
+                                    '${item.amount.toStringAsFixed(2)}',
+                                    style: const TextStyle(fontWeight: FontWeight.bold),
+                                  ),
+                                  // Old items are read-only and cannot be deleted from the cart
+                                ],
+                              ),
+                            );
+                          }),
+                        ],
+
+                        // Divider if both exist
+                        if (state.items.any((i) => i.originalQuantity > 0) &&
+                            state.items.any((i) => i.originalQuantity == 0))
+                          const Divider(),
+
+                        // New Items Section
+                        if (state.items.any((i) => i.originalQuantity == 0)) ...[
+                          const Padding(
+                            padding: EdgeInsets.symmetric(vertical: 8.0),
+                            child: Text(
+                              'Additional Order:',
+                              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.blue),
                             ),
-                          ],
-                        ),
-                      );
-                    },
+                          ),
+                          ...state.items.where((i) => i.originalQuantity == 0).map((item) {
+                            return ListTile(
+                              title: Text(item.itemName),
+                              subtitle: Text('${item.quantity} x ${item.unitPrice.toStringAsFixed(2)}'),
+                              trailing: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Text(
+                                    '${item.amount.toStringAsFixed(2)}',
+                                    style: const TextStyle(fontWeight: FontWeight.bold),
+                                  ),
+                                  IconButton(
+                                    icon: const Icon(Icons.delete, color: Colors.red),
+                                    onPressed: () {
+                                      context.read<CartBloc>().add(RemoveFromCart(item));
+                                    },
+                                  ),
+                                ],
+                              ),
+                            );
+                          }),
+                        ],
+                      ],
+                    ),
                   ),
                 ),
               const Divider(),
@@ -85,11 +130,34 @@ class OrderSummary extends StatelessWidget {
                       : () {
                           final tableState = context.read<TableBloc>().state;
                           if (tableState is TableLoaded) {
-                            context.read<CartBloc>().add(
-                              SubmitOrder(
-                                tableId: tableState.table.id,
-                                guestCount: 1, // Defaulting to 1 for now as per plan
-                              ),
+                            showDialog(
+                              context: context,
+                              builder: (BuildContext dialogContext) {
+                                return AlertDialog(
+                                  title: const Text('Confirm Order'),
+                                  content: const Text('Are you sure you want to place this order?'),
+                                  actions: <Widget>[
+                                    TextButton(
+                                      child: const Text('Cancel'),
+                                      onPressed: () {
+                                        Navigator.of(dialogContext).pop();
+                                      },
+                                    ),
+                                    TextButton(
+                                      child: const Text('Confirm'),
+                                      onPressed: () {
+                                        Navigator.of(dialogContext).pop();
+                                        context.read<CartBloc>().add(
+                                          SubmitOrder(
+                                            tableId: tableState.table.tableId,
+                                            guestCount: 1,
+                                          ),
+                                        );
+                                      },
+                                    ),
+                                  ],
+                                );
+                              },
                             );
                           } else {
                             ScaffoldMessenger.of(context).showSnackBar(
