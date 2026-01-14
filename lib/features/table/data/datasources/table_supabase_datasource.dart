@@ -8,7 +8,7 @@ class TableSupabaseDataSource {
 
   Future<TableModel> getTableByUuid(String uuid) async {
     try {
-      final response = await _client.from('tables').select().eq('uuid', uuid).single();
+      final response = await _client.from('tables').select().eq('table_uuid', uuid).single();
 
       return TableModel.fromJson(response);
     } catch (e) {
