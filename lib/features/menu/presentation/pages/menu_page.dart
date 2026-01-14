@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:web_table_ordering/features/menu/presentation/bloc/menu_bloc.dart';
+import 'package:web_table_ordering/features/orders/presentation/bloc/cart_bloc.dart';
+import 'package:web_table_ordering/features/orders/data/models/sales_order_item_model.dart';
+import '../../../../features/orders/presentation/widgets/order_summary.dart';
 
 class MenuPage extends StatelessWidget {
   const MenuPage({super.key});
@@ -10,6 +13,17 @@ class MenuPage extends StatelessWidget {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Menu'),
+      ),
+      floatingActionButton: BlocBuilder<CartBloc, CartState>(
+        builder: (context, state) {
+          if (state.items.isEmpty) return const SizedBox.shrink();
+          final totalCount = state.items.fold(0, (sum, item) => sum + item.quantity);
+          return FloatingActionButton.extended(
+            onPressed: () => _showOrderSummary(context),
+            label: Text('View Order ($totalCount)'),
+            icon: const Icon(Icons.shopping_cart),
+          );
+        },
       ),
       body: BlocBuilder<MenuBloc, MenuState>(
         builder: (context, state) {
@@ -64,20 +78,34 @@ class MenuPage extends StatelessWidget {
                           .where((item) => item.categoryId == state.selectedCategoryId)
                           .toList();
                       final item = filteredItems[index];
-                      return Card(
-                        child: Padding(
-                          padding: const EdgeInsets.all(8.0),
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Text(
-                                item.name,
-                                textAlign: TextAlign.center,
-                                style: const TextStyle(fontWeight: FontWeight.bold),
+                      return InkWell(
+                        onTap: () {
+                          context.read<CartBloc>().add(
+                            AddToCart(
+                              SalesOrderItemModel(
+                                itemBarcode: item.barcode,
+                                itemName: item.name,
+                                quantity: 1,
+                                amount: item.price,
                               ),
-                              const SizedBox(height: 8),
-                              Text('${item.price}'),
-                            ],
+                            ),
+                          );
+                        },
+                        child: Card(
+                          child: Padding(
+                            padding: const EdgeInsets.all(8.0),
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Text(
+                                  item.name,
+                                  textAlign: TextAlign.center,
+                                  style: const TextStyle(fontWeight: FontWeight.bold),
+                                ),
+                                const SizedBox(height: 8),
+                                Text('${item.price}'),
+                              ],
+                            ),
                           ),
                         ),
                       );
@@ -90,6 +118,15 @@ class MenuPage extends StatelessWidget {
           return const SizedBox.shrink();
         },
       ),
+    );
+  }
+
+  void _showOrderSummary(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      builder: (context) {
+        return const OrderSummary();
+      },
     );
   }
 }

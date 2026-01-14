@@ -3,6 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'core/router/app_router.dart';
 import 'features/menu/presentation/bloc/menu_bloc.dart';
 import 'features/table/presentation/bloc/table_bloc.dart';
+import 'features/orders/presentation/bloc/cart_bloc.dart';
 import 'core/di/injection_container.dart' as di;
 
 class MyApp extends StatelessWidget {
@@ -16,6 +17,7 @@ class MyApp extends StatelessWidget {
           create: (context) => di.sl<MenuBloc>()..add(LoadMenu()),
         ),
         BlocProvider<TableBloc>(create: (context) => di.sl<TableBloc>()),
+        BlocProvider<CartBloc>(create: (context) => CartBloc()),
       ],
       child: MaterialApp.router(
         debugShowCheckedModeBanner: false,
