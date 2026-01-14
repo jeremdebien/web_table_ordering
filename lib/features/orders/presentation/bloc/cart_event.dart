@@ -13,3 +13,10 @@ class RemoveFromCart extends CartEvent {
 }
 
 class ClearCart extends CartEvent {}
+
+class SubmitOrder extends CartEvent {
+  final int tableId;
+  final int guestCount;
+
+  SubmitOrder({required this.tableId, required this.guestCount});
+}

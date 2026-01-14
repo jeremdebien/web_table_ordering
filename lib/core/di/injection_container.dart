@@ -5,6 +5,7 @@ import '../../features/menu/presentation/bloc/menu_bloc.dart';
 import '../../features/orders/data/datasources/orders_supabase_datasource.dart';
 import '../../features/table/data/datasources/table_supabase_datasource.dart';
 import '../../features/table/presentation/bloc/table_bloc.dart';
+import '../../features/orders/presentation/bloc/cart_bloc.dart';
 
 final sl = GetIt.instance;
 
@@ -24,6 +25,7 @@ Future<void> init() async {
 
   // Blocd
   sl.registerFactory(() => TableBloc(sl()));
+  sl.registerFactory(() => CartBloc(sl()));
 
   // Core
 

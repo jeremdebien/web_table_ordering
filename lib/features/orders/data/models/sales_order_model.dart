@@ -1,7 +1,8 @@
 import 'sales_order_item_model.dart';
 
 class SalesOrderModel {
-  final int? id;
+  final int id;
+  final int? salesOrderId;
   final int tableId;
   final int guestCount;
   final int eligibleGuestCount;
@@ -14,10 +15,12 @@ class SalesOrderModel {
   final int? parentSalesOrderId;
   final DateTime? createdAt;
   final DateTime? postingDate;
+  final DateTime? updatedAt;
   final List<SalesOrderItemModel> items;
 
   SalesOrderModel({
-    this.id,
+    required this.id,
+    this.salesOrderId,
     required this.tableId,
     required this.guestCount,
     this.eligibleGuestCount = 0,
@@ -30,12 +33,14 @@ class SalesOrderModel {
     this.parentSalesOrderId,
     this.createdAt,
     this.postingDate,
+    this.updatedAt,
     this.items = const [],
   });
 
   factory SalesOrderModel.fromJson(Map<String, dynamic> json) {
     return SalesOrderModel(
-      id: json['sales_order_id'] as int?,
+      id: json['id'] as int,
+      salesOrderId: json['sales_order_id'] as int?,
       tableId: json['table_id'] as int,
       guestCount: json['guest_count'] as int,
       eligibleGuestCount: json['eligible_guest_count'] as int? ?? 0,
@@ -48,6 +53,7 @@ class SalesOrderModel {
       parentSalesOrderId: json['parent_sales_order_id'] as int?,
       createdAt: json['created_at'] != null ? DateTime.parse(json['created_at'] as String) : null,
       postingDate: json['posting_date'] != null ? DateTime.parse(json['posting_date'] as String) : null,
+      updatedAt: json['updated_at'] != null ? DateTime.parse(json['updated_at'] as String) : null,
       items:
           (json['sales_order_items'] as List<dynamic>?)
               ?.map((e) => SalesOrderItemModel.fromJson(e as Map<String, dynamic>))
@@ -58,7 +64,8 @@ class SalesOrderModel {
 
   Map<String, dynamic> toJson() {
     return {
-      if (id != null) 'sales_order_id': id,
+      'id': id,
+      'sales_order_id': salesOrderId,
       'table_id': tableId,
       'guest_count': guestCount,
       'eligible_guest_count': eligibleGuestCount,
@@ -71,12 +78,14 @@ class SalesOrderModel {
       'parent_sales_order_id': parentSalesOrderId,
       'created_at': createdAt?.toIso8601String(),
       'posting_date': postingDate?.toIso8601String(),
+      'updated_at': updatedAt?.toIso8601String(),
       'sales_order_items': items.map((e) => e.toJson()).toList(),
     };
   }
 
   SalesOrderModel copyWith({
     int? id,
+    int? salesOrderId,
     int? tableId,
     int? guestCount,
     int? eligibleGuestCount,
@@ -89,10 +98,12 @@ class SalesOrderModel {
     int? parentSalesOrderId,
     DateTime? createdAt,
     DateTime? postingDate,
+    DateTime? updatedAt,
     List<SalesOrderItemModel>? items,
   }) {
     return SalesOrderModel(
       id: id ?? this.id,
+      salesOrderId: salesOrderId ?? this.salesOrderId,
       tableId: tableId ?? this.tableId,
       guestCount: guestCount ?? this.guestCount,
       eligibleGuestCount: eligibleGuestCount ?? this.eligibleGuestCount,
@@ -105,6 +116,7 @@ class SalesOrderModel {
       parentSalesOrderId: parentSalesOrderId ?? this.parentSalesOrderId,
       createdAt: createdAt ?? this.createdAt,
       postingDate: postingDate ?? this.postingDate,
+      updatedAt: updatedAt ?? this.updatedAt,
       items: items ?? this.items,
     );
   }

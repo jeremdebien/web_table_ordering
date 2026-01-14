@@ -17,7 +17,7 @@ class MyApp extends StatelessWidget {
           create: (context) => di.sl<MenuBloc>()..add(LoadMenu()),
         ),
         BlocProvider<TableBloc>(create: (context) => di.sl<TableBloc>()),
-        BlocProvider<CartBloc>(create: (context) => CartBloc()),
+        BlocProvider<CartBloc>(create: (context) => di.sl<CartBloc>()),
       ],
       child: MaterialApp.router(
         debugShowCheckedModeBanner: false,

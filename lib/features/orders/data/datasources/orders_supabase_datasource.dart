@@ -1,5 +1,7 @@
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/sales_order_model.dart';
+import '../models/sales_order_item_model.dart';
 
 class OrdersSupabaseDataSource {
   final SupabaseClient _client;
@@ -10,9 +12,34 @@ class OrdersSupabaseDataSource {
   /// Uses a hypothetical Edge Function 'submit-order' to handle complex
   /// logic like creating the order and its items transactionally.
   /// Alternatively, this could be a direct RPC call or detailed client-side inserts.
-  Future<void> createOrder(SalesOrderModel order) async {
+  int get _branchId => int.tryParse(dotenv.env['BRANCH_ID'] ?? '') ?? 0;
+
+  /// Submit a new order via Edge Function
+  Future<void> submitSalesOrder({
+    required int tableId,
+    required int guestCount,
+    required List<SalesOrderItemModel> items,
+  }) async {
     try {
-      await _client.functions.invoke('submit-order', body: order.toJson());
+      final payload = {
+        'table_id': tableId,
+        'branch_id': _branchId,
+        'guest_count': guestCount,
+        'items': items
+            .map(
+              (e) => {
+                'item_barcode': e.itemBarcode,
+                'quantity': e.quantity,
+                'amount': e.amount,
+                'item_modifiers': e.itemModifiers,
+                'is_disc_exempt': e.isDiscExempt,
+                'item_discount': e.itemDiscount,
+              },
+            )
+            .toList(),
+      };
+
+      await _client.functions.invoke('submit-sales-order', body: payload);
     } catch (e) {
       throw Exception('Failed to create order: $e');
     }
