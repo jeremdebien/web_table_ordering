@@ -1,4 +1,4 @@
-import 'package:equatable/equatable.dart';
+part of 'menu_bloc.dart';
 
 abstract class MenuEvent extends Equatable {
   const MenuEvent();
@@ -7,21 +7,21 @@ abstract class MenuEvent extends Equatable {
   List<Object?> get props => [];
 }
 
-class GetDepartments extends MenuEvent {}
+class LoadMenu extends MenuEvent {}
 
-class GetCategories extends MenuEvent {
+class SelectDepartment extends MenuEvent {
   final int departmentId;
 
-  const GetCategories(this.departmentId);
+  const SelectDepartment(this.departmentId);
 
   @override
   List<Object?> get props => [departmentId];
 }
 
-class GetItems extends MenuEvent {
+class SelectCategory extends MenuEvent {
   final int categoryId;
 
-  const GetItems(this.categoryId);
+  const SelectCategory(this.categoryId);
 
   @override
   List<Object?> get props => [categoryId];

@@ -1,51 +1,61 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'menu_event.dart';
-import 'menu_state.dart';
+import 'package:equatable/equatable.dart';
 import '../../data/datasources/menu_supabase_datasource.dart';
+import '../../data/models/department_model.dart';
+import '../../data/models/category_model.dart';
+import '../../data/models/item_model.dart';
+
+part 'menu_event.dart';
+part 'menu_state.dart';
 
 class MenuBloc extends Bloc<MenuEvent, MenuState> {
   final MenuSupabaseDataSource _menuDataSource;
 
-  MenuBloc(this._menuDataSource) : super(const MenuState()) {
-    on<GetDepartments>(_onGetDepartments);
-    on<GetCategories>(_onGetCategories);
-    on<GetItems>(_onGetItems);
+  MenuBloc(this._menuDataSource) : super(const MenuInitial()) {
+    on<LoadMenu>(_onLoadMenu);
+    on<SelectDepartment>(_onSelectDepartment);
+    on<SelectCategory>(_onSelectCategory);
   }
 
-  Future<void> _onGetDepartments(GetDepartments event, Emitter<MenuState> emit) async {
-    emit(state.copyWith(status: MenuStatus.loading));
+  Future<void> _onLoadMenu(LoadMenu event, Emitter<MenuState> emit) async {
+    emit(const MenuLoading());
     try {
-      final departments = await _menuDataSource.getDepartments();
-      emit(state.copyWith(status: MenuStatus.success, departments: departments));
-    } catch (e) {
-      emit(state.copyWith(status: MenuStatus.failure, errorMessage: e.toString()));
-    }
-  }
+      final results = await Future.wait([
+        _menuDataSource.getDepartments(),
+        _menuDataSource.getCategories(),
+        _menuDataSource.getItems(),
+      ]);
 
-  Future<void> _onGetCategories(GetCategories event, Emitter<MenuState> emit) async {
-    emit(state.copyWith(status: MenuStatus.loading, selectedDepartmentId: event.departmentId));
-    try {
-      final categories = await _menuDataSource.getCategories(departmentId: event.departmentId);
+      final categories = results[1] as List<CategoryModel>;
+      int? defaultCatId;
+      if (categories.isNotEmpty) {
+        defaultCatId = categories.first.categoryId;
+      }
+
       emit(
-        state.copyWith(
-          status: MenuStatus.success,
+        MenuLoaded(
+          departments: results[0] as List<DepartmentModel>,
           categories: categories,
-          // Optional: clear items when category changes?
-          // Or keep them until new items load. Let's keep them for now.
+          items: results[2] as List<ItemModel>,
+          selectedCategoryId: defaultCatId,
         ),
       );
     } catch (e) {
-      emit(state.copyWith(status: MenuStatus.failure, errorMessage: e.toString()));
+      emit(MenuError(e.toString()));
     }
   }
 
-  Future<void> _onGetItems(GetItems event, Emitter<MenuState> emit) async {
-    emit(state.copyWith(status: MenuStatus.loading, selectedCategoryId: event.categoryId));
-    try {
-      final items = await _menuDataSource.getItems(categoryId: event.categoryId);
-      emit(state.copyWith(status: MenuStatus.success, items: items));
-    } catch (e) {
-      emit(state.copyWith(status: MenuStatus.failure, errorMessage: e.toString()));
+  Future<void> _onSelectDepartment(SelectDepartment event, Emitter<MenuState> emit) async {
+    final currentState = state;
+    if (currentState is MenuLoaded) {
+      emit(currentState.copyWith(selectedDepartmentId: event.departmentId));
+    }
+  }
+
+  Future<void> _onSelectCategory(SelectCategory event, Emitter<MenuState> emit) async {
+    final currentState = state;
+    if (currentState is MenuLoaded) {
+      emit(currentState.copyWith(selectedCategoryId: event.categoryId));
     }
   }
 }

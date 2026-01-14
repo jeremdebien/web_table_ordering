@@ -4,7 +4,7 @@ import '../../features/menu/data/datasources/menu_supabase_datasource.dart';
 import '../../features/menu/presentation/bloc/menu_bloc.dart';
 import '../../features/orders/data/datasources/orders_supabase_datasource.dart';
 import '../../features/table/data/datasources/table_supabase_datasource.dart';
-import '../../features/table/presentation/cubit/table_context_cubit.dart';
+import '../../features/table/presentation/bloc/table_bloc.dart';
 
 final sl = GetIt.instance;
 
@@ -23,7 +23,7 @@ Future<void> init() async {
   sl.registerLazySingleton(() => TableSupabaseDataSource(sl()));
 
   // Blocd
-  sl.registerFactory(() => TableContextCubit(sl()));
+  sl.registerFactory(() => TableBloc(sl()));
 
   // Core
 

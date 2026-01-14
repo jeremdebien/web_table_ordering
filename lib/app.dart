@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'core/router/app_router.dart';
-import 'features/table/presentation/cubit/table_context_cubit.dart';
+import 'features/menu/presentation/bloc/menu_bloc.dart';
+import 'features/table/presentation/bloc/table_bloc.dart';
 import 'core/di/injection_container.dart' as di;
 
 class MyApp extends StatelessWidget {
@@ -10,7 +11,12 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MultiBlocProvider(
-      providers: [BlocProvider<TableContextCubit>(create: (context) => di.sl<TableContextCubit>())],
+      providers: [
+        BlocProvider<MenuBloc>(
+          create: (context) => di.sl<MenuBloc>()..add(LoadMenu()),
+        ),
+        BlocProvider<TableBloc>(create: (context) => di.sl<TableBloc>()),
+      ],
       child: MaterialApp.router(
         debugShowCheckedModeBanner: false,
         title: 'Web Table Ordering',

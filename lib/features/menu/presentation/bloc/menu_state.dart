@@ -1,46 +1,46 @@
-import 'package:equatable/equatable.dart';
-import '../../data/models/department_model.dart';
-import '../../data/models/category_model.dart';
-import '../../data/models/item_model.dart';
+part of 'menu_bloc.dart';
 
-enum MenuStatus { initial, loading, success, failure }
+sealed class MenuState extends Equatable {
+  const MenuState();
 
-class MenuState extends Equatable {
-  final MenuStatus status;
+  @override
+  List<Object?> get props => [];
+}
+
+class MenuInitial extends MenuState {
+  const MenuInitial();
+}
+
+class MenuLoading extends MenuState {
+  const MenuLoading();
+}
+
+class MenuLoaded extends MenuState {
   final List<DepartmentModel> departments;
   final List<CategoryModel> categories;
   final List<ItemModel> items;
-  final String? errorMessage;
-
-  // Track specific selection if needed, or just keep it simple
   final int? selectedDepartmentId;
   final int? selectedCategoryId;
 
-  const MenuState({
-    this.status = MenuStatus.initial,
+  const MenuLoaded({
     this.departments = const [],
     this.categories = const [],
     this.items = const [],
-    this.errorMessage,
     this.selectedDepartmentId,
     this.selectedCategoryId,
   });
 
-  MenuState copyWith({
-    MenuStatus? status,
+  MenuLoaded copyWith({
     List<DepartmentModel>? departments,
     List<CategoryModel>? categories,
     List<ItemModel>? items,
-    String? errorMessage,
     int? selectedDepartmentId,
     int? selectedCategoryId,
   }) {
-    return MenuState(
-      status: status ?? this.status,
+    return MenuLoaded(
       departments: departments ?? this.departments,
       categories: categories ?? this.categories,
       items: items ?? this.items,
-      errorMessage: errorMessage ?? this.errorMessage,
       selectedDepartmentId: selectedDepartmentId ?? this.selectedDepartmentId,
       selectedCategoryId: selectedCategoryId ?? this.selectedCategoryId,
     );
@@ -48,12 +48,19 @@ class MenuState extends Equatable {
 
   @override
   List<Object?> get props => [
-    status,
     departments,
     categories,
     items,
-    errorMessage,
     selectedDepartmentId,
     selectedCategoryId,
   ];
+}
+
+class MenuError extends MenuState {
+  final String message;
+
+  const MenuError(this.message);
+
+  @override
+  List<Object?> get props => [message];
 }
