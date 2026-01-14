@@ -100,6 +100,8 @@ class CartBloc extends Bloc<CartEvent, CartState> {
         );
       }
 
+      emit(state.copyWith(status: CartStatus.submitted));
+
       // Reload the active order to reflect merged state from backend
       add(LoadActiveOrder(event.tableId));
     } catch (e) {

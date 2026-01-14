@@ -41,7 +41,11 @@ class TablePage extends StatelessWidget {
                     const SizedBox(height: 20),
                     ElevatedButton(
                       onPressed: () => context.go('/table/${table.uuid}/menu'),
-                      child: const Text('Go to Menu'),
+                      child: const Text('Ordering'),
+                    ),
+                    ElevatedButton(
+                      onPressed: () => context.go('/table/${table.uuid}/order_summary'),
+                      child: const Text('View Orders'),
                     ),
                   ],
                 );
