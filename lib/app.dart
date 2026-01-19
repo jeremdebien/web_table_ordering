@@ -22,8 +22,10 @@ class MyApp extends StatelessWidget {
       child: MaterialApp.router(
         debugShowCheckedModeBanner: false,
         title: 'Web Table Ordering',
-        theme: ThemeData(colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple), useMaterial3: true),
         routerConfig: appRouter,
+        theme: ThemeData(
+          scaffoldBackgroundColor: Colors.white,
+        ),
       ),
     );
   }

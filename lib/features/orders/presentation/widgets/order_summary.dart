@@ -30,7 +30,11 @@ class OrderSummary extends StatelessWidget {
       },
       builder: (context, state) {
         return Container(
-          padding: const EdgeInsets.all(16.0),
+          padding: const EdgeInsets.only(left: 16.0, right: 16.0, bottom: 16.0),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(12),
+            color: Colors.white,
+          ),
           child: Column(
             mainAxisSize: MainAxisSize.max,
             children: [
@@ -40,19 +44,78 @@ class OrderSummary extends StatelessWidget {
               ),
               const Divider(),
               OrderList(items: state.items),
-              const Divider(),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  const Text(
-                    'Total:',
-                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                  ),
-                  Text(
-                    '${state.totalAmount.toStringAsFixed(2)}',
-                    style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.green),
-                  ),
-                ],
+              // Calculate total quantity and VAT
+              Builder(
+                builder: (context) {
+                  final totalQuantity = state.items.fold<int>(
+                    0,
+                    (sum, item) => sum + item.quantity,
+                  );
+                  final subtotal = state.totalAmount;
+                  final vat = subtotal * 0.12;
+                  final totalWithVat = subtotal;
+
+                  return Container(
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(12),
+                      color: Colors.black,
+                    ),
+                    child: Padding(
+                      padding: const EdgeInsets.all(8.0),
+                      child: Column(
+                        children: [
+                          // Total Quantity
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              const Text(
+                                'Total Quantity:',
+                                style: TextStyle(fontSize: 12, color: Colors.white),
+                              ),
+                              Text(
+                                '$totalQuantity',
+                                style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500, color: Colors.white),
+                              ),
+                            ],
+                          ),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              const Text(
+                                'VAT (12%):',
+                                style: TextStyle(fontSize: 12, color: Colors.white),
+                              ),
+                              Text(
+                                '₱${vat.toStringAsFixed(2)}',
+                                style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500, color: Colors.white),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 8),
+                          const Divider(),
+                          // Total with VAT
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              const Text(
+                                'Total:',
+                                style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.white),
+                              ),
+                              Text(
+                                '₱${totalWithVat.toStringAsFixed(2)}',
+                                style: const TextStyle(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.white,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                  );
+                },
               ),
 
               if (!isViewOnly) ...[
@@ -60,6 +123,13 @@ class OrderSummary extends StatelessWidget {
                 SizedBox(
                   width: double.infinity,
                   child: ElevatedButton(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFFff25125),
+                      foregroundColor: Colors.white,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
                     onPressed: state.items.isEmpty
                         ? null
                         : () {
@@ -69,6 +139,10 @@ class OrderSummary extends StatelessWidget {
                                 context: context,
                                 builder: (BuildContext dialogContext) {
                                   return AlertDialog(
+                                    backgroundColor: Colors.white,
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(10),
+                                    ),
                                     title: const Text('Confirm Order'),
                                     content: const Text('Are you sure you want to place this order?'),
                                     actions: <Widget>[
@@ -79,6 +153,13 @@ class OrderSummary extends StatelessWidget {
                                         },
                                       ),
                                       TextButton(
+                                        style: ElevatedButton.styleFrom(
+                                          backgroundColor: const Color(0xFFff25125),
+                                          foregroundColor: Colors.white,
+                                          shape: RoundedRectangleBorder(
+                                            borderRadius: BorderRadius.circular(12),
+                                          ),
+                                        ),
                                         child: const Text('Confirm'),
                                         onPressed: () {
                                           Navigator.of(dialogContext).pop();
@@ -101,10 +182,20 @@ class OrderSummary extends StatelessWidget {
                             }
                           },
                     child: state.status == CartStatus.loading
-                        ? const SizedBox(
-                            height: 20,
-                            width: 20,
-                            child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                        ? const Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              SizedBox(
+                                height: 20,
+                                width: 20,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  color: Colors.white,
+                                ),
+                              ),
+                              SizedBox(width: 8),
+                              Text('Sending...'),
+                            ],
                           )
                         : const Text('Place Order'),
                   ),

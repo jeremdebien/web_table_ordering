@@ -28,21 +28,21 @@ class OrderList extends StatelessWidget {
                 padding: EdgeInsets.symmetric(vertical: 8.0),
                 child: Text(
                   'Order:',
-                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.grey),
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.black),
                 ),
               ),
               ...items.where((i) => i.originalQuantity > 0).map((item) {
                 return ListTile(
+                  leading: Image.asset('assets/images/sample.webp', width: 40, height: 40, fit: BoxFit.cover),
                   title: Text(item.itemName.isEmpty ? 'Unknown Item' : item.itemName),
-                  subtitle: Text('${item.quantity} x ${item.unitPrice.toStringAsFixed(2)}'),
+                  subtitle: Text('Quantity: ${item.quantity}'),
                   trailing: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Text(
-                        '${item.amount.toStringAsFixed(2)}',
+                        '₱${item.amount.toStringAsFixed(2)}',
                         style: const TextStyle(fontWeight: FontWeight.bold),
                       ),
-                      // Old items are read-only and cannot be deleted from the cart
                     ],
                   ),
                 );
@@ -58,18 +58,19 @@ class OrderList extends StatelessWidget {
                 padding: EdgeInsets.symmetric(vertical: 8.0),
                 child: Text(
                   'Additional Order:',
-                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.blue),
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.red),
                 ),
               ),
               ...items.where((i) => i.originalQuantity == 0).map((item) {
                 return ListTile(
+                  leading: Image.asset('assets/images/sample.webp', width: 40, height: 40, fit: BoxFit.cover),
                   title: Text(item.itemName),
-                  subtitle: Text('${item.quantity} x ${item.unitPrice.toStringAsFixed(2)}'),
+                  subtitle: Text('Quantity: ${item.quantity}'),
                   trailing: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Text(
-                        '${item.amount.toStringAsFixed(2)}',
+                        '₱${item.amount.toStringAsFixed(2)}',
                         style: const TextStyle(fontWeight: FontWeight.bold),
                       ),
                       IconButton(

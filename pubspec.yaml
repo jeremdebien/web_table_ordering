@@ -41,6 +41,7 @@ dependencies:
   url_strategy: ^0.3.0
   supabase_flutter: ^2.8.3
   flutter_dotenv: ^5.2.1
+  auto_size_text: ^3.0.0
 
 dev_dependencies:
   flutter_test:
@@ -67,8 +68,7 @@ flutter:
   # To add assets to your application, add an assets section, like this:
   assets:
   - .env
-  #   - images/a_dot_burr.jpeg
-  #   - images/a_dot_ham.jpeg
+  - assets/images/
 
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/to/resolution-aware-images
@@ -95,3 +95,23 @@ flutter:
   #
   # For details regarding fonts from package dependencies,
   # see https://flutter.dev/to/font-from-package
+  
+  fonts:
+    - family: Marous
+      fonts:
+        - asset: assets/fonts/MarousRegular.ttf
+    - family: CoolingCartoon
+      fonts:
+        - asset: assets/fonts/CoolingCartoon-8OXeB.otf
+    - family: FactorySansMedium
+      fonts:
+        - asset: assets/fonts/FactorySansMedium-KVjvo.ttf
+    - family: FactorySansRegular
+      fonts:
+        - asset: assets/fonts/FactorySansRegular-vnojM.ttf
+    - family: FactorySansSemiBold
+      fonts:
+        - asset: assets/fonts/FactorySansSemiBold-lx2jy.otf
+    - family: SolemnSojourn
+      fonts:
+        - asset: assets/fonts/SolemnSojourn-xR0G5.ttf
