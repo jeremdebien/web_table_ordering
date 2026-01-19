@@ -62,32 +62,55 @@ class OrdersSupabaseDataSource {
   /// Fetch active order for a table
   Future<SalesOrderModel?> getActiveOrder({required int tableId}) async {
     try {
-      final response = await _client
+      // 1. Fetch the sales order first
+      final orderResponse = await _client
           .from('sales_order')
-          .select('*, sales_order_item(*)') // Join with items
+          .select()
           .eq('table_id', tableId)
           .eq('payment_status', 0) // Active orders only
           .maybeSingle();
 
-      if (response == null) return null;
-      return SalesOrderModel.fromJson(response);
+      if (orderResponse == null) return null;
+
+      // 2. Fetch the items for this order using the order's ID
+      final orderId = orderResponse['sales_order_id'];
+      final itemsResponse = await _client.from('sales_order_item').select().eq('sales_order_id', orderId);
+
+      // 3. Manually combine them
+      // We need to cast the response to Mutable Map to add the items key
+      final orderData = Map<String, dynamic>.from(orderResponse);
+      orderData['sales_order_item'] = itemsResponse;
+
+      return SalesOrderModel.fromJson(orderData);
     } catch (e) {
       // Handle error or return null
-      // For now rethrow or print
       print('Error fetching active order: $e');
       return null;
     }
   }
 
-  // Keeping generic getOrders if needed, but updated to tableId
   Future<List<SalesOrderModel>> getOrders({int? tableId}) async {
-    var query = _client.from('sales_order').select('*, sales_order_item(*)');
+    // Note: This function originally joined items. Without FK, we can't do simple joins.
+    // Use manual fetching if needed, but for now we'll fetch orders without items
+    // or implement loop fetching if strictly required (beware N+1).
+    // Given the context, getActiveOrder is the critical path.
+    // Simplest approach: Fetch orders, then for each, fetch items.
+
+    var query = _client.from('sales_order').select();
 
     if (tableId != null) {
       query = query.eq('table_id', tableId);
     }
 
     final response = await query.order('created_at', ascending: false);
-    return (response as List).map((e) => SalesOrderModel.fromJson(e)).toList();
+    final orders = List<Map<String, dynamic>>.from(response as List);
+
+    // Fetch items for each order (Batching would be better but keeping it simple for now)
+    for (var order in orders) {
+      final items = await _client.from('sales_order_item').select().eq('sales_order_id', order['sales_order_id']);
+      order['sales_order_item'] = items;
+    }
+
+    return orders.map((e) => SalesOrderModel.fromJson(e)).toList();
   }
 }
