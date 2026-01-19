@@ -22,16 +22,44 @@ class OrderList extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Old Items Section
-            if (items.any((i) => i.originalQuantity > 0)) ...[
+            // Pending Orders Section
+            if (items.any((i) => i.originalQuantity > 0 && i.status == 'Pending')) ...[
+              const Padding(
+                padding: EdgeInsets.symmetric(vertical: 8.0),
+                child: Text(
+                  'Pending Order:',
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.orange),
+                ),
+              ),
+              ...items.where((i) => i.originalQuantity > 0 && i.status == 'Pending').map((item) {
+                return ListTile(
+                  leading: Image.asset('assets/images/sample.webp', width: 40, height: 40, fit: BoxFit.cover),
+                  title: Text(item.itemName.isEmpty ? 'Unknown Item' : item.itemName),
+                  subtitle: Text('Quantity: ${item.quantity}'),
+                  trailing: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        '₱${item.amount.toStringAsFixed(2)}',
+                        style: const TextStyle(fontWeight: FontWeight.bold),
+                      ),
+                    ],
+                  ),
+                );
+              }),
+              const Divider(),
+            ],
+
+            // Accepted Orders Section
+            if (items.any((i) => i.originalQuantity > 0 && i.status == 'Accepted')) ...[
               const Padding(
                 padding: EdgeInsets.symmetric(vertical: 8.0),
                 child: Text(
                   'Order:',
-                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.black),
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.green),
                 ),
               ),
-              ...items.where((i) => i.originalQuantity > 0).map((item) {
+              ...items.where((i) => i.originalQuantity > 0 && i.status == 'Accepted').map((item) {
                 return ListTile(
                   leading: Image.asset('assets/images/sample.webp', width: 40, height: 40, fit: BoxFit.cover),
                   title: Text(item.itemName.isEmpty ? 'Unknown Item' : item.itemName),
@@ -49,10 +77,12 @@ class OrderList extends StatelessWidget {
               }),
             ],
 
-            // Divider if both exist
-            if (items.any((i) => i.originalQuantity > 0) && items.any((i) => i.originalQuantity == 0)) const Divider(),
+            // Divider if Accepted and New exist
+            if (items.any((i) => i.originalQuantity > 0 && i.status == 'Accepted') &&
+                items.any((i) => i.originalQuantity == 0))
+              const Divider(),
 
-            // New Items Section
+            // New Items (Additional Order) Section
             if (items.any((i) => i.originalQuantity == 0)) ...[
               const Padding(
                 padding: EdgeInsets.symmetric(vertical: 8.0),

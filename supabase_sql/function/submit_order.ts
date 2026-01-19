@@ -74,7 +74,7 @@ serve(async (req) => {
         if (items && items.length > 0) {
             // 1. Fetch existing items for this order to check for duplicates
             const { data: existingItems, error: fetchItemsError } = await supabase
-                .from('sales_order_item')
+                .from('sales_order_item_pending')
                 .select('order_item_id, item_barcode, quantity, amount')
                 .eq('sales_order_id', salesOrderId)
                 .eq('branch_id', branch_id);
@@ -101,7 +101,7 @@ serve(async (req) => {
 
                     updates.push(
                         supabase
-                            .from('sales_order_item')
+                            .from('sales_order_item_pending')
                             .update({
                                 quantity: newQuantity,
                                 amount: newAmount,
@@ -132,7 +132,7 @@ serve(async (req) => {
             if (newItemsToInsert.length > 0) {
                 // Get next order_item_id start value for the branch
                 const { data: maxItem, error: maxItemError } = await supabase
-                    .from('sales_order_item')
+                    .from('sales_order_item_pending')
                     .select('order_item_id')
                     .eq('branch_id', branch_id)
                     .order('order_item_id', { ascending: false })
@@ -160,7 +160,7 @@ serve(async (req) => {
                 });
 
                 const { error: insertItemsError } = await supabase
-                    .from('sales_order_item')
+                    .from('sales_order_item_pending')
                     .insert(orderItems)
 
                 if (insertItemsError) throw insertItemsError

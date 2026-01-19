@@ -39,7 +39,7 @@ class OrdersSupabaseDataSource {
             .toList(),
       };
 
-      await _client.functions.invoke('submit-sales-order', body: payload);
+      await _client.functions.invoke('submit-sales-order-2', body: payload);
     } catch (e) {
       throw Exception('Failed to create order: $e');
     }
@@ -62,26 +62,41 @@ class OrdersSupabaseDataSource {
   /// Fetch active order for a table
   Future<SalesOrderModel?> getActiveOrder({required int tableId}) async {
     try {
-      // 1. Fetch the sales order first
-      final orderResponse = await _client
+      // 1. Fetch active sales_order
+      final activeOrderRes = await _client
           .from('sales_order')
           .select()
           .eq('table_id', tableId)
           .eq('payment_status', 0) // Active orders only
           .maybeSingle();
 
-      if (orderResponse == null) return null;
+      if (activeOrderRes == null) return null;
 
-      // 2. Fetch the items for this order using the order's ID
-      final orderId = orderResponse['sales_order_id'];
-      final itemsResponse = await _client.from('sales_order_item').select().eq('sales_order_id', orderId);
+      final orderId = activeOrderRes['sales_order_id'] ?? activeOrderRes['id'];
+      Map<String, dynamic> finalOrderData = Map<String, dynamic>.from(activeOrderRes);
+      List<Map<String, dynamic>> combinedItems = [];
 
-      // 3. Manually combine them
-      // We need to cast the response to Mutable Map to add the items key
-      final orderData = Map<String, dynamic>.from(orderResponse);
-      orderData['sales_order_item'] = itemsResponse;
+      // 2. Fetch Accepted Items
+      final activeItems = await _client.from('sales_order_item').select().eq('sales_order_id', orderId);
 
-      return SalesOrderModel.fromJson(orderData);
+      for (var item in activeItems) {
+        final mutableItem = Map<String, dynamic>.from(item);
+        mutableItem['status'] = 'Accepted';
+        combinedItems.add(mutableItem);
+      }
+
+      // 3. Fetch Pending Items
+      final pendingItems = await _client.from('sales_order_item_pending').select().eq('sales_order_id', orderId);
+
+      for (var item in pendingItems) {
+        final mutableItem = Map<String, dynamic>.from(item);
+        mutableItem['status'] = 'Pending';
+        combinedItems.add(mutableItem);
+      }
+
+      finalOrderData['sales_order_item'] = combinedItems;
+
+      return SalesOrderModel.fromJson(finalOrderData);
     } catch (e) {
       // Handle error or return null
       print('Error fetching active order: $e');
