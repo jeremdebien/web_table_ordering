@@ -111,160 +111,203 @@ class _MenuPageState extends State<MenuPage> {
             );
           },
         ),
-        body: BlocBuilder<MenuBloc, MenuState>(
-          builder: (context, state) {
-            if (state is MenuLoading) {
-              return const Center(child: CircularProgressIndicator());
-            }
-            if (state is MenuError) {
-              return Center(child: Text(state.message));
-            }
-            if (state is MenuLoaded) {
-              // Filter items based on search query
-              final displayItems = _isSearching && _searchQuery.isNotEmpty
-                  ? state.items.where((item) => item.name.toLowerCase().contains(_searchQuery.toLowerCase())).toList()
-                  : state.items.where((item) => item.categoryId == state.selectedCategoryId).toList();
-
-              return Column(
-                children: [
-                  // Search bar (visible when searching)
-                  if (_isSearching)
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
-                      child: TextField(
-                        controller: _searchController,
-                        autofocus: true,
-                        decoration: InputDecoration(
-                          hintText: 'Search for items...',
-                          prefixIcon: const Icon(Icons.search, color: Color(0xfff25125)),
-                          filled: true,
-                          fillColor: Colors.white,
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12),
-                            borderSide: const BorderSide(color: Color(0xfff25125)),
-                          ),
-                          focusedBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12),
-                            borderSide: const BorderSide(color: Color(0xfff25125), width: 2),
+        body: BlocBuilder<CartBloc, CartState>(
+          builder: (context, cartState) {
+            if (cartState.paymentStatus == 1) {
+              return Center(
+                child: Padding(
+                  padding: const EdgeInsets.all(20.0),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const Icon(Icons.receipt_long, size: 80, color: Color(0xfff25125)),
+                      const SizedBox(height: 20),
+                      const Text(
+                        "You can't order since you request for a bill.",
+                        textAlign: TextAlign.center,
+                        style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                      ),
+                      const SizedBox(height: 20),
+                      ElevatedButton(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xfff25125),
+                          foregroundColor: Colors.white,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(10),
                           ),
                         ),
-                        onChanged: (value) {
-                          setState(() {
-                            _searchQuery = value;
-                          });
+                        onPressed: () {
+                          final tableState = context.read<TableBloc>().state;
+                          if (tableState is TableLoaded) {
+                            context.read<CartBloc>().add(EnableOrdering(tableState.table.tableId));
+                          }
                         },
+                        child: const Text('Enable ordering again?'),
                       ),
-                    ),
-                  // Category chips (hidden when searching)
-                  if (!_isSearching)
-                    SizedBox(
-                      height: 50,
-                      child: ListView.builder(
-                        itemCount: state.categories.length,
-                        scrollDirection: Axis.horizontal,
-                        itemBuilder: (context, index) {
-                          final category = state.categories[index];
-                          final isSelected = category.categoryId == state.selectedCategoryId;
-                          return Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 4.0),
-                            child: ChoiceChip(
-                              label: Text(category.name),
-                              labelStyle: TextStyle(
-                                color: isSelected ? Colors.white : Colors.black,
-                              ),
-                              selected: isSelected,
-                              showCheckmark: false,
-                              selectedColor: const Color(0xfff25125),
-                              backgroundColor: Colors.white,
-                              side: BorderSide(
-                                color: isSelected ? Colors.white : const Color(0xfff25125),
-                              ),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(20),
-                              ),
-                              onSelected: (selected) {
-                                if (selected) {
-                                  context.read<MenuBloc>().add(SelectCategory(category.categoryId ?? 0));
-                                }
-                              },
-                            ),
-                          );
-                        },
-                      ),
-                    ),
-                  Divider(),
-                  Expanded(
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 20.0),
-                      child: displayItems.isEmpty
-                          ? const Center(
-                              child: Text(
-                                'No items found',
-                                style: TextStyle(fontSize: 16, color: Colors.grey),
-                              ),
-                            )
-                          : GridView.builder(
-                              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                                crossAxisCount: 2,
-                                childAspectRatio: 1.2,
-                                crossAxisSpacing: 10,
-                              ),
-                              itemCount: displayItems.length,
-                              itemBuilder: (context, index) {
-                                final item = displayItems[index];
-                                return GestureDetector(
-                                  onTap: () {
-                                    _showAddItemConfirmation(context, item);
-                                  },
-                                  child: Card(
-                                    color: Colors.white,
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(20),
-                                      side: BorderSide(color: Colors.grey.shade300),
-                                    ),
-                                    child: Column(
-                                      mainAxisAlignment: MainAxisAlignment.center,
-                                      children: [
-                                        Expanded(
-                                          child: Image.asset(
-                                            'assets/images/sample.webp',
-                                          ),
-                                        ),
-                                        Container(
-                                          width: double.infinity,
-                                          decoration: BoxDecoration(
-                                            color: Color(0xfff25125),
-                                            borderRadius: BorderRadius.only(
-                                              bottomLeft: Radius.circular(20),
-                                              bottomRight: Radius.circular(20),
-                                            ),
-                                          ),
-                                          child: Column(
-                                            children: [
-                                              Text(
-                                                item.name,
-                                                textAlign: TextAlign.center,
-                                                style: const TextStyle(
-                                                  fontFamily: 'FactorySansMedium',
-                                                  color: Colors.white,
-                                                ),
-                                              ),
-                                              Text('₱${item.price}', style: const TextStyle(color: Colors.white)),
-                                            ],
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                );
-                              },
-                            ),
-                    ),
+                    ],
                   ),
-                ],
+                ),
               );
             }
-            return const SizedBox.shrink();
+
+            return BlocBuilder<MenuBloc, MenuState>(
+              builder: (context, state) {
+                if (state is MenuLoading) {
+                  return const Center(child: CircularProgressIndicator());
+                }
+                if (state is MenuError) {
+                  return Center(child: Text(state.message));
+                }
+                if (state is MenuLoaded) {
+                  // Filter items based on search query
+                  final displayItems = _isSearching && _searchQuery.isNotEmpty
+                      ? state.items
+                            .where((item) => item.name.toLowerCase().contains(_searchQuery.toLowerCase()))
+                            .toList()
+                      : state.items.where((item) => item.categoryId == state.selectedCategoryId).toList();
+
+                  return Column(
+                    children: [
+                      // Search bar (visible when searching)
+                      if (_isSearching)
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+                          child: TextField(
+                            controller: _searchController,
+                            autofocus: true,
+                            decoration: InputDecoration(
+                              hintText: 'Search for items...',
+                              prefixIcon: const Icon(Icons.search, color: Color(0xfff25125)),
+                              filled: true,
+                              fillColor: Colors.white,
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                                borderSide: const BorderSide(color: Color(0xfff25125)),
+                              ),
+                              focusedBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                                borderSide: const BorderSide(color: Color(0xfff25125), width: 2),
+                              ),
+                            ),
+                            onChanged: (value) {
+                              setState(() {
+                                _searchQuery = value;
+                              });
+                            },
+                          ),
+                        ),
+                      // Category chips (hidden when searching)
+                      if (!_isSearching)
+                        SizedBox(
+                          height: 50,
+                          child: ListView.builder(
+                            itemCount: state.categories.length,
+                            scrollDirection: Axis.horizontal,
+                            itemBuilder: (context, index) {
+                              final category = state.categories[index];
+                              final isSelected = category.categoryId == state.selectedCategoryId;
+                              return Padding(
+                                padding: const EdgeInsets.symmetric(horizontal: 4.0),
+                                child: ChoiceChip(
+                                  label: Text(category.name),
+                                  labelStyle: TextStyle(
+                                    color: isSelected ? Colors.white : Colors.black,
+                                  ),
+                                  selected: isSelected,
+                                  showCheckmark: false,
+                                  selectedColor: const Color(0xfff25125),
+                                  backgroundColor: Colors.white,
+                                  side: BorderSide(
+                                    color: isSelected ? Colors.white : const Color(0xfff25125),
+                                  ),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(20),
+                                  ),
+                                  onSelected: (selected) {
+                                    if (selected) {
+                                      context.read<MenuBloc>().add(SelectCategory(category.categoryId ?? 0));
+                                    }
+                                  },
+                                ),
+                              );
+                            },
+                          ),
+                        ),
+                      Divider(),
+                      Expanded(
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 20.0),
+                          child: displayItems.isEmpty
+                              ? const Center(
+                                  child: Text(
+                                    'No items found',
+                                    style: TextStyle(fontSize: 16, color: Colors.grey),
+                                  ),
+                                )
+                              : GridView.builder(
+                                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                                    crossAxisCount: 2,
+                                    childAspectRatio: 1.2,
+                                    crossAxisSpacing: 10,
+                                  ),
+                                  itemCount: displayItems.length,
+                                  itemBuilder: (context, index) {
+                                    final item = displayItems[index];
+                                    return GestureDetector(
+                                      onTap: () {
+                                        _showAddItemConfirmation(context, item);
+                                      },
+                                      child: Card(
+                                        color: Colors.white,
+                                        shape: RoundedRectangleBorder(
+                                          borderRadius: BorderRadius.circular(20),
+                                          side: BorderSide(color: Colors.grey.shade300),
+                                        ),
+                                        child: Column(
+                                          mainAxisAlignment: MainAxisAlignment.center,
+                                          children: [
+                                            Expanded(
+                                              child: Image.asset(
+                                                'assets/images/sample.webp',
+                                              ),
+                                            ),
+                                            Container(
+                                              width: double.infinity,
+                                              decoration: BoxDecoration(
+                                                color: Color(0xfff25125),
+                                                borderRadius: BorderRadius.only(
+                                                  bottomLeft: Radius.circular(20),
+                                                  bottomRight: Radius.circular(20),
+                                                ),
+                                              ),
+                                              child: Column(
+                                                children: [
+                                                  Text(
+                                                    item.name,
+                                                    textAlign: TextAlign.center,
+                                                    style: const TextStyle(
+                                                      fontFamily: 'FactorySansMedium',
+                                                      color: Colors.white,
+                                                    ),
+                                                  ),
+                                                  Text('₱${item.price}', style: const TextStyle(color: Colors.white)),
+                                                ],
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    );
+                                  },
+                                ),
+                        ),
+                      ),
+                    ],
+                  );
+                }
+                return const SizedBox.shrink();
+              },
+            );
           },
         ),
       ),

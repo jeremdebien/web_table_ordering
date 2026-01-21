@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import '../bloc/table_bloc.dart';
+import '../../../orders/presentation/bloc/cart_bloc.dart';
 
 class TablePage extends StatelessWidget {
   const TablePage({super.key});
@@ -175,7 +176,39 @@ class TablePage extends StatelessWidget {
                                   borderRadius: BorderRadius.circular(15),
                                 ),
                               ),
-                              onPressed: () {},
+                              onPressed: () {
+                                showDialog(
+                                  context: context,
+                                  builder: (dialogContext) {
+                                    return AlertDialog(
+                                      title: const Text('Request Bill'),
+                                      content: const Text(
+                                        'Are you sure you want to request the bill?\nThis will lock the menu from further ordering.',
+                                      ),
+                                      actions: [
+                                        TextButton(
+                                          onPressed: () => Navigator.of(dialogContext).pop(),
+                                          child: const Text('Cancel'),
+                                        ),
+                                        ElevatedButton(
+                                          style: ElevatedButton.styleFrom(
+                                            backgroundColor: const Color(0xfff25125),
+                                            foregroundColor: Colors.white,
+                                          ),
+                                          onPressed: () {
+                                            Navigator.of(dialogContext).pop();
+                                            context.read<CartBloc>().add(RequestBill(table.tableId));
+                                            ScaffoldMessenger.of(context).showSnackBar(
+                                              const SnackBar(content: Text('Bill requested successfully')),
+                                            );
+                                          },
+                                          child: const Text('Confirm'),
+                                        ),
+                                      ],
+                                    );
+                                  },
+                                );
+                              },
                               child: const Text(
                                 'Request bill',
                                 style: TextStyle(

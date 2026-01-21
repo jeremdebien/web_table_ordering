@@ -21,6 +21,8 @@ class CartBloc extends Bloc<CartEvent, CartState> {
     on<SubmitOrder>(_onSubmitOrder);
     on<LoadActiveOrder>(_onLoadActiveOrder);
     on<UpdateCartItemNames>(_onUpdateCartItemNames);
+    on<EnableOrdering>(_onEnableOrdering);
+    on<RequestBill>(_onRequestBill);
 
     _menuSubscription = _menuBloc.stream.listen((menuState) {
       if (menuState is MenuLoaded) {
@@ -76,10 +78,12 @@ class CartBloc extends Bloc<CartEvent, CartState> {
           state.copyWith(
             status: CartStatus.success,
             items: items,
+            paymentStatus: order.paymentStatus,
+            salesOrderId: order.salesOrderId ?? order.id,
           ),
         );
       } else {
-        emit(state.copyWith(status: CartStatus.success, items: []));
+        emit(state.copyWith(status: CartStatus.success, items: [], paymentStatus: 0, salesOrderId: null));
       }
     } catch (e) {
       emit(state.copyWith(status: CartStatus.failure, errorMessage: e.toString()));
@@ -155,5 +159,25 @@ class CartBloc extends Bloc<CartEvent, CartState> {
 
   void _onClearCart(ClearCart event, Emitter<CartState> emit) {
     emit(state.copyWith(items: []));
+  }
+
+  Future<void> _onEnableOrdering(EnableOrdering event, Emitter<CartState> emit) async {
+    emit(state.copyWith(status: CartStatus.loading));
+    try {
+      await _ordersDataSource.updatePaymentStatus(tableId: event.tableId, status: 0);
+      add(LoadActiveOrder(event.tableId));
+    } catch (e) {
+      emit(state.copyWith(status: CartStatus.failure, errorMessage: e.toString()));
+    }
+  }
+
+  Future<void> _onRequestBill(RequestBill event, Emitter<CartState> emit) async {
+    emit(state.copyWith(status: CartStatus.loading));
+    try {
+      await _ordersDataSource.updatePaymentStatus(tableId: event.tableId, status: 1);
+      add(LoadActiveOrder(event.tableId));
+    } catch (e) {
+      emit(state.copyWith(status: CartStatus.failure, errorMessage: e.toString()));
+    }
   }
 }

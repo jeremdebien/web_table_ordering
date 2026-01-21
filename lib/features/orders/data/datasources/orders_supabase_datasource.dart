@@ -45,6 +45,25 @@ class OrdersSupabaseDataSource {
     }
   }
 
+  /// Update payment status via Edge Function
+  Future<void> updatePaymentStatus({
+    required int tableId,
+    required int status,
+    int? salesOrderId,
+  }) async {
+    try {
+      final payload = {
+        'table_id': tableId,
+        'payment_status': status,
+        if (salesOrderId != null) 'sales_order_id': salesOrderId,
+      };
+
+      await _client.functions.invoke('update_payment_status', body: payload);
+    } catch (e) {
+      throw Exception('Failed to update payment status: $e');
+    }
+  }
+
   /// Subscribe to order updates for a specific table or all orders
   /// Useful for the Order Summary screen.
   /// Subscribe to order updates for a specific table or all orders
@@ -67,7 +86,7 @@ class OrdersSupabaseDataSource {
           .from('sales_order')
           .select()
           .eq('table_id', tableId)
-          .eq('payment_status', 0) // Active orders only
+          .or('payment_status.eq.0,payment_status.eq.1') // Active or Bill Requested orders
           .maybeSingle();
 
       if (activeOrderRes == null) return null;

@@ -12,7 +12,9 @@ class RemoveFromCart extends CartEvent {
   RemoveFromCart(this.item);
 }
 
-class ClearCart extends CartEvent {}
+class ClearCart extends CartEvent {
+  ClearCart();
+}
 
 class SubmitOrder extends CartEvent {
   final int tableId;
@@ -30,4 +32,14 @@ class LoadActiveOrder extends CartEvent {
 class UpdateCartItemNames extends CartEvent {
   final List<ItemModel> menuItems;
   UpdateCartItemNames(this.menuItems);
+}
+
+class EnableOrdering extends CartEvent {
+  final int tableId;
+  EnableOrdering(this.tableId);
+}
+
+class RequestBill extends CartEvent {
+  final int tableId;
+  RequestBill(this.tableId);
 }
