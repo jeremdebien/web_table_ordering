@@ -89,6 +89,9 @@ class _MenuPageState extends State<MenuPage> {
                   ),
                 ),
               ),
+              SizedBox(
+                width: 10,
+              ),
             ],
           ),
         ),
@@ -96,7 +99,10 @@ class _MenuPageState extends State<MenuPage> {
         floatingActionButton: BlocBuilder<CartBloc, CartState>(
           builder: (context, state) {
             if (state.items.isEmpty) return const SizedBox.shrink();
-            final totalCount = state.items.fold(0, (sum, item) => sum + item.quantity);
+            final totalCount = state.items.fold(
+              0,
+              (sum, item) => sum + item.quantity,
+            );
             return Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16),
               child: SizedBox(
@@ -104,7 +110,10 @@ class _MenuPageState extends State<MenuPage> {
                 child: FloatingActionButton.extended(
                   backgroundColor: Colors.black,
                   onPressed: () => _showOrderSummary(context),
-                  label: Text('View Order ($totalCount)', style: TextStyle(color: Colors.white)),
+                  label: Text(
+                    'View Order ($totalCount)',
+                    style: TextStyle(color: Colors.white),
+                  ),
                   icon: const Icon(Icons.shopping_cart, color: Colors.white),
                 ),
               ),
@@ -120,12 +129,19 @@ class _MenuPageState extends State<MenuPage> {
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      const Icon(Icons.receipt_long, size: 80, color: Color(0xfff25125)),
+                      const Icon(
+                        Icons.receipt_long,
+                        size: 80,
+                        color: Color(0xfff25125),
+                      ),
                       const SizedBox(height: 20),
                       const Text(
                         "You can't order since you request for a bill.",
                         textAlign: TextAlign.center,
-                        style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
                       const SizedBox(height: 20),
                       ElevatedButton(
@@ -139,7 +155,9 @@ class _MenuPageState extends State<MenuPage> {
                         onPressed: () {
                           final tableState = context.read<TableBloc>().state;
                           if (tableState is TableLoaded) {
-                            context.read<CartBloc>().add(EnableOrdering(tableState.table.tableId));
+                            context.read<CartBloc>().add(
+                              EnableOrdering(tableState.table.tableId),
+                            );
                           }
                         },
                         child: const Text('Enable ordering again?'),
@@ -162,31 +180,51 @@ class _MenuPageState extends State<MenuPage> {
                   // Filter items based on search query
                   final displayItems = _isSearching && _searchQuery.isNotEmpty
                       ? state.items
-                            .where((item) => item.name.toLowerCase().contains(_searchQuery.toLowerCase()))
+                            .where(
+                              (item) => item.name.toLowerCase().contains(
+                                _searchQuery.toLowerCase(),
+                              ),
+                            )
                             .toList()
-                      : state.items.where((item) => item.categoryId == state.selectedCategoryId).toList();
+                      : state.items
+                            .where(
+                              (item) =>
+                                  item.categoryId == state.selectedCategoryId,
+                            )
+                            .toList();
 
                   return Column(
                     children: [
                       // Search bar (visible when searching)
                       if (_isSearching)
                         Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 16.0,
+                            vertical: 8.0,
+                          ),
                           child: TextField(
                             controller: _searchController,
                             autofocus: true,
                             decoration: InputDecoration(
                               hintText: 'Search for items...',
-                              prefixIcon: const Icon(Icons.search, color: Color(0xfff25125)),
+                              prefixIcon: const Icon(
+                                Icons.search,
+                                color: Color(0xfff25125),
+                              ),
                               filled: true,
                               fillColor: Colors.white,
                               border: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(12),
-                                borderSide: const BorderSide(color: Color(0xfff25125)),
+                                borderSide: const BorderSide(
+                                  color: Color(0xfff25125),
+                                ),
                               ),
                               focusedBorder: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(12),
-                                borderSide: const BorderSide(color: Color(0xfff25125), width: 2),
+                                borderSide: const BorderSide(
+                                  color: Color(0xfff25125),
+                                  width: 2,
+                                ),
                               ),
                             ),
                             onChanged: (value) {
@@ -205,27 +243,39 @@ class _MenuPageState extends State<MenuPage> {
                             scrollDirection: Axis.horizontal,
                             itemBuilder: (context, index) {
                               final category = state.categories[index];
-                              final isSelected = category.categoryId == state.selectedCategoryId;
+                              final isSelected =
+                                  category.categoryId ==
+                                  state.selectedCategoryId;
                               return Padding(
-                                padding: const EdgeInsets.symmetric(horizontal: 4.0),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 4.0,
+                                ),
                                 child: ChoiceChip(
                                   label: Text(category.name),
                                   labelStyle: TextStyle(
-                                    color: isSelected ? Colors.white : Colors.black,
+                                    color: isSelected
+                                        ? Colors.white
+                                        : Colors.black,
                                   ),
                                   selected: isSelected,
                                   showCheckmark: false,
                                   selectedColor: const Color(0xfff25125),
                                   backgroundColor: Colors.white,
                                   side: BorderSide(
-                                    color: isSelected ? Colors.white : const Color(0xfff25125),
+                                    color: isSelected
+                                        ? Colors.white
+                                        : const Color(0xfff25125),
                                   ),
                                   shape: RoundedRectangleBorder(
                                     borderRadius: BorderRadius.circular(20),
                                   ),
                                   onSelected: (selected) {
                                     if (selected) {
-                                      context.read<MenuBloc>().add(SelectCategory(category.categoryId ?? 0));
+                                      context.read<MenuBloc>().add(
+                                        SelectCategory(
+                                          category.categoryId ?? 0,
+                                        ),
+                                      );
                                     }
                                   },
                                 ),
@@ -241,15 +291,19 @@ class _MenuPageState extends State<MenuPage> {
                               ? const Center(
                                   child: Text(
                                     'No items found',
-                                    style: TextStyle(fontSize: 16, color: Colors.grey),
+                                    style: TextStyle(
+                                      fontSize: 16,
+                                      color: Colors.grey,
+                                    ),
                                   ),
                                 )
                               : GridView.builder(
-                                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                                    crossAxisCount: 2,
-                                    childAspectRatio: 1.2,
-                                    crossAxisSpacing: 10,
-                                  ),
+                                  gridDelegate:
+                                      const SliverGridDelegateWithFixedCrossAxisCount(
+                                        crossAxisCount: 2,
+                                        childAspectRatio: 0.8,
+                                        crossAxisSpacing: 10,
+                                      ),
                                   itemCount: displayItems.length,
                                   itemBuilder: (context, index) {
                                     final item = displayItems[index];
@@ -260,38 +314,76 @@ class _MenuPageState extends State<MenuPage> {
                                       child: Card(
                                         color: Colors.white,
                                         shape: RoundedRectangleBorder(
-                                          borderRadius: BorderRadius.circular(20),
-                                          side: BorderSide(color: Colors.grey.shade300),
+                                          borderRadius: BorderRadius.circular(
+                                            20,
+                                          ),
+                                          side: BorderSide(
+                                            color: Colors.grey.shade300,
+                                          ),
                                         ),
                                         child: Column(
-                                          mainAxisAlignment: MainAxisAlignment.center,
+                                          mainAxisAlignment:
+                                              MainAxisAlignment.center,
                                           children: [
                                             Expanded(
-                                              child: Image.asset(
-                                                'assets/images/sample.webp',
-                                              ),
+                                              child:
+                                                  item.displayImage != null &&
+                                                      item
+                                                          .displayImage!
+                                                          .isNotEmpty
+                                                  ? Image.network(
+                                                      item.displayImage!,
+                                                      fit: BoxFit.cover,
+                                                    )
+                                                  : Center(
+                                                      child: Image.asset(
+                                                        'assets/images/logo.jpg',
+                                                        color: Colors.grey,
+                                                        colorBlendMode:
+                                                            BlendMode.lighten,
+                                                      ),
+                                                    ),
                                             ),
+
                                             Container(
                                               width: double.infinity,
                                               decoration: BoxDecoration(
                                                 color: Color(0xfff25125),
                                                 borderRadius: BorderRadius.only(
-                                                  bottomLeft: Radius.circular(20),
-                                                  bottomRight: Radius.circular(20),
+                                                  bottomLeft: Radius.circular(
+                                                    20,
+                                                  ),
+                                                  bottomRight: Radius.circular(
+                                                    20,
+                                                  ),
                                                 ),
                                               ),
-                                              child: Column(
-                                                children: [
-                                                  Text(
-                                                    item.name,
-                                                    textAlign: TextAlign.center,
-                                                    style: const TextStyle(
-                                                      fontFamily: 'FactorySansMedium',
-                                                      color: Colors.white,
+                                              child: Padding(
+                                                padding:
+                                                    const EdgeInsets.symmetric(
+                                                      horizontal: 10,
+                                                      vertical: 5,
                                                     ),
-                                                  ),
-                                                  Text('₱${item.price}', style: const TextStyle(color: Colors.white)),
-                                                ],
+                                                child: Column(
+                                                  children: [
+                                                    Text(
+                                                      item.name,
+                                                      textAlign:
+                                                          TextAlign.center,
+                                                      style: const TextStyle(
+                                                        fontFamily:
+                                                            'FactorySansMedium',
+                                                        color: Colors.white,
+                                                      ),
+                                                    ),
+                                                    Text(
+                                                      '₱${item.price}',
+                                                      style: const TextStyle(
+                                                        color: Colors.white,
+                                                      ),
+                                                    ),
+                                                  ],
+                                                ),
                                               ),
                                             ),
                                           ],
@@ -345,85 +437,192 @@ class _MenuPageState extends State<MenuPage> {
   }
 
   void _showAddItemConfirmation(BuildContext context, dynamic item) {
+    int quantity = 1;
+
     showDialog(
       context: context,
       builder: (dialogContext) {
-        return AlertDialog(
-          backgroundColor: Colors.white,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(20),
-          ),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.center,
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Image.asset(
-                'assets/images/sample.webp',
-                width: 100,
-                height: 100,
-                fit: BoxFit.cover,
+        return StatefulBuilder(
+          builder: (context, setState) {
+            return AlertDialog(
+              backgroundColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(20),
               ),
-              const SizedBox(height: 15), // Increased spacing for better UI
-              Text(
-                item.name,
-                textAlign: TextAlign.center, // Added text alignment
-                style: const TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                  color: Color(0xfff25125),
+              content: SizedBox(
+                width: MediaQuery.of(context).size.width * 0.8,
+                height: MediaQuery.of(context).size.height * 0.2,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const Text(
+                      "Confirm Order",
+                      style: TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 15),
+                    Row(
+                      children: [
+                        item.displayImage != null &&
+                                item.displayImage!.isNotEmpty
+                            ? Image.network(
+                                item.displayImage!,
+                                width: 100,
+                                height: 100,
+                                fit: BoxFit.cover,
+                              )
+                            : Center(
+                                child: Image.asset(
+                                  'assets/images/logo.jpg',
+                                  width: 100,
+                                  height: 100,
+                                  color: Colors.grey,
+                                  colorBlendMode: BlendMode.lighten,
+                                ),
+                              ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              AutoSizeText(
+                                item.name,
+                                textAlign: TextAlign.left,
+                                style: const TextStyle(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.bold,
+                                  color: Color(0xfff25125),
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                              const SizedBox(height: 5),
+                              Row(
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Container(
+                                    decoration: BoxDecoration(
+                                      border: Border.all(
+                                        color: Colors.grey.shade300,
+                                      ),
+                                      borderRadius: BorderRadius.circular(5),
+                                    ),
+                                    child: Row(
+                                      children: [
+                                        InkWell(
+                                          onTap: () {
+                                            if (quantity > 1) {
+                                              setState(() {
+                                                quantity--;
+                                              });
+                                            }
+                                          },
+                                          child: const Padding(
+                                            padding: EdgeInsets.symmetric(
+                                              horizontal: 8,
+                                              vertical: 4,
+                                            ),
+                                            child: Icon(Icons.remove, size: 16),
+                                          ),
+                                        ),
+                                        Text(
+                                          '$quantity',
+                                          style: const TextStyle(
+                                            fontSize: 14,
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                        ),
+                                        InkWell(
+                                          onTap: () {
+                                            setState(() {
+                                              quantity++;
+                                            });
+                                          },
+                                          child: const Padding(
+                                            padding: EdgeInsets.symmetric(
+                                              horizontal: 8,
+                                              vertical: 4,
+                                            ),
+                                            child: Icon(Icons.add, size: 16),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                  Container(
+                                    decoration: BoxDecoration(
+                                      color: const Color(0xfff25125),
+                                      borderRadius: BorderRadius.circular(5),
+                                    ),
+                                    child: Padding(
+                                      padding: const EdgeInsets.all(8.0),
+                                      child: Text(
+                                        '₱${item.price}',
+                                        style: const TextStyle(
+                                          fontSize: 16,
+                                          fontWeight: FontWeight.w500,
+                                          color: Colors.white,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
                 ),
               ),
-              const SizedBox(height: 5),
-              Text(
-                '₱${item.price}',
-                style: const TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-            ],
-          ),
-          actionsAlignment: MainAxisAlignment.center, // Centering the action buttons
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(dialogContext).pop(),
-              style: TextButton.styleFrom(
-                side: BorderSide(color: Colors.grey.shade300),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(10),
-                ),
-              ),
-              child: const Text(
-                'Cancel',
-                style: TextStyle(color: Colors.grey),
-              ),
-            ),
-            ElevatedButton(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xfff25125),
-                foregroundColor: Colors.white,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(10),
-                ),
-              ),
-              onPressed: () {
-                Navigator.of(dialogContext).pop();
-                context.read<CartBloc>().add(
-                  AddToCart(
-                    SalesOrderItemModel(
-                      itemBarcode: item.barcode,
-                      itemName: item.name,
-                      quantity: 1,
-                      amount: item.price,
-                      originalQuantity: 0,
+              actionsAlignment: MainAxisAlignment.center,
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(dialogContext).pop(),
+                  style: TextButton.styleFrom(
+                    side: BorderSide(color: Colors.grey.shade300),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10),
                     ),
                   ),
-                );
-              },
-              child: const Text('Add to Order'),
-            ),
-          ],
+                  child: const Text(
+                    'Cancel',
+                    style: TextStyle(color: Colors.grey),
+                  ),
+                ),
+                ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xfff25125),
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                  ),
+                  onPressed: () {
+                    Navigator.of(dialogContext).pop();
+                    context.read<CartBloc>().add(
+                      AddToCart(
+                        SalesOrderItemModel(
+                          itemBarcode: item.barcode,
+                          itemName: item.name,
+                          quantity: quantity,
+                          amount: item.price,
+                          originalQuantity: 0,
+                        ),
+                      ),
+                    );
+                  },
+                  child: const Text('Add to Order'),
+                ),
+              ],
+            );
+          },
         );
       },
     );

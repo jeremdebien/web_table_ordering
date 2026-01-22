@@ -24,7 +24,9 @@ class OrderSummary extends StatelessWidget {
         } else if (state.status == CartStatus.failure) {
           debugPrint('Failed to submit order: ${state.errorMessage}');
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Failed to submit order: ${state.errorMessage}')),
+            SnackBar(
+              content: Text('Failed to submit order: ${state.errorMessage}'),
+            ),
           );
         }
       },
@@ -70,11 +72,18 @@ class OrderSummary extends StatelessWidget {
                             children: [
                               const Text(
                                 'Total Quantity:',
-                                style: TextStyle(fontSize: 12, color: Colors.white),
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: Colors.white,
+                                ),
                               ),
                               Text(
                                 '$totalQuantity',
-                                style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500, color: Colors.white),
+                                style: const TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w500,
+                                  color: Colors.white,
+                                ),
                               ),
                             ],
                           ),
@@ -83,11 +92,18 @@ class OrderSummary extends StatelessWidget {
                             children: [
                               const Text(
                                 'VAT (12%):',
-                                style: TextStyle(fontSize: 12, color: Colors.white),
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: Colors.white,
+                                ),
                               ),
                               Text(
                                 '₱${vat.toStringAsFixed(2)}',
-                                style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500, color: Colors.white),
+                                style: const TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w500,
+                                  color: Colors.white,
+                                ),
                               ),
                             ],
                           ),
@@ -99,7 +115,11 @@ class OrderSummary extends StatelessWidget {
                             children: [
                               const Text(
                                 'Total:',
-                                style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.white),
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.white,
+                                ),
                               ),
                               Text(
                                 '₱${totalWithVat.toStringAsFixed(2)}',
@@ -130,7 +150,7 @@ class OrderSummary extends StatelessWidget {
                         borderRadius: BorderRadius.circular(12),
                       ),
                     ),
-                    onPressed: state.items.isEmpty
+                    onPressed: state.newOrders.isEmpty
                         ? null
                         : () {
                             final tableState = context.read<TableBloc>().state;
@@ -144,7 +164,9 @@ class OrderSummary extends StatelessWidget {
                                       borderRadius: BorderRadius.circular(10),
                                     ),
                                     title: const Text('Confirm Order'),
-                                    content: const Text('Are you sure you want to place this order?'),
+                                    content: const Text(
+                                      'Are you sure you want to place this order?',
+                                    ),
                                     actions: <Widget>[
                                       TextButton(
                                         child: const Text('Cancel'),
@@ -154,10 +176,14 @@ class OrderSummary extends StatelessWidget {
                                       ),
                                       TextButton(
                                         style: ElevatedButton.styleFrom(
-                                          backgroundColor: const Color(0xFFff25125),
+                                          backgroundColor: const Color(
+                                            0xFFff25125,
+                                          ),
                                           foregroundColor: Colors.white,
                                           shape: RoundedRectangleBorder(
-                                            borderRadius: BorderRadius.circular(12),
+                                            borderRadius: BorderRadius.circular(
+                                              12,
+                                            ),
                                           ),
                                         ),
                                         child: const Text('Confirm'),
@@ -177,7 +203,9 @@ class OrderSummary extends StatelessWidget {
                               );
                             } else {
                               ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(content: Text('Table info not available')),
+                                const SnackBar(
+                                  content: Text('Table info not available'),
+                                ),
                               );
                             }
                           },
@@ -197,7 +225,11 @@ class OrderSummary extends StatelessWidget {
                               Text('Sending...'),
                             ],
                           )
-                        : const Text('Place Order'),
+                        : Text(
+                            state.newOrders.isEmpty
+                                ? 'No Orders'
+                                : 'Place Order',
+                          ),
                   ),
                 ),
               ],

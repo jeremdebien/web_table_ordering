@@ -50,9 +50,6 @@ class _OrderSummaryPageState extends State<OrderSummaryPage> {
               Column(
                 children: [
                   Container(
-                    decoration: BoxDecoration(
-                      color: Color(0xfff25125),
-                    ),
                     height: 200,
                     child: Image.asset(
                       'assets/images/logo.jpg',
