@@ -75,7 +75,7 @@ serve(async (req) => {
             // 1. Fetch existing items for this order to check for duplicates
             const { data: existingItems, error: fetchItemsError } = await supabase
                 .from('sales_order_item_pending')
-                .select('order_item_id, item_barcode, quantity, amount')
+                .select('order_item_id, item_barcode, quantity, amount, is_cancelled')
                 .eq('sales_order_id', salesOrderId)
                 .eq('branch_id', branch_id);
 
@@ -88,8 +88,13 @@ serve(async (req) => {
             // But relying on DB 'existingItems' is safer.
             // We'll iterate incoming items.
             for (const item of items) {
-                // Check if barcode exists in DB
-                const matchIndex = existingItems ? existingItems.findIndex((existing: any) => existing.item_barcode === item.item_barcode) : -1;
+                // Check if barcode exists in DB AND is_cancelled status matches (defaulting incoming to false if undefined)
+                const incomingIsCancelled = item.is_cancelled || false;
+                
+                const matchIndex = existingItems ? existingItems.findIndex((existing: any) => 
+                    existing.item_barcode === item.item_barcode && 
+                    (existing.is_cancelled || false) === incomingIsCancelled
+                ) : -1;
 
                 if (matchIndex > -1) {
                     // Update existing item
