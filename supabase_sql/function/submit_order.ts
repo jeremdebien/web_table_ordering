@@ -17,7 +17,7 @@ serve(async (req) => {
             Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
         )
 
-        const { table_id, branch_id, guest_count, items } = await req.json()
+        const { table_id, branch_id, guest_count, items, order_type } = await req.json()
 
         if (!table_id) {
             throw new Error('table_id is required');
@@ -60,7 +60,7 @@ serve(async (req) => {
                     sales_order_id: nextSalesOrderId,
                     guest_count: guest_count || 1,
                     eligible_guest_count: 0,
-                    order_type: 0, // Default to Dine-in
+                    order_type: order_type || 0, // Default to Dine-in (0) if not provided
                     payment_status: 0,
                     created_at: new Date().toISOString(),
                 })
