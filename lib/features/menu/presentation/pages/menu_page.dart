@@ -323,9 +323,11 @@ class _MenuPageState extends State<MenuPage> {
                                                         topLeft: Radius.circular(20),
                                                         topRight: Radius.circular(20),
                                                       ),
-                                                      child: Image.network(
-                                                        item.displayImage!,
-                                                        fit: BoxFit.cover,
+                                                      child: SizedBox.expand(
+                                                        child: Image.network(
+                                                          item.displayImage!,
+                                                          fit: BoxFit.cover,
+                                                        ),
                                                       ),
                                                     )
                                                   : Center(
