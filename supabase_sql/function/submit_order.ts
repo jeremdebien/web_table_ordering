@@ -38,18 +38,56 @@ serve(async (req) => {
         if (existingOrder) {
             salesOrderId = existingOrder.sales_order_id;
         } else {
-            // Get next sales_order_id for the branch
-            const { data: maxOrder, error: maxError } = await supabase
-                .from('sales_order')
-                .select('sales_order_id')
+            // Get next sales_order_id
+            let nextSalesOrderId: number;
+
+            // Try to fetch from counters table first
+            const { data: counterRow, error: counterError } = await supabase
+                .from('counters')
+                .select('id, count')
                 .eq('branch_id', branch_id)
-                .order('sales_order_id', { ascending: false })
-                .limit(1)
-                .maybeSingle()
+                .eq('counter_key', 'sales_order_id')
+                .maybeSingle();
 
-            if (maxError) throw maxError
+            if (counterRow) {
+                // Counter exists, increment and use it
+                nextSalesOrderId = counterRow.count + 1;
 
-            const nextSalesOrderId = (maxOrder?.sales_order_id || 0) + 1
+                const { error: updateError } = await supabase
+                    .from('counters')
+                    .update({ count: nextSalesOrderId })
+                    .eq('id', counterRow.id);
+
+                if (updateError) throw updateError;
+            } else {
+                // Fallback: Counter doesn't exist yet, migrate from existing orders
+                const { data: maxOrder, error: maxError } = await supabase
+                    .from('sales_order')
+                    .select('sales_order_id')
+                    .eq('branch_id', branch_id)
+                    .order('sales_order_id', { ascending: false })
+                    .limit(1)
+                    .maybeSingle();
+
+                if (maxError) throw maxError;
+
+                nextSalesOrderId = (maxOrder?.sales_order_id || 0) + 1;
+
+                // Create the counter for next time
+                const { error: insertCounterError } = await supabase
+                    .from('counters')
+                    .insert({
+                        branch_id,
+                        counter_key: 'sales_order_id',
+                        count: nextSalesOrderId
+                    });
+                
+                if (insertCounterError) {
+                   // If insert failed (maybe race condition created it?), we proceed with the calculated ID anyway 
+                   // but logging it might be good. For now we just allow it.
+                   console.error('Failed to create counter', insertCounterError);
+                }
+            }
 
             // Create new order
             const { data: newOrder, error: createError } = await supabase
