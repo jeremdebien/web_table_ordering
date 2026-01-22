@@ -1,3 +1,5 @@
+import 'package:flutter_dotenv/flutter_dotenv.dart';
+
 class ItemModel {
   final int id;
   final String barcode;
@@ -19,9 +21,14 @@ class ItemModel {
   final String? assignedPrinter;
   final bool isDiscExempt;
   final bool isNonVat;
-  final String? displayImage;
+  final String? _displayImage;
   final DateTime createdAt;
   final DateTime? updatedAt;
+
+  String? get displayImage {
+    if (_displayImage == null || _displayImage.isEmpty) return null;
+    return '${dotenv.env['IMAGE_STORAGE_PATH'] ?? ''}$_displayImage';
+  }
 
   ItemModel({
     required this.id,
@@ -44,10 +51,10 @@ class ItemModel {
     this.assignedPrinter,
     this.isDiscExempt = false,
     this.isNonVat = false,
-    this.displayImage,
+    String? displayImage,
     required this.createdAt,
     this.updatedAt,
-  });
+  }) : _displayImage = displayImage;
 
   factory ItemModel.fromJson(Map<String, dynamic> json) {
     return ItemModel(
@@ -99,7 +106,7 @@ class ItemModel {
       'assigned_printer': assignedPrinter,
       'is_disc_exempt': isDiscExempt,
       'is_non_vat': isNonVat,
-      'display_image': displayImage,
+      'display_image': _displayImage,
       'created_at': createdAt.toIso8601String(),
       'update_at': updatedAt?.toIso8601String(),
     };
