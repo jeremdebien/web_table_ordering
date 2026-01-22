@@ -24,8 +24,12 @@ class CartState {
   List<SalesOrderItemModel> get pendingOrders => items.where((i) => i.status == 'Pending').toList();
 
   List<SalesOrderItemModel> get newOrders => items.where((i) => i.originalQuantity == 0).toList();
+
   int get activeOrderCount => activeOrders.length;
   double get activeOrderTotalAmount => activeOrders.fold(0.0, (total, current) => total + current.totalPrice);
+
+  int get pendingOrdersCount => pendingOrders.length;
+  double get pendingOrderTotalAmount => pendingOrders.fold(0.0, (total, current) => total + current.totalPrice);
 
   CartState copyWith({
     List<SalesOrderItemModel>? items,

@@ -36,8 +36,7 @@ class OrderListItem extends StatelessWidget {
         ? const TextStyle(
             fontWeight: FontWeight.bold,
             fontSize: 14,
-            decoration:
-                TextDecoration.lineThrough, // Added line trough for consistency
+            decoration: TextDecoration.lineThrough, // Added line trough for consistency
             color: Colors.grey,
           )
         : const TextStyle(
@@ -105,14 +104,15 @@ class OrderListItem extends StatelessWidget {
             '₱${item.totalPrice.toStringAsFixed(2)}',
             style: priceStyle,
           ),
-          IconButton(
-            icon: const Icon(Icons.delete, color: Colors.red),
-            onPressed: () {
-              context.read<CartBloc>().add(
-                RemoveFromCart(item),
-              );
-            },
-          ),
+          if (item.originalQuantity == 0)
+            IconButton(
+              icon: const Icon(Icons.delete, color: Colors.red),
+              onPressed: () {
+                context.read<CartBloc>().add(
+                  RemoveFromCart(item),
+                );
+              },
+            ),
         ],
       ),
     );

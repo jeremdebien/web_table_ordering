@@ -49,11 +49,8 @@ class OrderSummary extends StatelessWidget {
               // Calculate total quantity and VAT
               Builder(
                 builder: (context) {
-                  final totalQuantity = state.items.fold<int>(
-                    0,
-                    (sum, item) => sum + item.quantity,
-                  );
-                  final subtotal = state.totalAmount;
+                  final totalQuantity = state.activeOrderCount;
+                  final subtotal = state.activeOrderTotalAmount;
                   final vat = subtotal * 0.12;
                   final totalWithVat = subtotal;
 
@@ -87,27 +84,50 @@ class OrderSummary extends StatelessWidget {
                               ),
                             ],
                           ),
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              const Text(
-                                'VAT (12%):',
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  color: Colors.white,
-                                ),
-                              ),
-                              Text(
-                                '₱${vat.toStringAsFixed(2)}',
-                                style: const TextStyle(
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w500,
-                                  color: Colors.white,
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 8),
+                          // if (state.pendingOrders.isNotEmpty) ...[
+                          //   Row(
+                          //     mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          //     children: [
+                          //       const Text(
+                          //         'Pending Orders:',
+                          //         style: TextStyle(
+                          //           fontSize: 12,
+                          //           color: Colors.white,
+                          //         ),
+                          //       ),
+                          //       Text(
+                          //         '₱${vat.toStringAsFixed(2)}',
+                          //         style: const TextStyle(
+                          //           fontSize: 12,
+                          //           fontWeight: FontWeight.w500,
+                          //           color: Colors.white,
+                          //         ),
+                          //       ),
+                          //     ],
+                          //   ),
+                          //   const SizedBox(height: 8),
+                          // ],
+                          // Row(
+                          //   mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          //   children: [
+                          //     const Text(
+                          //       'VAT (12%):',
+                          //       style: TextStyle(
+                          //         fontSize: 12,
+                          //         color: Colors.white,
+                          //       ),
+                          //     ),
+                          //     Text(
+                          //       '₱${vat.toStringAsFixed(2)}',
+                          //       style: const TextStyle(
+                          //         fontSize: 12,
+                          //         fontWeight: FontWeight.w500,
+                          //         color: Colors.white,
+                          //       ),
+                          //     ),
+                          //   ],
+                          // ),
+                          // const SizedBox(height: 8),
                           const Divider(),
                           // Total with VAT
                           Row(
@@ -226,9 +246,7 @@ class OrderSummary extends StatelessWidget {
                             ],
                           )
                         : Text(
-                            state.newOrders.isEmpty
-                                ? 'No Orders'
-                                : 'Place Order',
+                            state.newOrders.isEmpty ? 'No Orders' : 'Place Order',
                           ),
                   ),
                 ),

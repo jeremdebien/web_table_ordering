@@ -197,56 +197,64 @@ class TablePage extends StatelessWidget {
 
                           SizedBox(
                             width: 200,
-                            child: ElevatedButton(
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: Color(0xfff25125),
-                                foregroundColor: Colors.white,
-                                side: const BorderSide(color: Colors.white, width: 1),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(15),
-                                ),
-                              ),
-                              onPressed: () {
-                                showDialog(
-                                  context: context,
-                                  builder: (dialogContext) {
-                                    return AlertDialog(
-                                      title: const Text('Request Bill'),
-                                      content: const Text(
-                                        'Are you sure you want to request the bill?\nThis will lock the menu from further ordering.',
-                                      ),
-                                      actions: [
-                                        TextButton(
-                                          onPressed: () => Navigator.of(dialogContext).pop(),
-                                          child: const Text('Cancel'),
-                                        ),
-                                        ElevatedButton(
-                                          style: ElevatedButton.styleFrom(
-                                            backgroundColor: const Color(0xfff25125),
-                                            foregroundColor: Colors.white,
-                                          ),
-                                          onPressed: () {
-                                            Navigator.of(dialogContext).pop();
-                                            context.read<CartBloc>().add(RequestBill(table.tableId));
-                                            ScaffoldMessenger.of(context).showSnackBar(
-                                              const SnackBar(content: Text('Bill requested successfully')),
-                                            );
-                                          },
-                                          child: const Text('Confirm'),
-                                        ),
-                                      ],
-                                    );
-                                  },
+                            child: BlocBuilder<CartBloc, CartState>(
+                              builder: (context, cartState) {
+                                final hasActiveOrders = cartState.activeOrders.isNotEmpty;
+                                return ElevatedButton(
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: const Color(0xfff25125),
+                                    foregroundColor: Colors.white,
+                                    side: const BorderSide(color: Colors.white, width: 1),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(15),
+                                    ),
+                                  ),
+                                  onPressed: hasActiveOrders
+                                      ? () {
+                                          showDialog(
+                                            context: context,
+                                            builder: (dialogContext) {
+                                              return AlertDialog(
+                                                title: const Text('Request Bill'),
+                                                content: const Text(
+                                                  'Are you sure you want to request the bill?\nThis will lock the menu from further ordering.',
+                                                ),
+                                                actions: [
+                                                  TextButton(
+                                                    onPressed: () => Navigator.of(dialogContext).pop(),
+                                                    child: const Text('Cancel'),
+                                                  ),
+                                                  ElevatedButton(
+                                                    style: ElevatedButton.styleFrom(
+                                                      backgroundColor: const Color(0xfff25125),
+                                                      foregroundColor: Colors.white,
+                                                    ),
+                                                    onPressed: () {
+                                                      Navigator.of(dialogContext).pop();
+                                                      context.read<CartBloc>().add(RequestBill(table.tableId));
+                                                      ScaffoldMessenger.of(context).showSnackBar(
+                                                        const SnackBar(content: Text('Bill requested successfully')),
+                                                      );
+                                                    },
+                                                    child: const Text('Confirm'),
+                                                  ),
+                                                ],
+                                              );
+                                            },
+                                          );
+                                        }
+                                      : null,
+                                  child: const Text(
+                                    'Request bill',
+                                    style: TextStyle(
+                                      fontSize: 14,
+                                      color: Colors
+                                          .white, // Note: This might look white on inactive button, but ElevatedButton handles it usually.
+                                      fontFamily: 'SolemnSojourn',
+                                    ),
+                                  ),
                                 );
                               },
-                              child: const Text(
-                                'Request bill',
-                                style: TextStyle(
-                                  fontSize: 14,
-                                  color: Colors.white,
-                                  fontFamily: 'SolemnSojourn',
-                                ),
-                              ),
                             ),
                           ),
                         ],
