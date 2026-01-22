@@ -50,6 +50,44 @@ class OrderList extends StatelessWidget {
               const Divider(),
             ],
 
+            // Cancelled Orders Section
+            if (items.any((i) => i.originalQuantity > 0 && i.status == 'Cancelled')) ...[
+              const Padding(
+                padding: EdgeInsets.symmetric(vertical: 8.0),
+                child: Text(
+                  'Cancelled Order:',
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.grey),
+                ),
+              ),
+              ...items.where((i) => i.originalQuantity > 0 && i.status == 'Cancelled').map((item) {
+                return ListTile(
+                  leading: Opacity(
+                    opacity: 0.5,
+                    child: Image.asset('assets/images/sample.webp', width: 40, height: 40, fit: BoxFit.cover),
+                  ),
+                  title: Text(
+                    item.itemName.isEmpty ? 'Unknown Item' : item.itemName,
+                    style: const TextStyle(decoration: TextDecoration.lineThrough, color: Colors.grey),
+                  ),
+                  subtitle: Text('Quantity: ${item.quantity}', style: const TextStyle(color: Colors.grey)),
+                  trailing: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        '₱${item.amount.toStringAsFixed(2)}',
+                        style: const TextStyle(
+                          fontWeight: FontWeight.bold,
+                          color: Colors.grey,
+                          decoration: TextDecoration.lineThrough,
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              }),
+              const Divider(),
+            ],
+
             // Accepted Orders Section
             if (items.any((i) => i.originalQuantity > 0 && i.status == 'Accepted')) ...[
               const Padding(

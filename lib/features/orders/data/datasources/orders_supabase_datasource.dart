@@ -124,7 +124,8 @@ class OrdersSupabaseDataSource {
 
       for (var item in pendingItems) {
         final mutableItem = Map<String, dynamic>.from(item);
-        mutableItem['status'] = 'Pending';
+        final isCancelled = item['is_cancelled'] == true; // Handle null/bool
+        mutableItem['status'] = isCancelled ? 'Cancelled' : 'Pending';
         combinedItems.add(mutableItem);
       }
 
