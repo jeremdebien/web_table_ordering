@@ -129,7 +129,7 @@ class CartBloc extends Bloc<CartEvent, CartState> {
     emit(state.copyWith(status: CartStatus.loading));
     try {
       // Filter only NEW items (originalQuantity == 0)
-      final itemsToSubmit = state.items.where((i) => i.originalQuantity == 0).toList();
+      final itemsToSubmit = state.newOrders;
 
       if (itemsToSubmit.isNotEmpty) {
         await _ordersDataSource.submitSalesOrder(
