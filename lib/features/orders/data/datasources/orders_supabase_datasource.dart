@@ -80,8 +80,8 @@ class OrdersSupabaseDataSource {
   }
 
   /// Subscribe to realtime changes for a specific sales order and its items
-  Stream<void> subscribeToActiveOrderChanges(int salesOrderId) {
-    final orderStream = _client.from('sales_order').stream(primaryKey: ['id']).eq('id', salesOrderId);
+  Stream<void> subscribeToActiveOrderChanges(int salesOrderSupabaseId, int salesOrderId) {
+    final orderStream = _client.from('sales_order').stream(primaryKey: ['id']).eq('id', salesOrderSupabaseId);
 
     final itemStream = _client.from('sales_order_item').stream(primaryKey: ['id']).eq('sales_order_id', salesOrderId);
 

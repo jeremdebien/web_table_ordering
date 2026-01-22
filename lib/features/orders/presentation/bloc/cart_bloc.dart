@@ -65,13 +65,15 @@ class CartBloc extends Bloc<CartEvent, CartState> {
     add(LoadActiveOrder(event.tableId));
   }
 
-  void _subscribeToRealtimeUpdates(int salesOrderId, int tableId) {
+  void _subscribeToRealtimeUpdates(int salesOrderSupabaseId, int salesOrderId, int tableId) {
     if (_subscribedSalesOrderId == salesOrderId) return;
 
     _realtimeSubscription?.cancel();
     _subscribedSalesOrderId = salesOrderId;
 
-    _realtimeSubscription = _ordersDataSource.subscribeToActiveOrderChanges(salesOrderId).listen((_) {
+    _realtimeSubscription = _ordersDataSource.subscribeToActiveOrderChanges(salesOrderSupabaseId, salesOrderId).listen((
+      _,
+    ) {
       add(ExternalOrderUpdateReceived(tableId));
     });
   }
@@ -101,7 +103,7 @@ class CartBloc extends Bloc<CartEvent, CartState> {
         }
 
         if (sOrderId != null) {
-          _subscribeToRealtimeUpdates(sOrderId, event.tableId);
+          _subscribeToRealtimeUpdates(order.id, sOrderId, event.tableId);
         }
 
         emit(
