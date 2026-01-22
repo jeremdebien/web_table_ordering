@@ -14,6 +14,7 @@ class OrdersSupabaseDataSource {
   /// logic like creating the order and its items transactionally.
   /// Alternatively, this could be a direct RPC call or detailed client-side inserts.
   int get _branchId => int.tryParse(dotenv.env['BRANCH_ID'] ?? '') ?? 0;
+  int get _orderType => int.tryParse(dotenv.env['ORDER_TYPE_CODE'] ?? '') ?? 0;
 
   /// Submit a new order via Edge Function
   Future<void> submitSalesOrder({
@@ -25,6 +26,7 @@ class OrdersSupabaseDataSource {
       final payload = {
         'table_id': tableId,
         'branch_id': _branchId,
+        'order_type': _orderType,
         'guest_count': guestCount,
         'items': items
             .map(
