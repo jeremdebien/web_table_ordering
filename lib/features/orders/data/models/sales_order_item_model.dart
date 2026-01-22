@@ -15,7 +15,11 @@ class SalesOrderItemModel {
   final int originalQuantity; // Added to distinguish new vs existing items
   final String status; // Added to distinguish pending vs accepted items
 
-  double get unitPrice => quantity > 0 ? amount / quantity : 0;
+  // Amount is now the Unit Price
+  double get unitPrice => amount;
+
+  // Total Price for display = Unit Price * Quantity
+  double get totalPrice => amount * quantity;
 
   SalesOrderItemModel({
     this.id,
@@ -116,4 +120,3 @@ class SalesOrderItemModel {
     );
   }
 }
- 

@@ -161,11 +161,12 @@ class CartBloc extends Bloc<CartEvent, CartState> {
 
       // Calculate new quantity and amount
       final newQuantity = existingItem.quantity + event.item.quantity;
-      final newAmount = existingItem.amount + event.item.amount;
+      // Amount is now unit price, so we don't change it.
+      // final newAmount = existingItem.amount + event.item.amount;
 
       updatedItems[existingNewIndex] = existingItem.copyWith(
         quantity: newQuantity,
-        amount: newAmount,
+        // amount: newAmount, // Keep original unit price
       );
       emit(state.copyWith(items: updatedItems));
     } else {

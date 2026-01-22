@@ -90,9 +90,9 @@ serve(async (req) => {
             for (const item of items) {
                 // Check if barcode exists in DB AND is_cancelled status matches (defaulting incoming to false if undefined)
                 const incomingIsCancelled = item.is_cancelled || false;
-                
-                const matchIndex = existingItems ? existingItems.findIndex((existing: any) => 
-                    existing.item_barcode === item.item_barcode && 
+
+                const matchIndex = existingItems ? existingItems.findIndex((existing: any) =>
+                    existing.item_barcode === item.item_barcode &&
                     (existing.is_cancelled || false) === incomingIsCancelled
                 ) : -1;
 
@@ -102,7 +102,8 @@ serve(async (req) => {
 
                     // We prepare the update promise
                     const newQuantity = validMatch.quantity + item.quantity;
-                    const newAmount = validMatch.amount + item.amount;
+                    // const newAmount = validMatch.amount + item.amount; // OLD: Aggregated
+                    const newAmount = item.amount; // NEW: Keep unit price (using latest)
 
                     updates.push(
                         supabase

@@ -40,7 +40,7 @@ class OrderList extends StatelessWidget {
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Text(
-                        '₱${item.amount.toStringAsFixed(2)}',
+                        '₱${item.totalPrice.toStringAsFixed(2)}',
                         style: const TextStyle(fontWeight: FontWeight.bold),
                       ),
                     ],
@@ -74,7 +74,7 @@ class OrderList extends StatelessWidget {
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Text(
-                        '₱${item.amount.toStringAsFixed(2)}',
+                        '₱${item.totalPrice.toStringAsFixed(2)}',
                         style: const TextStyle(
                           fontWeight: FontWeight.bold,
                           color: Colors.grey,
@@ -106,7 +106,7 @@ class OrderList extends StatelessWidget {
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Text(
-                        '₱${item.amount.toStringAsFixed(2)}',
+                        '₱${item.totalPrice.toStringAsFixed(2)}',
                         style: const TextStyle(fontWeight: FontWeight.bold),
                       ),
                     ],
@@ -138,7 +138,7 @@ class OrderList extends StatelessWidget {
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Text(
-                        '₱${item.amount.toStringAsFixed(2)}',
+                        '₱${item.totalPrice.toStringAsFixed(2)}',
                         style: const TextStyle(fontWeight: FontWeight.bold),
                       ),
                       IconButton(
