@@ -1,5 +1,6 @@
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:rxdart/rxdart.dart';
 import '../models/sales_order_model.dart';
 import '../models/sales_order_item_model.dart';
 
@@ -76,6 +77,20 @@ class OrdersSupabaseDataSource {
     }
 
     return builder.order('created_at', ascending: false);
+  }
+
+  /// Subscribe to realtime changes for a specific sales order and its items
+  Stream<void> subscribeToActiveOrderChanges(int salesOrderId) {
+    final orderStream = _client.from('sales_order').stream(primaryKey: ['id']).eq('id', salesOrderId);
+
+    final itemStream = _client.from('sales_order_item').stream(primaryKey: ['id']).eq('sales_order_id', salesOrderId);
+
+    final pendingItemStream = _client
+        .from('sales_order_item_pending')
+        .stream(primaryKey: ['id'])
+        .eq('sales_order_id', salesOrderId);
+
+    return MergeStream([orderStream, itemStream, pendingItemStream]);
   }
 
   /// Fetch active order for a table

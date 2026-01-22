@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:rxdart/rxdart.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../data/models/sales_order_item_model.dart';
 import '../../../menu/data/models/item_model.dart';
@@ -13,6 +14,8 @@ class CartBloc extends Bloc<CartEvent, CartState> {
   final OrdersSupabaseDataSource _ordersDataSource;
   final MenuBloc _menuBloc;
   StreamSubscription? _menuSubscription;
+  StreamSubscription? _realtimeSubscription;
+  int? _subscribedSalesOrderId;
 
   CartBloc(this._ordersDataSource, this._menuBloc) : super(const CartState()) {
     on<AddToCart>(_onAddToCart);
@@ -23,6 +26,10 @@ class CartBloc extends Bloc<CartEvent, CartState> {
     on<UpdateCartItemNames>(_onUpdateCartItemNames);
     on<EnableOrdering>(_onEnableOrdering);
     on<RequestBill>(_onRequestBill);
+    on<ExternalOrderUpdateReceived>(
+      _onExternalOrderUpdateReceived,
+      transformer: (events, mapper) => events.debounceTime(const Duration(milliseconds: 500)).asyncExpand(mapper),
+    );
 
     _menuSubscription = _menuBloc.stream.listen((menuState) {
       if (menuState is MenuLoaded) {
@@ -34,6 +41,7 @@ class CartBloc extends Bloc<CartEvent, CartState> {
   @override
   Future<void> close() {
     _menuSubscription?.cancel();
+    _realtimeSubscription?.cancel();
     return super.close();
   }
 
@@ -53,12 +61,30 @@ class CartBloc extends Bloc<CartEvent, CartState> {
     emit(state.copyWith(items: updatedItems));
   }
 
+  Future<void> _onExternalOrderUpdateReceived(ExternalOrderUpdateReceived event, Emitter<CartState> emit) async {
+    add(LoadActiveOrder(event.tableId));
+  }
+
+  void _subscribeToRealtimeUpdates(int salesOrderId, int tableId) {
+    if (_subscribedSalesOrderId == salesOrderId) return;
+
+    _realtimeSubscription?.cancel();
+    _subscribedSalesOrderId = salesOrderId;
+
+    _realtimeSubscription = _ordersDataSource.subscribeToActiveOrderChanges(salesOrderId).listen((_) {
+      add(ExternalOrderUpdateReceived(tableId));
+    });
+  }
+
   Future<void> _onLoadActiveOrder(LoadActiveOrder event, Emitter<CartState> emit) async {
+    // Only show loading if we are NOT already conducting a background refresh?
+    // For now, let's keep it standard to ensure UI consistency.
     emit(state.copyWith(status: CartStatus.loading));
     try {
       final order = await _ordersDataSource.getActiveOrder(tableId: event.tableId);
       if (order != null) {
         var items = order.items;
+        final sOrderId = order.salesOrderId ?? order.id;
 
         // Map names immediately if menu is loaded
         if (_menuBloc.state is MenuLoaded) {
@@ -74,15 +100,22 @@ class CartBloc extends Bloc<CartEvent, CartState> {
           }).toList();
         }
 
+        if (sOrderId != null) {
+          _subscribeToRealtimeUpdates(sOrderId, event.tableId);
+        }
+
         emit(
           state.copyWith(
             status: CartStatus.success,
             items: items,
             paymentStatus: order.paymentStatus,
-            salesOrderId: order.salesOrderId ?? order.id,
+            salesOrderId: sOrderId,
           ),
         );
       } else {
+        // If no order, cancel subscription
+        _realtimeSubscription?.cancel();
+        _subscribedSalesOrderId = null;
         emit(state.copyWith(status: CartStatus.success, items: [], paymentStatus: 0, salesOrderId: null));
       }
     } catch (e) {

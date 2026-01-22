@@ -43,3 +43,8 @@ class RequestBill extends CartEvent {
   final int tableId;
   RequestBill(this.tableId);
 }
+
+class ExternalOrderUpdateReceived extends CartEvent {
+  final int tableId;
+  ExternalOrderUpdateReceived(this.tableId);
+}

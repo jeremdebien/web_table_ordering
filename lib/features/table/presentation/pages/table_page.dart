@@ -114,6 +114,36 @@ class TablePage extends StatelessWidget {
                                     ),
                                   ],
                                 ),
+                                if (table.description.isNotEmpty) ...[
+                                  const SizedBox(height: 10),
+                                  Stack(
+                                    children: [
+                                      // Stroke Layer
+                                      Text(
+                                        table.description,
+                                        textAlign: TextAlign.center,
+                                        style: TextStyle(
+                                          fontSize: 18,
+                                          fontWeight: FontWeight.w100,
+                                          foreground: Paint()
+                                            ..style = PaintingStyle.stroke
+                                            ..strokeWidth = 1
+                                            ..color = Colors.black,
+                                        ),
+                                      ),
+                                      // Solid Text Layer
+                                      Text(
+                                        table.description,
+                                        textAlign: TextAlign.center,
+                                        style: TextStyle(
+                                          fontSize: 18,
+                                          fontWeight: FontWeight.w100,
+                                          color: Colors.white,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ],
                               ],
                             ),
                           ),
