@@ -5,7 +5,7 @@ import 'package:web_table_ordering/features/menu/presentation/bloc/menu_bloc.dar
 import 'package:web_table_ordering/features/orders/presentation/bloc/cart_bloc.dart';
 import 'package:web_table_ordering/features/orders/data/models/sales_order_item_model.dart';
 import 'package:web_table_ordering/features/table/presentation/bloc/table_bloc.dart';
-import '../../../../features/orders/presentation/widgets/order_summary.dart';
+import '../../../../features/orders/presentation/widgets/cart_summary.dart';
 
 class MenuPage extends StatefulWidget {
   const MenuPage({super.key});
@@ -13,6 +13,11 @@ class MenuPage extends StatefulWidget {
   @override
   State<MenuPage> createState() => _MenuPageState();
 }
+// ... (rest of file)
+// This replacement is tricky because imports are at top. I should use multi_replace.
+// Cancelling this tool call and switching to multi_replace.
+// Actually I can do two replaces or just one view_file to be sure of line numbers again.
+// I will start with Import change.
 
 class _MenuPageState extends State<MenuPage> {
   bool _isSearching = false;
@@ -419,7 +424,7 @@ class _MenuPageState extends State<MenuPage> {
                   borderRadius: BorderRadius.circular(2),
                 ),
               ),
-              const Expanded(child: OrderSummary()),
+              const Expanded(child: CartSummary()),
             ],
           ),
         );

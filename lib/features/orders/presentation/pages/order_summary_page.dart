@@ -57,7 +57,7 @@ class _OrderSummaryPageState extends State<OrderSummaryPage> {
                     ),
                   ),
                   Expanded(
-                    child: OrderSummary(isViewOnly: true),
+                    child: OrderSummary(),
                   ),
                 ],
               ),
