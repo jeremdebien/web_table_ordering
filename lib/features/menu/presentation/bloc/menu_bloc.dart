@@ -31,12 +31,19 @@ class MenuBloc extends Bloc<MenuEvent, MenuState> {
       // Filter by isAvailableInWebTable
       categories = categories.where((c) => c.isAvailableInWebTable == true).toList();
 
-      // Sort by orderingIndex with nulls last
+      // Sort by orderingIndex with nulls last, then by name
       categories.sort((a, b) {
-        if (a.orderingIndex == null && b.orderingIndex == null) return 0;
+        if (a.orderingIndex == null && b.orderingIndex == null) {
+          return a.name.compareTo(b.name);
+        }
         if (a.orderingIndex == null) return 1;
         if (b.orderingIndex == null) return -1;
-        return a.orderingIndex!.compareTo(b.orderingIndex!);
+
+        final result = a.orderingIndex!.compareTo(b.orderingIndex!);
+        if (result == 0) {
+          return a.name.compareTo(b.name);
+        }
+        return result;
       });
 
       int? defaultCatId;
