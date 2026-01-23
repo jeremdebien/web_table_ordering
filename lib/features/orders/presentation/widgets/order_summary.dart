@@ -49,11 +49,6 @@ class OrderSummary extends StatelessWidget {
               // Calculate total quantity and VAT
               Builder(
                 builder: (context) {
-                  final totalQuantity = state.activeOrderCount;
-                  final subtotal = state.activeOrderTotalAmount;
-                  final vat = subtotal * 0.12;
-                  final totalWithVat = subtotal;
-
                   return Container(
                     decoration: BoxDecoration(
                       borderRadius: BorderRadius.circular(12),
@@ -64,92 +59,34 @@ class OrderSummary extends StatelessWidget {
                       child: Column(
                         children: [
                           // Total Quantity
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              const Text(
-                                'Total Quantity:',
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  color: Colors.white,
-                                ),
-                              ),
-                              Text(
-                                '$totalQuantity',
-                                style: const TextStyle(
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w500,
-                                  color: Colors.white,
-                                ),
-                              ),
-                            ],
+                          _buildSummaryRow(
+                            'Total Quantity:',
+                            '${state.activeOrderCount + state.pendingOrdersCount + state.newOrdersCount}',
                           ),
-                          // if (state.pendingOrders.isNotEmpty) ...[
-                          //   Row(
-                          //     mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          //     children: [
-                          //       const Text(
-                          //         'Pending Orders:',
-                          //         style: TextStyle(
-                          //           fontSize: 12,
-                          //           color: Colors.white,
-                          //         ),
-                          //       ),
-                          //       Text(
-                          //         '₱${vat.toStringAsFixed(2)}',
-                          //         style: const TextStyle(
-                          //           fontSize: 12,
-                          //           fontWeight: FontWeight.w500,
-                          //           color: Colors.white,
-                          //         ),
-                          //       ),
-                          //     ],
-                          //   ),
-                          //   const SizedBox(height: 8),
-                          // ],
-                          // Row(
-                          //   mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          //   children: [
-                          //     const Text(
-                          //       'VAT (12%):',
-                          //       style: TextStyle(
-                          //         fontSize: 12,
-                          //         color: Colors.white,
-                          //       ),
-                          //     ),
-                          //     Text(
-                          //       '₱${vat.toStringAsFixed(2)}',
-                          //       style: const TextStyle(
-                          //         fontSize: 12,
-                          //         fontWeight: FontWeight.w500,
-                          //         color: Colors.white,
-                          //       ),
-                          //     ),
-                          //   ],
-                          // ),
-                          // const SizedBox(height: 8),
+                          if (state.activeOrders.isNotEmpty) ...[
+                            _buildSummaryRow(
+                              'Orders (${state.activeOrderCount}): ',
+                              '₱${state.activeOrderTotalAmount.toStringAsFixed(2)}',
+                            ),
+                          ],
+                          if (state.pendingOrders.isNotEmpty) ...[
+                            _buildSummaryRow(
+                              'Pending Orders (${state.pendingOrdersCount}): ',
+                              '₱${state.pendingOrderTotalAmount.toStringAsFixed(2)}',
+                            ),
+                          ],
+                          if (state.newOrders.isNotEmpty) ...[
+                            _buildSummaryRow(
+                              'Additional Orders (${state.newOrdersCount}): ',
+                              '₱${state.newOrderTotalAmount.toStringAsFixed(2)}',
+                            ),
+                          ],
                           const Divider(),
                           // Total with VAT
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              const Text(
-                                'Total:',
-                                style: TextStyle(
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.bold,
-                                  color: Colors.white,
-                                ),
-                              ),
-                              Text(
-                                '₱${totalWithVat.toStringAsFixed(2)}',
-                                style: const TextStyle(
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.bold,
-                                  color: Colors.white,
-                                ),
-                              ),
-                            ],
+                          _buildSummaryRow(
+                            'Total:',
+                            '₱${(state.activeOrderTotalAmount + state.pendingOrderTotalAmount + state.newOrderTotalAmount).toStringAsFixed(2)}',
+                            isTotal: true,
                           ),
                         ],
                       ),
@@ -255,6 +192,30 @@ class OrderSummary extends StatelessWidget {
           ),
         );
       },
+    );
+  }
+
+  Widget _buildSummaryRow(String label, String value, {bool isTotal = false}) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Text(
+          label,
+          style: TextStyle(
+            fontSize: isTotal ? 14 : 12,
+            fontWeight: isTotal ? FontWeight.bold : FontWeight.normal,
+            color: Colors.white,
+          ),
+        ),
+        Text(
+          value,
+          style: TextStyle(
+            fontSize: isTotal ? 14 : 12,
+            fontWeight: isTotal ? FontWeight.bold : FontWeight.w500,
+            color: Colors.white,
+          ),
+        ),
+      ],
     );
   }
 }
