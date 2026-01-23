@@ -26,7 +26,19 @@ class MenuBloc extends Bloc<MenuEvent, MenuState> {
         _menuDataSource.getItems(),
       ]);
 
-      final categories = results[1] as List<CategoryModel>;
+      var categories = results[1] as List<CategoryModel>;
+
+      // Filter by isAvailableInWebTable
+      categories = categories.where((c) => c.isAvailableInWebTable == true).toList();
+
+      // Sort by orderingIndex with nulls last
+      categories.sort((a, b) {
+        if (a.orderingIndex == null && b.orderingIndex == null) return 0;
+        if (a.orderingIndex == null) return 1;
+        if (b.orderingIndex == null) return -1;
+        return a.orderingIndex!.compareTo(b.orderingIndex!);
+      });
+
       int? defaultCatId;
       if (categories.isNotEmpty) {
         defaultCatId = categories.first.categoryId;
