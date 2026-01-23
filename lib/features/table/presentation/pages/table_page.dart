@@ -17,7 +17,9 @@ class TablePage extends StatelessWidget {
       ),
       child: BlocListener<TableBloc, TableState>(
         listener: (context, state) {
-          if (state is TableError) {
+          if (state is TableLoaded) {
+            context.read<CartBloc>().add(LoadActiveOrder(state.table.tableId));
+          } else if (state is TableError) {
             context.go('/404');
           }
         },
