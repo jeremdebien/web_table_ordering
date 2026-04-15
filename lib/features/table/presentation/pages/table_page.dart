@@ -29,7 +29,7 @@ class TablePage extends StatelessWidget {
               Container(
                 decoration: const BoxDecoration(
                   image: DecorationImage(
-                    image: AssetImage("assets/images/bg_image.jpg"),
+                    image: AssetImage("assets/images/vikings.png"),
                     fit: BoxFit.cover,
                   ),
                 ),
@@ -44,14 +44,14 @@ class TablePage extends StatelessWidget {
                       return Column(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          ClipOval(
-                            child: Image.asset(
-                              'assets/images/logo.jpg',
-                              fit: BoxFit.contain,
-                              width: 150,
-                              height: 150,
-                            ),
-                          ),
+                          // ClipOval(
+                          //   child: Image.asset(
+                          //     'assets/images/logo.jpg',
+                          //     fit: BoxFit.contain,
+                          //     width: 150,
+                          //     height: 150,
+                          //   ),
+                          // ),
                           const SizedBox(height: 20),
                           Container(
                             width: double.infinity,
@@ -66,7 +66,7 @@ class TablePage extends StatelessWidget {
                                   children: [
                                     // Stroke Layer
                                     Text(
-                                      "Welcome to Chickey's Inasal",
+                                      "Welcome to Vikings Restaurant",
                                       style: TextStyle(
                                         fontSize: 14,
                                         fontWeight: FontWeight.bold,
@@ -74,12 +74,13 @@ class TablePage extends StatelessWidget {
                                         foreground: Paint()
                                           ..style = PaintingStyle.stroke
                                           ..strokeWidth = 1
-                                          ..color = Colors.black, // Color of the stroke
+                                          ..color = Colors
+                                              .black, // Color of the stroke
                                       ),
                                     ),
                                     // Solid Text Layer
                                     Text(
-                                      "Welcome to Chickey's Inasal",
+                                      "Welcome to Vikings Restaurant",
                                       style: TextStyle(
                                         fontSize: 14,
                                         fontWeight: FontWeight.bold,
@@ -93,7 +94,7 @@ class TablePage extends StatelessWidget {
                                   children: [
                                     // Stroke Layer
                                     Text(
-                                      "Taste the best filipino chicken inasal",
+                                      "Eat Like a Viking!",
                                       textAlign: TextAlign.center,
                                       style: TextStyle(
                                         fontSize: 18,
@@ -106,7 +107,7 @@ class TablePage extends StatelessWidget {
                                     ),
                                     // Solid Text Layer
                                     Text(
-                                      "Taste the best filipino chicken inasal",
+                                      "Eat Like a Viking!",
                                       textAlign: TextAlign.center,
                                       style: TextStyle(
                                         fontSize: 18,
@@ -156,12 +157,16 @@ class TablePage extends StatelessWidget {
                               style: ElevatedButton.styleFrom(
                                 backgroundColor: Color(0xfff25125),
                                 foregroundColor: Colors.white,
-                                side: const BorderSide(color: Colors.white, width: 1),
+                                side: const BorderSide(
+                                  color: Colors.white,
+                                  width: 1,
+                                ),
                                 shape: RoundedRectangleBorder(
                                   borderRadius: BorderRadius.circular(15),
                                 ),
                               ),
-                              onPressed: () => context.go('/table/${table.uuid}/menu'),
+                              onPressed: () =>
+                                  context.go('/table/${table.uuid}/menu'),
                               child: const Text(
                                 'Start Ordering',
                                 style: TextStyle(
@@ -179,12 +184,17 @@ class TablePage extends StatelessWidget {
                               style: ElevatedButton.styleFrom(
                                 backgroundColor: Color(0xfff25125),
                                 foregroundColor: Colors.white,
-                                side: const BorderSide(color: Colors.white, width: 1),
+                                side: const BorderSide(
+                                  color: Colors.white,
+                                  width: 1,
+                                ),
                                 shape: RoundedRectangleBorder(
                                   borderRadius: BorderRadius.circular(15),
                                 ),
                               ),
-                              onPressed: () => context.go('/table/${table.uuid}/order_summary'),
+                              onPressed: () => context.go(
+                                '/table/${table.uuid}/order_summary',
+                              ),
                               child: const Text(
                                 'View Orders',
                                 style: TextStyle(
@@ -201,12 +211,16 @@ class TablePage extends StatelessWidget {
                             width: 200,
                             child: BlocBuilder<CartBloc, CartState>(
                               builder: (context, cartState) {
-                                final hasActiveOrders = cartState.activeOrders.isNotEmpty;
+                                final hasActiveOrders =
+                                    cartState.activeOrders.isNotEmpty;
                                 return ElevatedButton(
                                   style: ElevatedButton.styleFrom(
                                     backgroundColor: const Color(0xfff25125),
                                     foregroundColor: Colors.white,
-                                    side: const BorderSide(color: Colors.white, width: 1),
+                                    side: const BorderSide(
+                                      color: Colors.white,
+                                      width: 1,
+                                    ),
                                     shape: RoundedRectangleBorder(
                                       borderRadius: BorderRadius.circular(15),
                                     ),
@@ -217,28 +231,54 @@ class TablePage extends StatelessWidget {
                                             context: context,
                                             builder: (dialogContext) {
                                               return AlertDialog(
-                                                title: const Text('Request Bill'),
+                                                title: const Text(
+                                                  'Request Bill',
+                                                ),
                                                 content: const Text(
                                                   'Are you sure you want to request the bill?\nThis will lock the menu from further ordering.',
                                                 ),
                                                 actions: [
                                                   TextButton(
-                                                    onPressed: () => Navigator.of(dialogContext).pop(),
+                                                    onPressed: () =>
+                                                        Navigator.of(
+                                                          dialogContext,
+                                                        ).pop(),
                                                     child: const Text('Cancel'),
                                                   ),
                                                   ElevatedButton(
-                                                    style: ElevatedButton.styleFrom(
-                                                      backgroundColor: const Color(0xfff25125),
-                                                      foregroundColor: Colors.white,
-                                                    ),
+                                                    style:
+                                                        ElevatedButton.styleFrom(
+                                                          backgroundColor:
+                                                              const Color(
+                                                                0xfff25125,
+                                                              ),
+                                                          foregroundColor:
+                                                              Colors.white,
+                                                        ),
                                                     onPressed: () {
-                                                      Navigator.of(dialogContext).pop();
-                                                      context.read<CartBloc>().add(RequestBill(table.tableId));
-                                                      ScaffoldMessenger.of(context).showSnackBar(
-                                                        const SnackBar(content: Text('Bill requested successfully')),
+                                                      Navigator.of(
+                                                        dialogContext,
+                                                      ).pop();
+                                                      context
+                                                          .read<CartBloc>()
+                                                          .add(
+                                                            RequestBill(
+                                                              table.tableId,
+                                                            ),
+                                                          );
+                                                      ScaffoldMessenger.of(
+                                                        context,
+                                                      ).showSnackBar(
+                                                        const SnackBar(
+                                                          content: Text(
+                                                            'Bill requested successfully',
+                                                          ),
+                                                        ),
                                                       );
                                                     },
-                                                    child: const Text('Confirm'),
+                                                    child: const Text(
+                                                      'Confirm',
+                                                    ),
                                                   ),
                                                 ],
                                               );

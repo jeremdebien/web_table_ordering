@@ -36,7 +36,8 @@ class OrderListItem extends StatelessWidget {
         ? const TextStyle(
             fontWeight: FontWeight.bold,
             fontSize: 14,
-            decoration: TextDecoration.lineThrough, // Added line trough for consistency
+            decoration:
+                TextDecoration.lineThrough, // Added line trough for consistency
             color: Colors.grey,
           )
         : const TextStyle(
@@ -53,7 +54,7 @@ class OrderListItem extends StatelessWidget {
           fit: BoxFit.cover,
           errorBuilder: (context, error, stackTrace) {
             return Image.asset(
-              'assets/images/logo.jpg',
+              'assets/images/vikings_logo.png',
               width: 40,
               height: 40,
               fit: BoxFit.cover,
@@ -62,7 +63,7 @@ class OrderListItem extends StatelessWidget {
         );
       }
       return Image.asset(
-        'assets/images/logo.jpg',
+        'assets/images/vikings_logo.png',
         width: 40,
         height: 40,
         fit: BoxFit.cover,

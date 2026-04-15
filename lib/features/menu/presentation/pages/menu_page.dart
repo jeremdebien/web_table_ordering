@@ -53,18 +53,19 @@ class _MenuPageState extends State<MenuPage> {
       },
       child: Scaffold(
         appBar: AppBar(
+          toolbarHeight: 100,
           backgroundColor: Colors.transparent,
           surfaceTintColor: Colors.transparent,
           scrolledUnderElevation: 0,
           titleSpacing: 0,
           title: Row(
             children: [
-              Image.asset('assets/images/logo.jpg', width: 80),
+              Image.asset('assets/images/vikings_logo.png', width: 80),
               SizedBox(width: 10),
               const Expanded(
                 child: AutoSizeText(
                   'Browse our menu',
-                  style: TextStyle(fontSize: 20, fontFamily: 'Marous'),
+                  style: TextStyle(fontSize: 25, fontWeight: FontWeight.bold),
                   maxLines: 1,
                   textAlign: TextAlign.center,
                   minFontSize: 10,
@@ -193,7 +194,8 @@ class _MenuPageState extends State<MenuPage> {
                             .toList()
                       : state.items
                             .where(
-                              (item) => item.categoryId == state.selectedCategoryId,
+                              (item) =>
+                                  item.categoryId == state.selectedCategoryId,
                             )
                             .toList();
 
@@ -247,7 +249,9 @@ class _MenuPageState extends State<MenuPage> {
                             scrollDirection: Axis.horizontal,
                             itemBuilder: (context, index) {
                               final category = state.categories[index];
-                              final isSelected = category.categoryId == state.selectedCategoryId;
+                              final isSelected =
+                                  category.categoryId ==
+                                  state.selectedCategoryId;
                               return Padding(
                                 padding: const EdgeInsets.symmetric(
                                   horizontal: 4.0,
@@ -255,14 +259,18 @@ class _MenuPageState extends State<MenuPage> {
                                 child: ChoiceChip(
                                   label: Text(category.name),
                                   labelStyle: TextStyle(
-                                    color: isSelected ? Colors.white : Colors.black,
+                                    color: isSelected
+                                        ? Colors.white
+                                        : Colors.black,
                                   ),
                                   selected: isSelected,
                                   showCheckmark: false,
                                   selectedColor: const Color(0xfff25125),
                                   backgroundColor: Colors.white,
                                   side: BorderSide(
-                                    color: isSelected ? Colors.white : const Color(0xfff25125),
+                                    color: isSelected
+                                        ? Colors.white
+                                        : const Color(0xfff25125),
                                   ),
                                   shape: RoundedRectangleBorder(
                                     borderRadius: BorderRadius.circular(20),
@@ -296,11 +304,12 @@ class _MenuPageState extends State<MenuPage> {
                                   ),
                                 )
                               : GridView.builder(
-                                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                                    crossAxisCount: 2,
-                                    childAspectRatio: 0.8,
-                                    crossAxisSpacing: 10,
-                                  ),
+                                  gridDelegate:
+                                      const SliverGridDelegateWithFixedCrossAxisCount(
+                                        crossAxisCount: 2,
+                                        childAspectRatio: 0.8,
+                                        crossAxisSpacing: 10,
+                                      ),
                                   itemCount: displayItems.length,
                                   itemBuilder: (context, index) {
                                     final item = displayItems[index];
@@ -319,15 +328,27 @@ class _MenuPageState extends State<MenuPage> {
                                           ),
                                         ),
                                         child: Column(
-                                          mainAxisAlignment: MainAxisAlignment.center,
+                                          mainAxisAlignment:
+                                              MainAxisAlignment.center,
                                           children: [
                                             Expanded(
-                                              child: item.displayImage != null && item.displayImage!.isNotEmpty
+                                              child:
+                                                  item.displayImage != null &&
+                                                      item
+                                                          .displayImage!
+                                                          .isNotEmpty
                                                   ? ClipRRect(
-                                                      borderRadius: BorderRadius.only(
-                                                        topLeft: Radius.circular(20),
-                                                        topRight: Radius.circular(20),
-                                                      ),
+                                                      borderRadius:
+                                                          BorderRadius.only(
+                                                            topLeft:
+                                                                Radius.circular(
+                                                                  20,
+                                                                ),
+                                                            topRight:
+                                                                Radius.circular(
+                                                                  20,
+                                                                ),
+                                                          ),
                                                       child: SizedBox.expand(
                                                         child: Image.network(
                                                           item.displayImage!,
@@ -337,9 +358,9 @@ class _MenuPageState extends State<MenuPage> {
                                                     )
                                                   : Center(
                                                       child: Image.asset(
-                                                        'assets/images/logo.jpg',
-                                                        color: Colors.grey,
-                                                        colorBlendMode: BlendMode.lighten,
+                                                        'assets/images/vikings_logo.png',
+                                                        colorBlendMode:
+                                                            BlendMode.lighten,
                                                       ),
                                                     ),
                                             ),
@@ -358,17 +379,20 @@ class _MenuPageState extends State<MenuPage> {
                                                 ),
                                               ),
                                               child: Padding(
-                                                padding: const EdgeInsets.symmetric(
-                                                  horizontal: 10,
-                                                  vertical: 5,
-                                                ),
+                                                padding:
+                                                    const EdgeInsets.symmetric(
+                                                      horizontal: 10,
+                                                      vertical: 5,
+                                                    ),
                                                 child: Column(
                                                   children: [
                                                     Text(
                                                       item.name,
-                                                      textAlign: TextAlign.center,
+                                                      textAlign:
+                                                          TextAlign.center,
                                                       style: const TextStyle(
-                                                        fontFamily: 'FactorySansMedium',
+                                                        fontFamily:
+                                                            'FactorySansMedium',
                                                         color: Colors.white,
                                                       ),
                                                     ),
@@ -462,7 +486,8 @@ class _MenuPageState extends State<MenuPage> {
                     const SizedBox(height: 15),
                     Row(
                       children: [
-                        item.displayImage != null && item.displayImage!.isNotEmpty
+                        item.displayImage != null &&
+                                item.displayImage!.isNotEmpty
                             ? Image.network(
                                 item.displayImage!,
                                 width: 100,
@@ -471,10 +496,9 @@ class _MenuPageState extends State<MenuPage> {
                               )
                             : Center(
                                 child: Image.asset(
-                                  'assets/images/logo.jpg',
+                                  'assets/images/vikings_logo.png',
                                   width: 100,
                                   height: 100,
-                                  color: Colors.grey,
                                   colorBlendMode: BlendMode.lighten,
                                 ),
                               ),
@@ -497,7 +521,8 @@ class _MenuPageState extends State<MenuPage> {
                               ),
                               const SizedBox(height: 5),
                               Row(
-                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceBetween,
                                 children: [
                                   Container(
                                     decoration: BoxDecoration(
