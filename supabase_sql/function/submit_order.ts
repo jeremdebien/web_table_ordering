@@ -113,7 +113,7 @@ serve(async (req) => {
             // 1. Fetch existing items for this order to check for duplicates
             const { data: existingItems, error: fetchItemsError } = await supabase
                 .from('sales_order_item_pending')
-                .select('order_item_id, item_barcode, quantity, amount, is_cancelled')
+                .select('order_item_id, item_barcode, quantity, amount, is_cancelled, nickname')
                 .eq('sales_order_id', salesOrderId)
                 .eq('branch_id', branch_id);
 
@@ -131,7 +131,8 @@ serve(async (req) => {
 
                 const matchIndex = existingItems ? existingItems.findIndex((existing: any) =>
                     existing.item_barcode === item.item_barcode &&
-                    (existing.is_cancelled || false) === incomingIsCancelled
+                    (existing.is_cancelled || false) === incomingIsCancelled &&
+                    (existing.nickname || '') === (item.nickname || '')
                 ) : -1;
 
                 if (matchIndex > -1) {
@@ -199,6 +200,7 @@ serve(async (req) => {
                         item_modifiers: item.item_modifiers,
                         is_disc_exempt: item.is_disc_exempt || false,
                         item_discount: item.item_discount || 0,
+                        nickname: item.nickname || '',
                         posting_date: new Date().toISOString()
                     };
                 });

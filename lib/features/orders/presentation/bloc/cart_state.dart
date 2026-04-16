@@ -8,6 +8,8 @@ class CartState {
   final String? errorMessage;
   final int paymentStatus;
   final int? salesOrderId;
+  final String? deviceId;
+  final String nickname;
 
   const CartState({
     this.items = const [],
@@ -15,6 +17,8 @@ class CartState {
     this.errorMessage,
     this.paymentStatus = 0,
     this.salesOrderId,
+    this.deviceId,
+    this.nickname = '',
   });
 
   double get totalAmount => items.fold(0.0, (total, current) => total + current.totalPrice);
@@ -38,6 +42,8 @@ class CartState {
     String? errorMessage,
     int? paymentStatus,
     int? salesOrderId,
+    String? deviceId,
+    String? nickname,
   }) {
     return CartState(
       items: items ?? this.items,
@@ -45,6 +51,8 @@ class CartState {
       errorMessage: errorMessage,
       paymentStatus: paymentStatus ?? this.paymentStatus,
       salesOrderId: salesOrderId ?? this.salesOrderId,
+      deviceId: deviceId ?? this.deviceId,
+      nickname: nickname ?? this.nickname,
     );
   }
 }
