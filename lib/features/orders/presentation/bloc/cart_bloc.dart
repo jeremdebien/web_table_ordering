@@ -6,6 +6,7 @@ import '../../../menu/data/models/item_model.dart';
 import '../../../menu/presentation/bloc/menu_bloc.dart';
 
 import '../../data/datasources/orders_supabase_datasource.dart';
+import '../../../../core/utils/device_id_service.dart';
 
 part 'cart_event.dart';
 part 'cart_state.dart';
@@ -13,11 +14,12 @@ part 'cart_state.dart';
 class CartBloc extends Bloc<CartEvent, CartState> {
   final OrdersSupabaseDataSource _ordersDataSource;
   final MenuBloc _menuBloc;
+  final DeviceIdService _deviceIdService;
   StreamSubscription? _menuSubscription;
   StreamSubscription? _realtimeSubscription;
   int? _subscribedSalesOrderId;
 
-  CartBloc(this._ordersDataSource, this._menuBloc) : super(const CartState()) {
+  CartBloc(this._ordersDataSource, this._menuBloc, this._deviceIdService) : super(const CartState()) {
     on<AddToCart>(_onAddToCart);
     on<RemoveFromCart>(_onRemoveFromCart);
     on<ClearCart>(_onClearCart);
@@ -26,6 +28,8 @@ class CartBloc extends Bloc<CartEvent, CartState> {
     on<UpdateCartItemNames>(_onUpdateCartItemNames);
     on<EnableOrdering>(_onEnableOrdering);
     on<RequestBill>(_onRequestBill);
+    on<LoadNickname>(_onLoadNickname);
+    on<UpdateNickname>(_onUpdateNickname);
     on<ExternalOrderUpdateReceived>(
       _onExternalOrderUpdateReceived,
       transformer: (events, mapper) => events.debounceTime(const Duration(milliseconds: 500)).asyncExpand(mapper),
@@ -81,7 +85,8 @@ class CartBloc extends Bloc<CartEvent, CartState> {
   Future<void> _onLoadActiveOrder(LoadActiveOrder event, Emitter<CartState> emit) async {
     // Only show loading if we are NOT already conducting a background refresh?
     // For now, let's keep it standard to ensure UI consistency.
-    emit(state.copyWith(status: CartStatus.loading));
+    final deviceId = _deviceIdService.getDeviceId();
+    emit(state.copyWith(status: CartStatus.loading, deviceId: deviceId));
     try {
       final order = await _ordersDataSource.getActiveOrder(tableId: event.tableId);
       if (order != null) {
@@ -102,9 +107,7 @@ class CartBloc extends Bloc<CartEvent, CartState> {
           }).toList();
         }
 
-        if (sOrderId != null) {
-          _subscribeToRealtimeUpdates(order.id, sOrderId, event.tableId);
-        }
+        _subscribeToRealtimeUpdates(order.id, sOrderId, event.tableId);
 
         emit(
           state.copyWith(
@@ -171,8 +174,41 @@ class CartBloc extends Bloc<CartEvent, CartState> {
       emit(state.copyWith(items: updatedItems));
     } else {
       // Add as a new row, even if an "Old" item exists
-      emit(state.copyWith(items: [...state.items, event.item]));
+      // Tag it with current nickname
+      final itemWithNickname = event.item.copyWith(nickname: state.nickname);
+      emit(state.copyWith(items: [...state.items, itemWithNickname]));
     }
+  }
+
+  Future<void> _onLoadNickname(LoadNickname event, Emitter<CartState> emit) async {
+    final deviceId = _deviceIdService.getDeviceId();
+    String? nickname = _deviceIdService.getNickname();
+
+    if (nickname == null) {
+      // Try fetching from database as backup
+      nickname = await _ordersDataSource.getNicknameByDeviceId(deviceId);
+      if (nickname != null) {
+        await _deviceIdService.saveNickname(nickname);
+      }
+    }
+
+    emit(state.copyWith(deviceId: deviceId, nickname: nickname ?? ''));
+  }
+
+  Future<void> _onUpdateNickname(UpdateNickname event, Emitter<CartState> emit) async {
+    final deviceId = state.deviceId ?? _deviceIdService.getDeviceId();
+    await _deviceIdService.saveNickname(event.nickname);
+    await _ordersDataSource.upsertCustomer(deviceId, event.nickname);
+
+    // Update any NEW (unsubmitted) items in the cart with the new nickname
+    final updatedItems = state.items.map((i) {
+      if (i.originalQuantity == 0) {
+        return i.copyWith(nickname: event.nickname);
+      }
+      return i;
+    }).toList();
+
+    emit(state.copyWith(nickname: event.nickname, items: updatedItems));
   }
 
   void _onRemoveFromCart(RemoveFromCart event, Emitter<CartState> emit) {

@@ -1,4 +1,6 @@
 import 'package:get_it/get_it.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import '../utils/device_id_service.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../features/menu/data/datasources/menu_supabase_datasource.dart';
 import '../../features/menu/presentation/bloc/menu_bloc.dart';
@@ -10,6 +12,13 @@ import '../../features/orders/presentation/bloc/cart_bloc.dart';
 final sl = GetIt.instance;
 
 Future<void> init() async {
+  // External
+  final sharedPreferences = await SharedPreferences.getInstance();
+  sl.registerLazySingleton(() => sharedPreferences);
+  sl.registerLazySingleton(() => Supabase.instance.client);
+
+  // Core
+  sl.registerLazySingleton(() => DeviceIdService(sl()));
   // Features - Home
   sl.registerLazySingleton(() => MenuBloc(sl()));
 
@@ -22,12 +31,11 @@ Future<void> init() async {
   sl.registerLazySingleton(() => OrdersSupabaseDataSource(sl()));
   sl.registerLazySingleton(() => TableSupabaseDataSource(sl()));
 
-  // Blocd
+  // Bloct
   sl.registerFactory(() => TableBloc(sl()));
-  sl.registerFactory(() => CartBloc(sl(), sl()));
+  sl.registerFactory(() => CartBloc(sl(), sl(), sl()));
 
   // Core
 
-  // External
-  sl.registerLazySingleton(() => Supabase.instance.client);
+  // External is registered at the top
 }

@@ -37,6 +37,7 @@ class OrdersSupabaseDataSource {
                 'item_modifiers': e.itemModifiers,
                 'is_disc_exempt': e.isDiscExempt,
                 'item_discount': e.itemDiscount,
+                'nickname': e.nickname,
               },
             )
             .toList(),
@@ -164,5 +165,32 @@ class OrdersSupabaseDataSource {
     }
 
     return orders.map((e) => SalesOrderModel.fromJson(e)).toList();
+  }
+
+  /// Get customer by device ID
+  Future<String?> getNicknameByDeviceId(String deviceId) async {
+    try {
+      final response = await _client.functions.invoke(
+        'manage-customer',
+        body: {'action': 'get', 'device_id': deviceId},
+      );
+      return response.data['nickname'] as String?;
+    } catch (e) {
+      print('Error fetching nickname: $e');
+      return null;
+    }
+  }
+
+  /// Upsert customer nickname
+  Future<void> upsertCustomer(String deviceId, String nickname) async {
+    try {
+      await _client.functions.invoke(
+        'manage-customer',
+        body: {'action': 'upsert', 'device_id': deviceId, 'nickname': nickname},
+      );
+    } catch (e) {
+      print('Error upserting customer: $e');
+      throw Exception('Failed to save nickname');
+    }
   }
 }

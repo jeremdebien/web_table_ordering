@@ -14,6 +14,7 @@ class SalesOrderItemModel {
   final DateTime? updatedAt;
   final int originalQuantity; // Added to distinguish new vs existing items
   final String status; // Added to distinguish pending vs accepted items
+  final String nickname; // Added for customer tracking
 
   // Amount is now the Unit Price
   double get unitPrice => amount;
@@ -37,6 +38,7 @@ class SalesOrderItemModel {
     this.updatedAt,
     this.originalQuantity = 0,
     this.status = 'Accepted',
+    this.nickname = '',
   });
 
   factory SalesOrderItemModel.fromJson(Map<String, dynamic> json) {
@@ -63,6 +65,7 @@ class SalesOrderItemModel {
       updatedAt: json['updated_at'] != null ? DateTime.parse(json['updated_at'] as String) : null,
       originalQuantity: qty, // Set originalQuantity to quantity for DB items
       status: json['status'] as String? ?? 'Accepted',
+      nickname: json['nickname'] as String? ?? '',
     );
   }
 
@@ -81,6 +84,7 @@ class SalesOrderItemModel {
       'created_at': createdAt?.toIso8601String(),
       'updated_at': updatedAt?.toIso8601String(),
       'status': status,
+      'nickname': nickname,
     };
   }
 
@@ -100,6 +104,7 @@ class SalesOrderItemModel {
     DateTime? updatedAt,
     int? originalQuantity,
     String? status,
+    String? nickname,
   }) {
     return SalesOrderItemModel(
       id: id ?? this.id,
@@ -117,6 +122,7 @@ class SalesOrderItemModel {
       updatedAt: updatedAt ?? this.updatedAt,
       originalQuantity: originalQuantity ?? this.originalQuantity,
       status: status ?? this.status,
+      nickname: nickname ?? this.nickname,
     );
   }
 }

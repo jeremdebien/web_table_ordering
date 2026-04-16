@@ -48,3 +48,10 @@ class ExternalOrderUpdateReceived extends CartEvent {
   final int tableId;
   ExternalOrderUpdateReceived(this.tableId);
 }
+
+class LoadNickname extends CartEvent {}
+
+class UpdateNickname extends CartEvent {
+  final String nickname;
+  UpdateNickname(this.nickname);
+}

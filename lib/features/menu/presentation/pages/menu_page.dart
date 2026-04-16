@@ -28,6 +28,18 @@ class _MenuPageState extends State<MenuPage> {
   void initState() {
     super.initState();
     _loadActiveOrder();
+    _loadNickname();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final state = context.read<CartBloc>().state;
+      if (state.nickname.isEmpty && state.deviceId != null) {
+        _showNicknamePrompt(context);
+      }
+    });
+  }
+
+  void _loadNickname() {
+    context.read<CartBloc>().add(LoadNickname());
   }
 
   @override
@@ -98,6 +110,27 @@ class _MenuPageState extends State<MenuPage> {
               SizedBox(
                 width: 10,
               ),
+              BlocBuilder<CartBloc, CartState>(
+                builder: (context, state) {
+                  return IconButton(
+                    onPressed: () => _showNicknamePrompt(context, initialValue: state.nickname),
+                    icon: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(Icons.person, size: 20, color: Color(0xfff25125)),
+                        if (state.nickname.isNotEmpty)
+                          Text(
+                            state.nickname,
+                            style: const TextStyle(fontSize: 10, color: Color(0xfff25125)),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                      ],
+                    ),
+                    tooltip: 'Change Nickname',
+                  );
+                },
+              ),
+              const SizedBox(width: 10),
             ],
           ),
         ),
@@ -126,7 +159,14 @@ class _MenuPageState extends State<MenuPage> {
             );
           },
         ),
-        body: BlocBuilder<CartBloc, CartState>(
+        body: BlocListener<CartBloc, CartState>(
+          listenWhen: (previous, current) => previous.nickname != current.nickname || (previous.deviceId != current.deviceId),
+          listener: (context, state) {
+            if (state.nickname.isEmpty && state.deviceId != null) {
+              _showNicknamePrompt(context);
+            }
+          },
+          child: BlocBuilder<CartBloc, CartState>(
           builder: (context, cartState) {
             if (cartState.paymentStatus == 1) {
               return Center(
@@ -423,6 +463,7 @@ class _MenuPageState extends State<MenuPage> {
           },
         ),
       ),
+    ),
     );
   }
 
@@ -642,6 +683,50 @@ class _MenuPageState extends State<MenuPage> {
               ],
             );
           },
+        );
+      },
+    );
+  }
+
+  void _showNicknamePrompt(BuildContext context, {String initialValue = ''}) {
+    final controller = TextEditingController(text: initialValue);
+    showDialog(
+      context: context,
+      barrierDismissible: initialValue.isNotEmpty, // Only dismissible if they already have one
+      builder: (context) {
+        return AlertDialog(
+          title: Text(initialValue.isEmpty ? 'Welcome! Enter your nickname' : 'Change Nickname'),
+          content: TextField(
+            controller: controller,
+            decoration: const InputDecoration(
+              hintText: 'e.g. John D.',
+              labelText: 'Nickname',
+              border: OutlineInputBorder(),
+            ),
+            textCapitalization: TextCapitalization.words,
+            autofocus: true,
+          ),
+          actions: [
+            if (initialValue.isNotEmpty)
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('Cancel'),
+              ),
+            ElevatedButton(
+              onPressed: () {
+                final nick = controller.text.trim();
+                if (nick.isNotEmpty) {
+                  context.read<CartBloc>().add(UpdateNickname(nick));
+                  Navigator.pop(context);
+                }
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xfff25125),
+                foregroundColor: Colors.white,
+              ),
+              child: const Text('Save'),
+            ),
+          ],
         );
       },
     );

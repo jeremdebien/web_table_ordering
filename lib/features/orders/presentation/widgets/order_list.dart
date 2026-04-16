@@ -36,6 +36,53 @@ class OrderList extends StatelessWidget {
       }
     }
 
+    Widget buildGroupedItems(List<SalesOrderItemModel> groupedItems) {
+      // Group by nickname
+      final Map<String, List<SalesOrderItemModel>> multiGroups = {};
+      for (var item in groupedItems) {
+        final nick = item.nickname.isEmpty ? 'Unknown' : item.nickname;
+        if (!multiGroups.containsKey(nick)) {
+          multiGroups[nick] = [];
+        }
+        multiGroups[nick]!.add(item);
+      }
+
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: multiGroups.entries.map((entry) {
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Padding(
+                padding: const EdgeInsets.only(top: 8.0, bottom: 4.0),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const Icon(Icons.person, size: 14, color: Color(0xfff25125)),
+                    const SizedBox(width: 4),
+                    Text(
+                      'Ordered by: ${entry.key}',
+                      style: const TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                        color: Color(0xfff25125),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              ...entry.value.map((item) {
+                return OrderListItem(
+                  item: item,
+                  displayImage: getDisplayImage(item.itemBarcode),
+                );
+              }),
+            ],
+          );
+        }).toList(),
+      );
+    }
+
     return Expanded(
       child: SingleChildScrollView(
         child: Column(
@@ -56,14 +103,9 @@ class OrderList extends StatelessWidget {
                   ),
                 ),
               ),
-              ...items
-                  .where((i) => i.originalQuantity > 0 && i.status == 'Pending')
-                  .map((item) {
-                    return OrderListItem(
-                      item: item,
-                      displayImage: getDisplayImage(item.itemBarcode),
-                    );
-                  }),
+              buildGroupedItems(
+                items.where((i) => i.originalQuantity > 0 && i.status == 'Pending').toList(),
+              ),
               const Divider(),
             ],
 
@@ -82,16 +124,9 @@ class OrderList extends StatelessWidget {
                   ),
                 ),
               ),
-              ...items
-                  .where(
-                    (i) => i.originalQuantity > 0 && i.status == 'Cancelled',
-                  )
-                  .map((item) {
-                    return OrderListItem(
-                      item: item,
-                      displayImage: getDisplayImage(item.itemBarcode),
-                    );
-                  }),
+              buildGroupedItems(
+                items.where((i) => i.originalQuantity > 0 && i.status == 'Cancelled').toList(),
+              ),
               const Divider(),
             ],
 
@@ -110,16 +145,9 @@ class OrderList extends StatelessWidget {
                   ),
                 ),
               ),
-              ...items
-                  .where(
-                    (i) => i.originalQuantity > 0 && i.status == 'Accepted',
-                  )
-                  .map((item) {
-                    return OrderListItem(
-                      item: item,
-                      displayImage: getDisplayImage(item.itemBarcode),
-                    );
-                  }),
+              buildGroupedItems(
+                items.where((i) => i.originalQuantity > 0 && i.status == 'Accepted').toList(),
+              ),
             ],
 
             // Divider if Accepted and New exist
@@ -142,12 +170,9 @@ class OrderList extends StatelessWidget {
                   ),
                 ),
               ),
-              ...items.where((i) => i.originalQuantity == 0).map((item) {
-                return OrderListItem(
-                  item: item,
-                  displayImage: getDisplayImage(item.itemBarcode),
-                );
-              }),
+              buildGroupedItems(
+                items.where((i) => i.originalQuantity == 0).toList(),
+              ),
             ],
           ],
         ),
