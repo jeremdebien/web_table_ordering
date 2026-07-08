@@ -1,13 +1,13 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:equatable/equatable.dart';
-import '../../data/datasources/table_supabase_datasource.dart';
+import '../../data/datasources/table_data_source.dart';
 import '../../data/models/table_model.dart';
 // Events and States are parts
 part 'table_event.dart';
 part 'table_state.dart';
 
 class TableBloc extends Bloc<TableEvent, TableState> {
-  final TableSupabaseDataSource _dataSource;
+  final TableDataSource _dataSource;
 
   TableBloc(this._dataSource) : super(TableInitial()) {
     on<GetTable>(_onGetTable);

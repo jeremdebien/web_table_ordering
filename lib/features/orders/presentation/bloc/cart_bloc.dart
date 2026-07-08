@@ -5,14 +5,14 @@ import '../../data/models/sales_order_item_model.dart';
 import '../../../menu/data/models/item_model.dart';
 import '../../../menu/presentation/bloc/menu_bloc.dart';
 
-import '../../data/datasources/orders_supabase_datasource.dart';
+import '../../data/datasources/orders_data_source.dart';
 import '../../../../core/utils/device_id_service.dart';
 
 part 'cart_event.dart';
 part 'cart_state.dart';
 
 class CartBloc extends Bloc<CartEvent, CartState> {
-  final OrdersSupabaseDataSource _ordersDataSource;
+  final OrdersDataSource _ordersDataSource;
   final MenuBloc _menuBloc;
   final DeviceIdService _deviceIdService;
   StreamSubscription? _menuSubscription;

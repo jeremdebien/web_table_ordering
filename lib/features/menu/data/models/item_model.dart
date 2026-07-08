@@ -1,4 +1,4 @@
-import 'package:flutter_dotenv/flutter_dotenv.dart';
+import '../../../../core/config/app_config.dart';
 
 class ItemModel {
   final int id;
@@ -27,7 +27,7 @@ class ItemModel {
 
   String? get displayImage {
     if (_displayImage == null || _displayImage.isEmpty) return null;
-    return '${dotenv.env['IMAGE_STORAGE_PATH'] ?? ''}$_displayImage';
+    return '${AppConfig.imageStoragePath}$_displayImage';
   }
 
   ItemModel({

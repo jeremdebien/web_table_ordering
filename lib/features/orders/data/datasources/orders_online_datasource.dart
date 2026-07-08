@@ -1,22 +1,22 @@
-import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:rxdart/rxdart.dart';
+import '../../../../core/config/app_config.dart';
 import '../models/sales_order_model.dart';
 import '../models/sales_order_item_model.dart';
+import 'orders_data_source.dart';
 
-class OrdersSupabaseDataSource {
+/// Online (hosted) orders backend. Writes go through Edge Functions and new
+/// order lines land in `sales_order_item_pending` before being promoted.
+class OnlineOrdersDataSource implements OrdersDataSource {
   final SupabaseClient _client;
 
-  OrdersSupabaseDataSource(this._client);
+  OnlineOrdersDataSource(this._client);
 
-  /// Create a new order
-  /// Uses a hypothetical Edge Function 'submit-order' to handle complex
-  /// logic like creating the order and its items transactionally.
-  /// Alternatively, this could be a direct RPC call or detailed client-side inserts.
-  int get _branchId => int.tryParse(dotenv.env['BRANCH_ID'] ?? '') ?? 0;
-  int get _orderType => int.tryParse(dotenv.env['ORDER_TYPE_CODE'] ?? '') ?? 0;
+  int get _branchId => AppConfig.branchId;
+  int get _orderType => AppConfig.orderTypeCode;
 
   /// Submit a new order via Edge Function
+  @override
   Future<void> submitSalesOrder({
     required int tableId,
     required int guestCount,
@@ -50,6 +50,7 @@ class OrdersSupabaseDataSource {
   }
 
   /// Update payment status via Edge Function
+  @override
   Future<void> updatePaymentStatus({
     required int tableId,
     required int status,
@@ -70,8 +71,7 @@ class OrdersSupabaseDataSource {
 
   /// Subscribe to order updates for a specific table or all orders
   /// Useful for the Order Summary screen.
-  /// Subscribe to order updates for a specific table or all orders
-  /// Useful for the Order Summary screen.
+  @override
   Stream<List<Map<String, dynamic>>> subscribeToOrderUpdates({int? tableId}) {
     final builder = _client.from('sales_order').stream(primaryKey: ['id']);
 
@@ -83,6 +83,7 @@ class OrdersSupabaseDataSource {
   }
 
   /// Subscribe to realtime changes for a specific sales order and its items
+  @override
   Stream<void> subscribeToActiveOrderChanges(int salesOrderSupabaseId, int salesOrderId) {
     final orderStream = _client.from('sales_order').stream(primaryKey: ['id']).eq('id', salesOrderSupabaseId);
 
@@ -97,6 +98,7 @@ class OrdersSupabaseDataSource {
   }
 
   /// Fetch active order for a table
+  @override
   Future<SalesOrderModel?> getActiveOrder({required int tableId}) async {
     try {
       // 1. Fetch active sales_order
@@ -142,6 +144,7 @@ class OrdersSupabaseDataSource {
     }
   }
 
+  @override
   Future<List<SalesOrderModel>> getOrders({int? tableId}) async {
     // Note: This function originally joined items. Without FK, we can't do simple joins.
     // Use manual fetching if needed, but for now we'll fetch orders without items
@@ -168,6 +171,7 @@ class OrdersSupabaseDataSource {
   }
 
   /// Get customer by device ID
+  @override
   Future<String?> getNicknameByDeviceId(String deviceId) async {
     try {
       final response = await _client.functions.invoke(
@@ -182,6 +186,7 @@ class OrdersSupabaseDataSource {
   }
 
   /// Upsert customer nickname
+  @override
   Future<void> upsertCustomer(String deviceId, String nickname) async {
     try {
       await _client.functions.invoke(

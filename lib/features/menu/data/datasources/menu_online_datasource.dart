@@ -1,17 +1,20 @@
-import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import '../../../../core/config/app_config.dart';
 import '../models/department_model.dart';
 import '../models/category_model.dart';
 import '../models/item_model.dart';
+import 'menu_data_source.dart';
 
-class MenuSupabaseDataSource {
+/// Online (hosted) menu catalog: plural, branch-scoped tables.
+class OnlineMenuDataSource implements MenuDataSource {
   final SupabaseClient _client;
 
-  MenuSupabaseDataSource(this._client);
+  OnlineMenuDataSource(this._client);
 
-  int get _branchId => int.tryParse(dotenv.env['BRANCH_ID'] ?? '') ?? 0;
+  int get _branchId => AppConfig.branchId;
 
   // Departments
+  @override
   Future<List<DepartmentModel>> getDepartments() async {
     final response = await _client
         .from('departments')
@@ -24,6 +27,7 @@ class MenuSupabaseDataSource {
   }
 
   // Categories
+  @override
   Future<List<CategoryModel>> getCategories({int? departmentId}) async {
     var query = _client.from('categories').select().eq('status', true).eq('branch_id', _branchId);
 
@@ -36,6 +40,7 @@ class MenuSupabaseDataSource {
   }
 
   // Items
+  @override
   Future<List<ItemModel>> getItems({int? categoryId}) async {
     var query = _client.from('items').select().eq('item_status', 1).eq('branch_id', _branchId);
 
@@ -48,6 +53,7 @@ class MenuSupabaseDataSource {
   }
 
   // Storage: Get item image
+  @override
   String getItemImageUrl(String imagePath) {
     return _client.storage.from('items').getPublicUrl(imagePath);
   }

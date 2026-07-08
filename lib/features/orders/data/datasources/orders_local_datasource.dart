@@ -1,0 +1,199 @@
+import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:rxdart/rxdart.dart';
+import '../../../../core/config/app_config.dart';
+import '../models/sales_order_model.dart';
+import '../models/sales_order_item_model.dart';
+import 'orders_data_source.dart';
+
+/// Local (self-hosted) orders backend targeting the local_supabase_migration
+/// schema: header `sales_order_2`, lines `sales_order_item`, ownership stamped
+/// with `pos_client_id`. There is no pending stage — lines are written directly
+/// to `sales_order_item` and always read back as "Accepted".
+class LocalOrdersDataSource implements OrdersDataSource {
+  final SupabaseClient _client;
+
+  LocalOrdersDataSource(this._client);
+
+  String get _posClientId => AppConfig.posClientId;
+  int get _orderType => AppConfig.orderTypeCode;
+
+  /// Find the active header id for a table, or null.
+  Future<int?> _activeSalesOrderId(int tableId) async {
+    final res = await _client
+        .from('sales_order_2')
+        .select('sales_order_id')
+        .eq('table_id', tableId)
+        .or('payment_status.eq.0,payment_status.eq.1')
+        .maybeSingle();
+    return res == null ? null : (res['sales_order_id'] as num).toInt();
+  }
+
+  /// Submit items directly to the sales order (reuse open header or create one).
+  @override
+  Future<void> submitSalesOrder({
+    required int tableId,
+    required int guestCount,
+    required List<SalesOrderItemModel> items,
+  }) async {
+    try {
+      // 1. Reuse the open header for this table, or insert a new one.
+      int? salesOrderId = await _activeSalesOrderId(tableId);
+
+      if (salesOrderId == null) {
+        final inserted = await _client
+            .from('sales_order_2')
+            .insert({
+              'pos_client_id': _posClientId,
+              'table_id': tableId,
+              'guest_count': guestCount,
+              'order_type': _orderType,
+              'payment_status': 0,
+            })
+            .select('sales_order_id')
+            .single();
+        salesOrderId = (inserted['sales_order_id'] as num).toInt();
+      }
+
+      // 2. Insert lines directly into sales_order_item (no pending stage).
+      if (items.isNotEmpty) {
+        final rows = items
+            .map(
+              (e) => {
+                'pos_client_id': _posClientId,
+                'sales_order_id': salesOrderId,
+                'item_barcode': e.itemBarcode,
+                'quantity': e.quantity,
+                'amount': e.amount,
+                'item_modifiers': e.itemModifiers,
+                'is_disc_exempt': e.isDiscExempt,
+                'item_discount': e.itemDiscount,
+              },
+            )
+            .toList();
+        await _client.from('sales_order_item').insert(rows);
+      }
+    } catch (e) {
+      throw Exception('Failed to create order: $e');
+    }
+  }
+
+  /// Update payment status directly on the header.
+  @override
+  Future<void> updatePaymentStatus({
+    required int tableId,
+    required int status,
+    int? salesOrderId,
+  }) async {
+    try {
+      final query = _client.from('sales_order_2').update({'payment_status': status});
+      if (salesOrderId != null) {
+        await query.eq('sales_order_id', salesOrderId);
+      } else {
+        await query.eq('table_id', tableId).or('payment_status.eq.0,payment_status.eq.1');
+      }
+    } catch (e) {
+      throw Exception('Failed to update payment status: $e');
+    }
+  }
+
+  @override
+  Stream<List<Map<String, dynamic>>> subscribeToOrderUpdates({int? tableId}) {
+    final builder = _client.from('sales_order_2').stream(primaryKey: ['sales_order_id']);
+
+    if (tableId != null) {
+      return builder.eq('table_id', tableId).order('created_at', ascending: false);
+    }
+
+    return builder.order('created_at', ascending: false);
+  }
+
+  @override
+  Stream<void> subscribeToActiveOrderChanges(int salesOrderSupabaseId, int salesOrderId) {
+    // Local ids are unified (header id == sales_order_id); there is no pending table.
+    final orderStream = _client
+        .from('sales_order_2')
+        .stream(primaryKey: ['sales_order_id'])
+        .eq('sales_order_id', salesOrderId);
+
+    final itemStream = _client
+        .from('sales_order_item')
+        .stream(primaryKey: ['order_item_id'])
+        .eq('sales_order_id', salesOrderId);
+
+    return MergeStream([orderStream, itemStream]);
+  }
+
+  @override
+  Future<SalesOrderModel?> getActiveOrder({required int tableId}) async {
+    try {
+      final activeOrderRes = await _client
+          .from('sales_order_2')
+          .select()
+          .eq('table_id', tableId)
+          .or('payment_status.eq.0,payment_status.eq.1')
+          .maybeSingle();
+
+      if (activeOrderRes == null) return null;
+
+      final finalOrderData = _mapHeader(activeOrderRes);
+      final orderId = finalOrderData['sales_order_id'];
+
+      final items = await _client.from('sales_order_item').select().eq('sales_order_id', orderId);
+      finalOrderData['sales_order_item'] = items.map(_mapItem).toList();
+
+      return SalesOrderModel.fromJson(finalOrderData);
+    } catch (e) {
+      print('Error fetching active order: $e');
+      return null;
+    }
+  }
+
+  @override
+  Future<List<SalesOrderModel>> getOrders({int? tableId}) async {
+    var query = _client.from('sales_order_2').select();
+
+    if (tableId != null) {
+      query = query.eq('table_id', tableId);
+    }
+
+    final response = await query.order('created_at', ascending: false);
+    final orders = List<Map<String, dynamic>>.from(response as List);
+
+    final result = <SalesOrderModel>[];
+    for (var order in orders) {
+      final mapped = _mapHeader(order);
+      final items = await _client.from('sales_order_item').select().eq('sales_order_id', mapped['sales_order_id']);
+      mapped['sales_order_item'] = items.map(_mapItem).toList();
+      result.add(SalesOrderModel.fromJson(mapped));
+    }
+    return result;
+  }
+
+  /// Local schema has no customer table — nickname is an online-only concept.
+  @override
+  Future<String?> getNicknameByDeviceId(String deviceId) async => null;
+
+  @override
+  Future<void> upsertCustomer(String deviceId, String nickname) async {
+    // No-op in local mode.
+  }
+
+  /// Map a `sales_order_2` row to the JSON shape `SalesOrderModel` expects.
+  /// `id` is required non-null by the model and used by CartBloc for the
+  /// realtime subscription, so mirror it from `sales_order_id`.
+  Map<String, dynamic> _mapHeader(Map<String, dynamic> row) {
+    final data = Map<String, dynamic>.from(row);
+    data['id'] = (row['sales_order_id'] as num).toInt();
+    return data;
+  }
+
+  /// Map a `sales_order_item` row to the JSON shape `SalesOrderItemModel`
+  /// expects. Coerce NUMERIC quantity to int and tag as Accepted (no pending).
+  Map<String, dynamic> _mapItem(Map<String, dynamic> row) {
+    final item = Map<String, dynamic>.from(row);
+    item['quantity'] = (row['quantity'] as num).toInt();
+    item['item_barcode'] = row['item_barcode'] ?? '';
+    item['status'] = 'Accepted';
+    return item;
+  }
+}

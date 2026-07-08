@@ -1,6 +1,6 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:equatable/equatable.dart';
-import '../../data/datasources/menu_supabase_datasource.dart';
+import '../../data/datasources/menu_data_source.dart';
 import '../../data/models/department_model.dart';
 import '../../data/models/category_model.dart';
 import '../../data/models/item_model.dart';
@@ -9,7 +9,7 @@ part 'menu_event.dart';
 part 'menu_state.dart';
 
 class MenuBloc extends Bloc<MenuEvent, MenuState> {
-  final MenuSupabaseDataSource _menuDataSource;
+  final MenuDataSource _menuDataSource;
 
   MenuBloc(this._menuDataSource) : super(const MenuInitial()) {
     on<LoadMenu>(_onLoadMenu);
