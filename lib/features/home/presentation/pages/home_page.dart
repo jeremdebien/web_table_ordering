@@ -74,7 +74,7 @@ class _HomePageState extends State<HomePage> {
               Container(
                 decoration: const BoxDecoration(
                   image: DecorationImage(
-                    image: AssetImage("assets/images/bg_image.jpg"),
+                    image: AssetImage("assets/images/nyx.jpg"),
                     fit: BoxFit.cover,
                   ),
                 ),
@@ -87,7 +87,10 @@ class _HomePageState extends State<HomePage> {
               SafeArea(
                 child: Center(
                   child: SingleChildScrollView(
-                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 24,
+                      vertical: 32,
+                    ),
                     child: ConstrainedBox(
                       constraints: const BoxConstraints(maxWidth: 500),
                       child: Column(
@@ -99,18 +102,21 @@ class _HomePageState extends State<HomePage> {
                             child: Container(
                               decoration: BoxDecoration(
                                 shape: BoxShape.circle,
-                                border: Border.all(color: Colors.white.withValues(alpha: 0.8), width: 3),
+                                border: Border.all(
+                                  color: Colors.white.withValues(alpha: 0.8),
+                                  width: 3,
+                                ),
                                 boxShadow: [
                                   BoxShadow(
                                     color: Colors.black.withValues(alpha: 0.3),
                                     blurRadius: 20,
                                     spreadRadius: 2,
-                                  )
+                                  ),
                                 ],
                               ),
                               child: ClipOval(
                                 child: Image.asset(
-                                  'assets/images/logo.jpg',
+                                  'assets/images/nyx_logo.jpg',
                                   fit: BoxFit.contain,
                                   width: 140,
                                   height: 140,
@@ -124,12 +130,11 @@ class _HomePageState extends State<HomePage> {
                           Stack(
                             children: [
                               Text(
-                                "Welcome to Chickey's Inasal",
+                                "Welcome to NYX Vikings",
                                 textAlign: TextAlign.center,
                                 style: TextStyle(
                                   fontSize: 24,
                                   fontWeight: FontWeight.bold,
-                                  fontFamily: 'Marous',
                                   foreground: Paint()
                                     ..style = PaintingStyle.stroke
                                     ..strokeWidth = 2.5
@@ -137,12 +142,11 @@ class _HomePageState extends State<HomePage> {
                                 ),
                               ),
                               const Text(
-                                "Welcome to Chickey's Inasal",
+                                "Welcome to NYX Vikings",
                                 textAlign: TextAlign.center,
                                 style: TextStyle(
                                   fontSize: 24,
                                   fontWeight: FontWeight.bold,
-                                  fontFamily: 'Marous',
                                   color: Colors.white,
                                 ),
                               ),
@@ -152,7 +156,7 @@ class _HomePageState extends State<HomePage> {
                           Stack(
                             children: [
                               Text(
-                                "Taste the best Filipino chicken inasal",
+                                "A place where gastronomy meets grandeur.",
                                 textAlign: TextAlign.center,
                                 style: TextStyle(
                                   fontSize: 16,
@@ -164,7 +168,7 @@ class _HomePageState extends State<HomePage> {
                                 ),
                               ),
                               const Text(
-                                "Taste the best Filipino chicken inasal",
+                                "A place where gastronomy meets grandeur.",
                                 textAlign: TextAlign.center,
                                 style: TextStyle(
                                   fontSize: 16,
@@ -213,7 +217,9 @@ class _HomePageState extends State<HomePage> {
                                       "Browse our menu, customize your order, and request the bill directly from your phone. Select an option below to connect to your table.",
                                       textAlign: TextAlign.center,
                                       style: TextStyle(
-                                        color: Colors.white.withValues(alpha: 0.9),
+                                        color: Colors.white.withValues(
+                                          alpha: 0.9,
+                                        ),
                                         fontSize: 14,
                                         height: 1.5,
                                       ),
@@ -232,11 +238,16 @@ class _HomePageState extends State<HomePage> {
                             height: 56,
                             child: ElevatedButton.icon(
                               style: ElevatedButton.styleFrom(
-                                backgroundColor: const Color(0xfff25125),
+                                backgroundColor: Colors.black,
                                 foregroundColor: Colors.white,
                                 elevation: 4,
-                                shadowColor: const Color(0xfff25125).withValues(alpha: 0.4),
-                                side: const BorderSide(color: Colors.white, width: 1.5),
+                                shadowColor: const Color(
+                                  0xfff25125,
+                                ).withValues(alpha: 0.4),
+                                side: const BorderSide(
+                                  color: Colors.white,
+                                  width: 1.5,
+                                ),
                                 shape: RoundedRectangleBorder(
                                   borderRadius: BorderRadius.circular(16),
                                 ),
@@ -248,7 +259,6 @@ class _HomePageState extends State<HomePage> {
                                 style: TextStyle(
                                   fontSize: 16,
                                   fontWeight: FontWeight.bold,
-                                  fontFamily: 'SolemnSojourn',
                                   letterSpacing: 1.2,
                                 ),
                               ),
@@ -263,20 +273,27 @@ class _HomePageState extends State<HomePage> {
                             child: OutlinedButton.icon(
                               style: OutlinedButton.styleFrom(
                                 foregroundColor: Colors.white,
-                                backgroundColor: Colors.black.withValues(alpha: 0.3),
-                                side: BorderSide(color: Colors.white.withValues(alpha: 0.8), width: 1.5),
+                                backgroundColor: Colors.black.withValues(
+                                  alpha: 0.3,
+                                ),
+                                side: BorderSide(
+                                  color: Colors.white.withValues(alpha: 0.8),
+                                  width: 1.5,
+                                ),
                                 shape: RoundedRectangleBorder(
                                   borderRadius: BorderRadius.circular(16),
                                 ),
                               ),
                               onPressed: () => _showTableNameInput(context),
-                              icon: const Icon(Icons.table_restaurant, size: 24),
+                              icon: const Icon(
+                                Icons.table_restaurant,
+                                size: 24,
+                              ),
                               label: const Text(
                                 'INPUT TABLE NAME',
                                 style: TextStyle(
                                   fontSize: 16,
                                   fontWeight: FontWeight.bold,
-                                  fontFamily: 'SolemnSojourn',
                                   letterSpacing: 1.2,
                                   color: Colors.white,
                                 ),
@@ -305,7 +322,8 @@ class QrScannerDialog extends StatefulWidget {
   State<QrScannerDialog> createState() => _QrScannerDialogState();
 }
 
-class _QrScannerDialogState extends State<QrScannerDialog> with SingleTickerProviderStateMixin {
+class _QrScannerDialogState extends State<QrScannerDialog>
+    with SingleTickerProviderStateMixin {
   final MobileScannerController _scannerController = MobileScannerController(
     detectionSpeed: DetectionSpeed.normal,
     facing: CameraFacing.back,
@@ -387,13 +405,16 @@ class _QrScannerDialogState extends State<QrScannerDialog> with SingleTickerProv
           decoration: BoxDecoration(
             color: const Color(0xff121212),
             borderRadius: BorderRadius.circular(28),
-            border: Border.all(color: Colors.white.withValues(alpha: 0.15), width: 1.5),
+            border: Border.all(
+              color: Colors.white.withValues(alpha: 0.15),
+              width: 1.5,
+            ),
             boxShadow: const [
               BoxShadow(
                 color: Colors.black54,
                 blurRadius: 24,
                 spreadRadius: 4,
-              )
+              ),
             ],
           ),
           child: Column(
@@ -407,7 +428,11 @@ class _QrScannerDialogState extends State<QrScannerDialog> with SingleTickerProv
                   children: [
                     const Row(
                       children: [
-                        Icon(Icons.qr_code_scanner, color: Color(0xfff25125), size: 24),
+                        Icon(
+                          Icons.qr_code_scanner,
+                          color: Color.fromARGB(255, 235, 209, 16),
+                          size: 24,
+                        ),
                         SizedBox(width: 10),
                         Text(
                           'Scan Table QR Code',
@@ -422,7 +447,7 @@ class _QrScannerDialogState extends State<QrScannerDialog> with SingleTickerProv
                     IconButton(
                       icon: const Icon(Icons.close, color: Colors.white54),
                       onPressed: () => Navigator.pop(context),
-                    )
+                    ),
                   ],
                 ),
               ),
@@ -434,7 +459,10 @@ class _QrScannerDialogState extends State<QrScannerDialog> with SingleTickerProv
                   decoration: BoxDecoration(
                     color: Colors.black,
                     borderRadius: BorderRadius.circular(20),
-                    border: Border.all(color: Colors.white.withValues(alpha: 0.1), width: 1),
+                    border: Border.all(
+                      color: Colors.white.withValues(alpha: 0.1),
+                      width: 1,
+                    ),
                   ),
                   clipBehavior: Clip.antiAlias,
                   child: _isPermissionDenied || _hasError
@@ -445,11 +473,15 @@ class _QrScannerDialogState extends State<QrScannerDialog> with SingleTickerProv
                               controller: _scannerController,
                               onDetect: _onDetect,
                               errorBuilder: (context, error) {
-                                WidgetsBinding.instance.addPostFrameCallback((_) {
+                                WidgetsBinding.instance.addPostFrameCallback((
+                                  _,
+                                ) {
                                   if (mounted && !_hasError) {
                                     setState(() {
                                       _hasError = true;
-                                      if (error.errorCode == MobileScannerErrorCode.permissionDenied) {
+                                      if (error.errorCode ==
+                                          MobileScannerErrorCode
+                                              .permissionDenied) {
                                         _isPermissionDenied = true;
                                       }
                                     });
@@ -475,13 +507,20 @@ class _QrScannerDialogState extends State<QrScannerDialog> with SingleTickerProv
                           ? 'Please enter the table name manually instead.'
                           : 'Point your camera at the QR code on your table.',
                       textAlign: TextAlign.center,
-                      style: const TextStyle(color: Colors.white70, fontSize: 13),
+                      style: const TextStyle(
+                        color: Colors.white70,
+                        fontSize: 13,
+                      ),
                     ),
                     const SizedBox(height: 8),
                     const Text(
                       'Tip: Scanning the QR code with your phone\'s native camera app will also work!',
                       textAlign: TextAlign.center,
-                      style: TextStyle(color: Colors.amber, fontSize: 11, fontWeight: FontWeight.bold),
+                      style: TextStyle(
+                        color: Colors.amber,
+                        fontSize: 11,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
                   ],
                 ),
@@ -530,13 +569,13 @@ class _QrScannerDialogState extends State<QrScannerDialog> with SingleTickerProv
                           color: const Color(0xfff25125).withValues(alpha: 0.8),
                           blurRadius: 8,
                           spreadRadius: 1,
-                        )
+                        ),
                       ],
                     ),
                   ),
                 ),
               ),
-            )
+            ),
           ],
         );
       },
@@ -631,13 +670,16 @@ class _TableNameDialogState extends State<TableNameDialog> {
           decoration: BoxDecoration(
             color: const Color(0xff121212),
             borderRadius: BorderRadius.circular(24),
-            border: Border.all(color: Colors.white.withValues(alpha: 0.15), width: 1.5),
+            border: Border.all(
+              color: Colors.white.withValues(alpha: 0.15),
+              width: 1.5,
+            ),
             boxShadow: const [
               BoxShadow(
                 color: Colors.black54,
                 blurRadius: 24,
                 spreadRadius: 4,
-              )
+              ),
             ],
           ),
           padding: const EdgeInsets.all(24),
@@ -657,7 +699,11 @@ class _TableNameDialogState extends State<TableNameDialog> {
                       children: [
                         const Row(
                           children: [
-                            Icon(Icons.table_restaurant, color: Color(0xfff25125), size: 24),
+                            Icon(
+                              Icons.table_restaurant,
+                              color: Color.fromARGB(255, 235, 209, 16),
+                              size: 24,
+                            ),
                             SizedBox(width: 10),
                             Text(
                               'Enter Table Name',
@@ -670,9 +716,15 @@ class _TableNameDialogState extends State<TableNameDialog> {
                           ],
                         ),
                         IconButton(
-                          icon: const Icon(Icons.close, color: Colors.white54, size: 20),
-                          onPressed: isLoading ? null : () => Navigator.pop(context),
-                        )
+                          icon: const Icon(
+                            Icons.close,
+                            color: Colors.white54,
+                            size: 20,
+                          ),
+                          onPressed: isLoading
+                              ? null
+                              : () => Navigator.pop(context),
+                        ),
                       ],
                     ),
                     const SizedBox(height: 16),
@@ -693,29 +745,47 @@ class _TableNameDialogState extends State<TableNameDialog> {
                       onFieldSubmitted: (_) => _submit(),
                       decoration: InputDecoration(
                         hintText: 'e.g. Table 1',
-                        hintStyle: TextStyle(color: Colors.white.withValues(alpha: 0.3)),
+                        hintStyle: TextStyle(
+                          color: Colors.white.withValues(alpha: 0.3),
+                        ),
                         filled: true,
                         fillColor: Colors.white.withValues(alpha: 0.05),
-                        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 16,
+                        ),
                         focusedBorder: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(12),
-                          borderSide: const BorderSide(color: Color(0xfff25125), width: 1.5),
+                          borderSide: const BorderSide(
+                            color: Color.fromARGB(255, 235, 209, 16),
+                            width: 1.5,
+                          ),
                         ),
                         enabledBorder: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(12),
-                          borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.2)),
+                          borderSide: BorderSide(
+                            color: Colors.white.withValues(alpha: 0.2),
+                          ),
                         ),
                         disabledBorder: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(12),
-                          borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.05)),
+                          borderSide: BorderSide(
+                            color: Colors.white.withValues(alpha: 0.05),
+                          ),
                         ),
                         errorBorder: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(12),
-                          borderSide: const BorderSide(color: Colors.redAccent, width: 1.5),
+                          borderSide: const BorderSide(
+                            color: Colors.redAccent,
+                            width: 1.5,
+                          ),
                         ),
                         focusedErrorBorder: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(12),
-                          borderSide: const BorderSide(color: Colors.redAccent, width: 1.5),
+                          borderSide: const BorderSide(
+                            color: Colors.redAccent,
+                            width: 1.5,
+                          ),
                         ),
                       ),
                       validator: (value) {
@@ -730,22 +800,37 @@ class _TableNameDialogState extends State<TableNameDialog> {
                     // Error Feedback Box
                     if (state is TableError)
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 8,
+                        ),
                         decoration: BoxDecoration(
                           color: Colors.redAccent.withValues(alpha: 0.1),
                           borderRadius: BorderRadius.circular(8),
-                          border: Border.all(color: Colors.redAccent.withValues(alpha: 0.3)),
+                          border: Border.all(
+                            color: Colors.redAccent.withValues(alpha: 0.3),
+                          ),
                         ),
                         child: Row(
                           children: [
-                            const Icon(Icons.error_outline, color: Colors.redAccent, size: 18),
+                            const Icon(
+                              Icons.error_outline,
+                              color: Colors.redAccent,
+                              size: 18,
+                            ),
                             const SizedBox(width: 8),
                             Expanded(
                               child: Text(
-                                state.message.contains('Exception:') 
-                                    ? state.message.split('Exception:').last.trim() 
+                                state.message.contains('Exception:')
+                                    ? state.message
+                                          .split('Exception:')
+                                          .last
+                                          .trim()
                                     : 'Table not found. Check the name and try again.',
-                                style: const TextStyle(color: Colors.redAccent, fontSize: 12),
+                                style: const TextStyle(
+                                  color: Colors.redAccent,
+                                  fontSize: 12,
+                                ),
                               ),
                             ),
                           ],
@@ -758,11 +843,15 @@ class _TableNameDialogState extends State<TableNameDialog> {
                       mainAxisAlignment: MainAxisAlignment.end,
                       children: [
                         TextButton(
-                          onPressed: isLoading ? null : () => Navigator.pop(context),
+                          onPressed: isLoading
+                              ? null
+                              : () => Navigator.pop(context),
                           child: Text(
                             'Cancel',
                             style: TextStyle(
-                              color: isLoading ? Colors.white30 : Colors.white70,
+                              color: isLoading
+                                  ? Colors.white30
+                                  : Colors.white70,
                               fontWeight: FontWeight.bold,
                             ),
                           ),
@@ -770,10 +859,15 @@ class _TableNameDialogState extends State<TableNameDialog> {
                         const SizedBox(width: 12),
                         ElevatedButton(
                           style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color(0xfff25125),
+                            backgroundColor: Color.fromARGB(255, 235, 209, 16),
                             foregroundColor: Colors.white,
-                            disabledBackgroundColor: const Color(0xfff25125).withValues(alpha: 0.5),
-                            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                            disabledBackgroundColor: const Color(
+                              0xfff25125,
+                            ).withValues(alpha: 0.5),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 24,
+                              vertical: 12,
+                            ),
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(12),
                             ),
@@ -785,12 +879,17 @@ class _TableNameDialogState extends State<TableNameDialog> {
                                   height: 20,
                                   child: CircularProgressIndicator(
                                     strokeWidth: 2,
-                                    valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                                    valueColor: AlwaysStoppedAnimation<Color>(
+                                      Colors.white,
+                                    ),
                                   ),
                                 )
                               : const Text(
                                   'Find Table',
-                                  style: TextStyle(fontWeight: FontWeight.bold),
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.black,
+                                  ),
                                 ),
                         ),
                       ],
@@ -827,14 +926,13 @@ class QrScannerOverlayShape extends ShapeBorder {
 
   @override
   Path getInnerPath(Rect rect, {TextDirection? textDirection}) {
-    return Path()
-      ..addRect(
-        Rect.fromCenter(
-          center: rect.center,
-          width: cutOutSize,
-          height: cutOutSize,
-        ),
-      );
+    return Path()..addRect(
+      Rect.fromCenter(
+        center: rect.center,
+        width: cutOutSize,
+        height: cutOutSize,
+      ),
+    );
   }
 
   @override
@@ -862,7 +960,9 @@ class QrScannerOverlayShape extends ShapeBorder {
     // Draw darkened background around cutOut
     final path = Path()
       ..addRect(rect)
-      ..addRRect(RRect.fromRectAndRadius(boxRect, Radius.circular(borderRadius)));
+      ..addRRect(
+        RRect.fromRectAndRadius(boxRect, Radius.circular(borderRadius)),
+      );
     canvas.drawPath(path, backgroundPaint);
 
     // Draw borders/corners

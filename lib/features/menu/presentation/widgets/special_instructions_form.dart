@@ -21,7 +21,8 @@ class SpecialInstructionsForm extends StatefulWidget {
   });
 
   @override
-  State<SpecialInstructionsForm> createState() => _SpecialInstructionsFormState();
+  State<SpecialInstructionsForm> createState() =>
+      _SpecialInstructionsFormState();
 }
 
 class _SpecialInstructionsFormState extends State<SpecialInstructionsForm> {
@@ -39,7 +40,8 @@ class _SpecialInstructionsFormState extends State<SpecialInstructionsForm> {
 
   int _answerCount(InstructionGroup g) {
     final choices = _selected[g.id]?.length ?? 0;
-    final hasText = g.allowFreeText && (_freeText[g.id]?.trim().isNotEmpty ?? false);
+    final hasText =
+        g.allowFreeText && (_freeText[g.id]?.trim().isNotEmpty ?? false);
     return choices + (hasText ? 1 : 0);
   }
 
@@ -96,7 +98,8 @@ class _SpecialInstructionsFormState extends State<SpecialInstructionsForm> {
   }
 
   String _hint(InstructionGroup g) {
-    if (g.isSingleSelect) return g.isRequired ? 'Select one (required)' : 'Select one';
+    if (g.isSingleSelect)
+      return g.isRequired ? 'Select one (required)' : 'Select one';
     final max = g.maxSelect;
     final maxTxt = max == null ? 'any' : '$max';
     if (g.isRequired) return 'Pick ${g.minSelect}–$maxTxt (required)';
@@ -115,7 +118,10 @@ class _SpecialInstructionsFormState extends State<SpecialInstructionsForm> {
               Expanded(
                 child: Text(
                   g.label,
-                  style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
+                  style: const TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
               ),
               Text(
@@ -138,8 +144,11 @@ class _SpecialInstructionsFormState extends State<SpecialInstructionsForm> {
                   label: Text(c.label),
                   selected: selected,
                   onSelected: (_) => _toggleChoice(g, c.label),
-                  selectedColor: const Color(0xfff25125),
-                  labelStyle: TextStyle(color: selected ? Colors.white : Colors.black87),
+                  selectedColor: Colors.black,
+                  checkmarkColor: Colors.white,
+                  labelStyle: TextStyle(
+                    color: selected ? Colors.white : Colors.black87,
+                  ),
                 );
               }).toList(),
             ),
@@ -148,7 +157,9 @@ class _SpecialInstructionsFormState extends State<SpecialInstructionsForm> {
             TextField(
               decoration: InputDecoration(
                 isDense: true,
-                hintText: g.choices.isEmpty ? 'Type your answer' : 'Other / notes',
+                hintText: g.choices.isEmpty
+                    ? 'Type your answer'
+                    : 'Other / notes',
                 border: const OutlineInputBorder(),
               ),
               minLines: 1,

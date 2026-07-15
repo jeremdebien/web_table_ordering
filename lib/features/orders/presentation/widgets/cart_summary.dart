@@ -109,22 +109,6 @@ class CartSummary extends StatelessWidget {
                       fontSize: 14,
                     ),
                   ),
-                  if (cartItems.isNotEmpty)
-                    GestureDetector(
-                      onTap: () {
-                        context.read<CartBloc>().add(ClearCart());
-                      },
-                      child: const Text(
-                        'Clear all',
-                        style: TextStyle(
-                          color: Color(
-                            0xFF8A6D4B,
-                          ), // Darker gold for light background legibility
-                          fontSize: 14,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ),
                 ],
               ),
               const SizedBox(height: 12),
@@ -202,25 +186,134 @@ class CartSummary extends StatelessWidget {
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    Text(
-                                      item.itemName.isEmpty
-                                          ? 'Unknown Item'
-                                          : item.itemName,
-                                      style: const TextStyle(
-                                        color: Color(0xFF1A1A1A),
-                                        fontSize: 16,
-                                        fontWeight: FontWeight.w600,
-                                      ),
-                                    ),
-                                    const SizedBox(height: 4),
-                                    Text(
-                                      '₱${item.amount.toStringAsFixed(0)}',
-                                      style: TextStyle(
-                                        color: Colors.grey.shade700,
-                                        fontSize: 14,
-                                      ),
+                                    Row(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Expanded(
+                                          child: Column(
+                                            crossAxisAlignment:
+                                                CrossAxisAlignment.start,
+                                            children: [
+                                              Row(
+                                                children: [
+                                                  Expanded(
+                                                    child: Text(
+                                                      item.itemName.isEmpty
+                                                          ? 'Unknown Item'
+                                                          : item.itemName,
+                                                      style: const TextStyle(
+                                                        color: Color(
+                                                          0xFF1A1A1A,
+                                                        ),
+                                                        fontSize: 16,
+                                                        fontWeight:
+                                                            FontWeight.w600,
+                                                      ),
+                                                    ),
+                                                  ),
+                                                  if (item.originalQuantity ==
+                                                      0) ...[
+                                                    const SizedBox(width: 8),
+                                                    Container(
+                                                      padding:
+                                                          const EdgeInsets.symmetric(
+                                                            horizontal: 6,
+                                                            vertical: 2,
+                                                          ),
+                                                      decoration: BoxDecoration(
+                                                        color:
+                                                            const Color.fromARGB(
+                                                              255,
+                                                              235,
+                                                              209,
+                                                              16,
+                                                            ).withValues(
+                                                              alpha: 0.15,
+                                                            ),
+                                                        borderRadius:
+                                                            BorderRadius.circular(
+                                                              6,
+                                                            ),
+                                                        border: Border.all(
+                                                          color:
+                                                              const Color.fromARGB(
+                                                                255,
+                                                                235,
+                                                                209,
+                                                                16,
+                                                              ),
+                                                          width: 0.8,
+                                                        ),
+                                                      ),
+                                                      child: const Text(
+                                                        'Additional Order',
+                                                        style: TextStyle(
+                                                          fontSize: 9,
+                                                          fontWeight:
+                                                              FontWeight.bold,
+                                                          color: Colors.black87,
+                                                        ),
+                                                      ),
+                                                    ),
+                                                    const SizedBox(width: 8),
+                                                  ],
+                                                ],
+                                              ),
+                                              const SizedBox(height: 4),
+                                              Text(
+                                                '₱${item.amount.toStringAsFixed(0)}',
+                                                style: TextStyle(
+                                                  color: Colors.grey.shade700,
+                                                  fontSize: 14,
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                        if (item.nickname.isNotEmpty)
+                                          Container(
+                                            padding: const EdgeInsets.symmetric(
+                                              horizontal: 8,
+                                              vertical: 4,
+                                            ),
+                                            decoration: BoxDecoration(
+                                              color: const Color(
+                                                0xFF8A6D4B,
+                                              ).withValues(alpha: 0.1),
+                                              borderRadius:
+                                                  BorderRadius.circular(20),
+                                              border: Border.all(
+                                                color: const Color(
+                                                  0xFF8A6D4B,
+                                                ).withValues(alpha: 0.3),
+                                                width: 1,
+                                              ),
+                                            ),
+                                            child: Row(
+                                              mainAxisSize: MainAxisSize.min,
+                                              children: [
+                                                const Icon(
+                                                  Icons.person_outline,
+                                                  size: 12,
+                                                  color: Color(0xFF8A6D4B),
+                                                ),
+                                                const SizedBox(width: 3),
+                                                Text(
+                                                  item.nickname,
+                                                  style: const TextStyle(
+                                                    fontSize: 11,
+                                                    color: Color(0xFF8A6D4B),
+                                                    fontWeight: FontWeight.w600,
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                          ),
+                                      ],
                                     ),
                                     const SizedBox(height: 12),
+
                                     Row(
                                       children: [
                                         // Minus Button
