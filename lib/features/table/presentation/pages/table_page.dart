@@ -225,55 +225,201 @@ class TablePage extends StatelessWidget {
                                           showDialog(
                                             context: context,
                                             builder: (dialogContext) {
-                                              return AlertDialog(
-                                                title: const Text(
-                                                  'Request Bill',
+                                              return Dialog(
+                                                backgroundColor: const Color(
+                                                  0xFF121212,
                                                 ),
-                                                content: const Text(
-                                                  'Are you sure you want to request the bill?\nThis will lock the menu from further ordering.',
-                                                ),
-                                                actions: [
-                                                  TextButton(
-                                                    onPressed: () =>
-                                                        Navigator.of(
-                                                          dialogContext,
-                                                        ).pop(),
-                                                    child: const Text('Cancel'),
+                                                shape: RoundedRectangleBorder(
+                                                  borderRadius:
+                                                      BorderRadius.circular(24),
+                                                  side: BorderSide(
+                                                    color: Colors.white
+                                                        .withValues(alpha: 0.1),
+                                                    width: 1.5,
                                                   ),
-                                                  ElevatedButton(
-                                                    style:
-                                                        ElevatedButton.styleFrom(
-                                                          backgroundColor:
-                                                              Colors.white,
-                                                          foregroundColor:
-                                                              Colors.black,
+                                                ),
+                                                child: ConstrainedBox(
+                                                  constraints:
+                                                      const BoxConstraints(
+                                                        maxWidth: 400,
+                                                      ),
+                                                  child: Padding(
+                                                    padding:
+                                                        const EdgeInsets.all(
+                                                          24.0,
                                                         ),
-                                                    onPressed: () {
-                                                      Navigator.of(
-                                                        dialogContext,
-                                                      ).pop();
-                                                      context
-                                                          .read<CartBloc>()
-                                                          .add(
-                                                            RequestBill(
-                                                              table.tableId,
+                                                    child: Column(
+                                                      mainAxisSize:
+                                                          MainAxisSize.min,
+                                                      crossAxisAlignment:
+                                                          CrossAxisAlignment
+                                                              .stretch,
+                                                      children: [
+                                                        Row(
+                                                          children: [
+                                                            Container(
+                                                              padding:
+                                                                  const EdgeInsets.all(
+                                                                    8,
+                                                                  ),
+                                                              decoration: BoxDecoration(
+                                                                color:
+                                                                    const Color.fromARGB(
+                                                                      255,
+                                                                      235,
+                                                                      209,
+                                                                      16,
+                                                                    ).withValues(
+                                                                      alpha:
+                                                                          0.1,
+                                                                    ),
+                                                                shape: BoxShape
+                                                                    .circle,
+                                                              ),
+                                                              child: const Icon(
+                                                                Icons
+                                                                    .receipt_long,
+                                                                color:
+                                                                    Color.fromARGB(
+                                                                      255,
+                                                                      235,
+                                                                      209,
+                                                                      16,
+                                                                    ),
+                                                                size: 24,
+                                                              ),
                                                             ),
-                                                          );
-                                                      ScaffoldMessenger.of(
-                                                        context,
-                                                      ).showSnackBar(
-                                                        const SnackBar(
-                                                          content: Text(
-                                                            'Bill requested successfully',
+                                                            const SizedBox(
+                                                              width: 12,
+                                                            ),
+                                                            const Text(
+                                                              'Request Bill',
+                                                              style: TextStyle(
+                                                                color: Colors
+                                                                    .white,
+                                                                fontSize: 20,
+                                                                fontWeight:
+                                                                    FontWeight
+                                                                        .bold,
+                                                                fontFamily:
+                                                                    'serif',
+                                                              ),
+                                                            ),
+                                                          ],
+                                                        ),
+                                                        const SizedBox(
+                                                          height: 16,
+                                                        ),
+                                                        Text(
+                                                          'Are you sure you want to request the bill? This will lock the menu from further ordering.',
+                                                          style: TextStyle(
+                                                            color: Colors.white
+                                                                .withValues(
+                                                                  alpha: 0.7,
+                                                                ),
+                                                            fontSize: 14,
+                                                            height: 1.5,
                                                           ),
                                                         ),
-                                                      );
-                                                    },
-                                                    child: const Text(
-                                                      'Confirm',
+                                                        const SizedBox(
+                                                          height: 24,
+                                                        ),
+                                                        Row(
+                                                          mainAxisAlignment:
+                                                              MainAxisAlignment
+                                                                  .end,
+                                                          children: [
+                                                            TextButton(
+                                                              onPressed: () =>
+                                                                  Navigator.of(
+                                                                    dialogContext,
+                                                                  ).pop(),
+                                                              style: TextButton.styleFrom(
+                                                                foregroundColor:
+                                                                    Colors.white
+                                                                        .withValues(
+                                                                          alpha:
+                                                                              0.6,
+                                                                        ),
+                                                              ),
+                                                              child: const Text(
+                                                                'Cancel',
+                                                                style: TextStyle(
+                                                                  fontWeight:
+                                                                      FontWeight
+                                                                          .bold,
+                                                                ),
+                                                              ),
+                                                            ),
+                                                            const SizedBox(
+                                                              width: 12,
+                                                            ),
+                                                            ElevatedButton(
+                                                              style: ElevatedButton.styleFrom(
+                                                                backgroundColor:
+                                                                    const Color.fromARGB(
+                                                                      255,
+                                                                      235,
+                                                                      209,
+                                                                      16,
+                                                                    ),
+                                                                foregroundColor:
+                                                                    Colors
+                                                                        .black,
+                                                                elevation: 0,
+                                                                padding:
+                                                                    const EdgeInsets.symmetric(
+                                                                      horizontal:
+                                                                          24,
+                                                                      vertical:
+                                                                          12,
+                                                                    ),
+                                                                shape: RoundedRectangleBorder(
+                                                                  borderRadius:
+                                                                      BorderRadius.circular(
+                                                                        12,
+                                                                      ),
+                                                                ),
+                                                              ),
+                                                              onPressed: () {
+                                                                Navigator.of(
+                                                                  dialogContext,
+                                                                ).pop();
+                                                                context
+                                                                    .read<
+                                                                      CartBloc
+                                                                    >()
+                                                                    .add(
+                                                                      RequestBill(
+                                                                        table
+                                                                            .tableId,
+                                                                      ),
+                                                                    );
+                                                                ScaffoldMessenger.of(
+                                                                  context,
+                                                                ).showSnackBar(
+                                                                  const SnackBar(
+                                                                    content: Text(
+                                                                      'Bill requested successfully',
+                                                                    ),
+                                                                  ),
+                                                                );
+                                                              },
+                                                              child: const Text(
+                                                                'Confirm',
+                                                                style: TextStyle(
+                                                                  fontWeight:
+                                                                      FontWeight
+                                                                          .bold,
+                                                                ),
+                                                              ),
+                                                            ),
+                                                          ],
+                                                        ),
+                                                      ],
                                                     ),
                                                   ),
-                                                ],
+                                                ),
                                               );
                                             },
                                           );
