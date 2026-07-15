@@ -11,6 +11,8 @@ class TableBloc extends Bloc<TableEvent, TableState> {
 
   TableBloc(this._dataSource) : super(TableInitial()) {
     on<GetTable>(_onGetTable);
+    on<GetTableByName>(_onGetTableByName);
+    on<ResetTableState>(_onResetTableState);
   }
 
   Future<void> _onGetTable(GetTable event, Emitter<TableState> emit) async {
@@ -21,5 +23,19 @@ class TableBloc extends Bloc<TableEvent, TableState> {
     } catch (e) {
       emit(TableError(e.toString()));
     }
+  }
+
+  Future<void> _onGetTableByName(GetTableByName event, Emitter<TableState> emit) async {
+    emit(TableLoading());
+    try {
+      final table = await _dataSource.getTableByName(event.name);
+      emit(TableLoaded(table));
+    } catch (e) {
+      emit(TableError(e.toString()));
+    }
+  }
+
+  void _onResetTableState(ResetTableState event, Emitter<TableState> emit) {
+    emit(TableInitial());
   }
 }

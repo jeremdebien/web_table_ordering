@@ -76,11 +76,15 @@ class LocalOrdersDataSource implements OrdersDataSource {
             final validMatch = existingItems[matchIndex];
             final oldQty = (validMatch['quantity'] as num).toDouble();
             final newQty = oldQty + item.quantity;
+            final newAmount = newQty * item.amount;
 
             updates.add(
               _client
                   .from('sales_order_item')
-                  .update({'quantity': newQty})
+                  .update({
+                    'quantity': newQty,
+                    'amount': newAmount,
+                  })
                   .eq('order_item_id', validMatch['order_item_id']),
             );
 
@@ -92,7 +96,7 @@ class LocalOrdersDataSource implements OrdersDataSource {
               'sales_order_id': salesOrderId,
               'item_barcode': item.itemBarcode,
               'quantity': item.quantity,
-              'amount': item.amount,
+              'amount': item.amount * item.quantity,
               'item_modifiers': item.itemModifiers,
               'is_disc_exempt': item.isDiscExempt,
               'item_discount': item.itemDiscount,
@@ -228,7 +232,10 @@ class LocalOrdersDataSource implements OrdersDataSource {
   /// expects. Coerce NUMERIC quantity to int and tag as Accepted (no pending).
   Map<String, dynamic> _mapItem(Map<String, dynamic> row) {
     final item = Map<String, dynamic>.from(row);
-    item['quantity'] = (row['quantity'] as num).toInt();
+    final quantity = (row['quantity'] as num).toInt();
+    final amount = (row['amount'] as num).toDouble();
+    item['quantity'] = quantity;
+    item['amount'] = quantity > 0 ? (amount / quantity) : amount;
     item['item_barcode'] = row['item_barcode'] ?? '';
     item['status'] = 'Accepted';
     item['nickname'] = row['customer_name'] ?? '';
