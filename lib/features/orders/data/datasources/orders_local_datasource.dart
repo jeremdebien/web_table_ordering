@@ -54,23 +54,60 @@ class LocalOrdersDataSource implements OrdersDataSource {
         salesOrderId = (inserted['sales_order_id'] as num).toInt();
       }
 
-      // 2. Insert lines directly into sales_order_item (no pending stage).
+      // 2. Process and insert/update lines in sales_order_item (no pending stage).
       if (items.isNotEmpty) {
-        final rows = items
-            .map(
-              (e) => {
-                'pos_client_id': _posClientId,
-                'sales_order_id': salesOrderId,
-                'item_barcode': e.itemBarcode,
-                'quantity': e.quantity,
-                'amount': e.amount,
-                'item_modifiers': e.itemModifiers,
-                'is_disc_exempt': e.isDiscExempt,
-                'item_discount': e.itemDiscount,
-              },
-            )
-            .toList();
-        await _client.from('sales_order_item').insert(rows);
+        // Fetch existing items for this order to check for duplicates
+        final existingItemsRes = await _client
+            .from('sales_order_item')
+            .select('order_item_id, item_barcode, quantity, customer_name')
+            .eq('sales_order_id', salesOrderId);
+
+        final existingItems = List<Map<String, dynamic>>.from(existingItemsRes);
+
+        final updates = <Future>[];
+        final newRows = <Map<String, dynamic>>[];
+
+        for (final item in items) {
+          final matchIndex = existingItems.indexWhere((existing) =>
+              existing['item_barcode'] == item.itemBarcode &&
+              (existing['customer_name'] ?? '') == item.nickname);
+
+          if (matchIndex > -1) {
+            final validMatch = existingItems[matchIndex];
+            final oldQty = (validMatch['quantity'] as num).toDouble();
+            final newQty = oldQty + item.quantity;
+
+            updates.add(
+              _client
+                  .from('sales_order_item')
+                  .update({'quantity': newQty})
+                  .eq('order_item_id', validMatch['order_item_id']),
+            );
+
+            // Update local list in case of multiple items of same barcode in one batch
+            existingItems[matchIndex]['quantity'] = newQty;
+          } else {
+            newRows.add({
+              'pos_client_id': _posClientId,
+              'sales_order_id': salesOrderId,
+              'item_barcode': item.itemBarcode,
+              'quantity': item.quantity,
+              'amount': item.amount,
+              'item_modifiers': item.itemModifiers,
+              'is_disc_exempt': item.isDiscExempt,
+              'item_discount': item.itemDiscount,
+              'customer_name': item.nickname,
+            });
+          }
+        }
+
+        if (updates.isNotEmpty) {
+          await Future.wait(updates);
+        }
+
+        if (newRows.isNotEmpty) {
+          await _client.from('sales_order_item').insert(newRows);
+        }
       }
     } catch (e) {
       throw Exception('Failed to create order: $e');
@@ -194,6 +231,7 @@ class LocalOrdersDataSource implements OrdersDataSource {
     item['quantity'] = (row['quantity'] as num).toInt();
     item['item_barcode'] = row['item_barcode'] ?? '';
     item['status'] = 'Accepted';
+    item['nickname'] = row['customer_name'] ?? '';
     return item;
   }
 }

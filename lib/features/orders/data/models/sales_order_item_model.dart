@@ -65,7 +65,7 @@ class SalesOrderItemModel {
       updatedAt: json['updated_at'] != null ? DateTime.parse(json['updated_at'] as String) : null,
       originalQuantity: qty, // Set originalQuantity to quantity for DB items
       status: json['status'] as String? ?? 'Accepted',
-      nickname: json['nickname'] as String? ?? '',
+      nickname: json['nickname'] as String? ?? json['customer_name'] as String? ?? '',
     );
   }
 
@@ -85,6 +85,7 @@ class SalesOrderItemModel {
       'updated_at': updatedAt?.toIso8601String(),
       'status': status,
       'nickname': nickname,
+      'customer_name': nickname,
     };
   }
 
