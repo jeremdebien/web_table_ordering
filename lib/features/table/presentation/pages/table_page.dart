@@ -66,7 +66,7 @@ class TablePage extends StatelessWidget {
                                   children: [
                                     // Stroke Layer
                                     Text(
-                                      "Welcome to Chickey's Inasal",
+                                      "Welcome to NYX Vikings",
                                       style: TextStyle(
                                         fontSize: 14,
                                         fontWeight: FontWeight.bold,
@@ -93,7 +93,7 @@ class TablePage extends StatelessWidget {
                                   children: [
                                     // Stroke Layer
                                     Text(
-                                      "Taste the best filipino chicken inasal",
+                                      "A place where gastronomy meets grandeur.",
                                       textAlign: TextAlign.center,
                                       style: TextStyle(
                                         fontSize: 18,
@@ -106,7 +106,7 @@ class TablePage extends StatelessWidget {
                                     ),
                                     // Solid Text Layer
                                     Text(
-                                      "Taste the best filipino chicken inasal",
+                                      "A place where gastronomy meets grandeur.",
                                       textAlign: TextAlign.center,
                                       style: TextStyle(
                                         fontSize: 18,
@@ -122,7 +122,7 @@ class TablePage extends StatelessWidget {
                                     children: [
                                       // Stroke Layer
                                       Text(
-                                        table.description,
+                                        "Table: ${table.description}",
                                         textAlign: TextAlign.center,
                                         style: TextStyle(
                                           fontSize: 18,
@@ -135,7 +135,7 @@ class TablePage extends StatelessWidget {
                                       ),
                                       // Solid Text Layer
                                       Text(
-                                        table.description,
+                                        "Table: ${table.description}",
                                         textAlign: TextAlign.center,
                                         style: TextStyle(
                                           fontSize: 18,

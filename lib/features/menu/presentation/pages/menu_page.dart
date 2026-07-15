@@ -1,15 +1,14 @@
-import 'package:auto_size_text/auto_size_text.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:web_table_ordering/features/menu/presentation/bloc/menu_bloc.dart';
 import 'package:web_table_ordering/features/orders/presentation/bloc/cart_bloc.dart';
-import 'package:web_table_ordering/features/orders/data/models/sales_order_item_model.dart';
 import 'package:web_table_ordering/features/table/presentation/bloc/table_bloc.dart';
 import '../../../../core/di/injection_container.dart';
 import '../../data/datasources/menu_data_source.dart';
 import '../../data/models/instruction_group_model.dart';
-import '../widgets/special_instructions_form.dart';
 import '../../../../features/orders/presentation/widgets/cart_summary.dart';
+import '../widgets/menu_item_card.dart';
+import '../widgets/add_item_bottom_sheet.dart';
 
 class MenuPage extends StatefulWidget {
   const MenuPage({super.key});
@@ -102,7 +101,7 @@ class _MenuPageState extends State<MenuPage> {
                   padding: const EdgeInsets.symmetric(horizontal: 20),
                   decoration: BoxDecoration(
                     color: const Color(0xFF0F0F0F),
-                    borderRadius: BorderRadius.circular(35),
+                    borderRadius: BorderRadius.circular(14),
                     boxShadow: [
                       BoxShadow(
                         color: Colors.black.withValues(alpha: 0.3),
@@ -318,15 +317,6 @@ class _MenuPageState extends State<MenuPage> {
                                 child: Row(
                                   mainAxisAlignment: MainAxisAlignment.end,
                                   children: [
-                                    IconButton(
-                                      icon: const Icon(
-                                        Icons.search,
-                                        color: Colors.white,
-                                        size: 24,
-                                      ),
-                                      onPressed: () {},
-                                    ),
-                                    const SizedBox(width: 8),
                                     GestureDetector(
                                       onTap: () => _showNicknamePrompt(
                                         context,
@@ -476,49 +466,170 @@ class _MenuPageState extends State<MenuPage> {
                                       horizontal: 20,
                                       vertical: 16,
                                     ),
-                                    child: Row(
-                                      mainAxisAlignment:
-                                          MainAxisAlignment.spaceBetween,
-                                      children: [
-                                        Text(
-                                          state.categories
-                                              .firstWhere(
-                                                (c) =>
-                                                    c.categoryId ==
-                                                    state.selectedCategoryId,
-                                                orElse: () =>
-                                                    state.categories.first,
-                                              )
-                                              .name,
-                                          style: const TextStyle(
-                                            fontSize: 20,
-                                            fontWeight: FontWeight.bold,
-                                            fontFamily: 'serif',
-                                            color: Color(0xFF1A1A1A),
-                                          ),
-                                        ),
-                                        GestureDetector(
-                                          onTap: () {},
-                                          child: const Row(
-                                            children: [
-                                              Text(
-                                                'View all',
-                                                style: TextStyle(
-                                                  fontSize: 13,
-                                                  color: Colors.grey,
-                                                  fontWeight: FontWeight.w500,
+                                    child: AnimatedSwitcher(
+                                      duration: const Duration(
+                                        milliseconds: 250,
+                                      ),
+                                      child: _isSearching
+                                          ? Row(
+                                              key: const ValueKey(
+                                                'search_field',
+                                              ),
+                                              children: [
+                                                Expanded(
+                                                  child: Container(
+                                                    height: 44,
+                                                    decoration: BoxDecoration(
+                                                      color: Colors.white,
+                                                      borderRadius:
+                                                          BorderRadius.circular(
+                                                            12,
+                                                          ),
+                                                      border: Border.all(
+                                                        color: const Color(
+                                                          0xFFC5A880,
+                                                        ),
+                                                        width: 1.5,
+                                                      ),
+                                                      boxShadow: [
+                                                        BoxShadow(
+                                                          color: Colors.black
+                                                              .withValues(
+                                                                alpha: 0.06,
+                                                              ),
+                                                          blurRadius: 8,
+                                                          offset: const Offset(
+                                                            0,
+                                                            2,
+                                                          ),
+                                                        ),
+                                                      ],
+                                                    ),
+                                                    child: TextField(
+                                                      controller:
+                                                          _searchController,
+                                                      autofocus: true,
+                                                      style: const TextStyle(
+                                                        fontSize: 15,
+                                                        color: Color(
+                                                          0xFF1A1A1A,
+                                                        ),
+                                                      ),
+                                                      decoration: InputDecoration(
+                                                        hintText:
+                                                            'Search menu…',
+                                                        hintStyle: TextStyle(
+                                                          color: Colors
+                                                              .grey
+                                                              .shade400,
+                                                          fontSize: 15,
+                                                        ),
+                                                        prefixIcon: const Icon(
+                                                          Icons.search,
+                                                          color: Color(
+                                                            0xFFC5A880,
+                                                          ),
+                                                          size: 20,
+                                                        ),
+                                                        border:
+                                                            InputBorder.none,
+                                                        contentPadding:
+                                                            const EdgeInsets.symmetric(
+                                                              vertical: 12,
+                                                            ),
+                                                      ),
+                                                      onChanged: (value) {
+                                                        setState(() {
+                                                          _searchQuery = value;
+                                                        });
+                                                      },
+                                                    ),
+                                                  ),
                                                 ),
+                                                const SizedBox(width: 8),
+                                                GestureDetector(
+                                                  onTap: () {
+                                                    setState(() {
+                                                      _isSearching = false;
+                                                      _searchQuery = '';
+                                                      _searchController.clear();
+                                                    });
+                                                  },
+                                                  child: Container(
+                                                    width: 44,
+                                                    height: 44,
+                                                    decoration:
+                                                        const BoxDecoration(
+                                                          color: Color(
+                                                            0xFF1A1A1A,
+                                                          ),
+                                                          shape:
+                                                              BoxShape.circle,
+                                                        ),
+                                                    child: const Icon(
+                                                      Icons.close,
+                                                      color: Colors.white,
+                                                      size: 20,
+                                                    ),
+                                                  ),
+                                                ),
+                                              ],
+                                            )
+                                          : Row(
+                                              key: const ValueKey(
+                                                'category_title',
                                               ),
-                                              SizedBox(width: 4),
-                                              Icon(
-                                                Icons.chevron_right,
-                                                size: 16,
-                                                color: Colors.grey,
-                                              ),
-                                            ],
-                                          ),
-                                        ),
-                                      ],
+                                              mainAxisAlignment:
+                                                  MainAxisAlignment
+                                                      .spaceBetween,
+                                              children: [
+                                                Text(
+                                                  state.categories
+                                                      .firstWhere(
+                                                        (c) =>
+                                                            c.categoryId ==
+                                                            state
+                                                                .selectedCategoryId,
+                                                        orElse: () => state
+                                                            .categories
+                                                            .first,
+                                                      )
+                                                      .name,
+                                                  style: const TextStyle(
+                                                    fontSize: 20,
+                                                    fontWeight: FontWeight.bold,
+                                                    fontFamily: 'serif',
+                                                    color: Color(0xFF1A1A1A),
+                                                  ),
+                                                ),
+                                                GestureDetector(
+                                                  onTap: () {
+                                                    setState(() {
+                                                      _isSearching = true;
+                                                      _searchQuery = '';
+                                                      _searchController.clear();
+                                                    });
+                                                  },
+                                                  child: Container(
+                                                    width: 38,
+                                                    height: 38,
+                                                    decoration:
+                                                        const BoxDecoration(
+                                                          color: Color(
+                                                            0xFF1A1A1A,
+                                                          ),
+                                                          shape:
+                                                              BoxShape.circle,
+                                                        ),
+                                                    child: const Icon(
+                                                      Icons.search,
+                                                      color: Colors.white,
+                                                      size: 20,
+                                                    ),
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
                                     ),
                                   ),
                                   // GridView for items
@@ -573,213 +684,13 @@ class _MenuPageState extends State<MenuPage> {
                                               badgeColor = Colors.black;
                                             }
 
-                                            return Container(
-                                              decoration: BoxDecoration(
-                                                color: Colors.white,
-                                                borderRadius:
-                                                    BorderRadius.circular(20),
-                                                border: Border.all(
-                                                  color: Colors.grey.shade100,
-                                                ),
-                                                boxShadow: [
-                                                  BoxShadow(
-                                                    color: Colors.black
-                                                        .withValues(
-                                                          alpha: 0.02,
-                                                        ),
-                                                    blurRadius: 10,
-                                                    offset: const Offset(0, 4),
+                                            return MenuItemCard(
+                                              item: item,
+                                              onTap: () =>
+                                                  _showAddItemConfirmation(
+                                                    context,
+                                                    item,
                                                   ),
-                                                ],
-                                              ),
-                                              child: Column(
-                                                crossAxisAlignment:
-                                                    CrossAxisAlignment.start,
-                                                children: [
-                                                  Expanded(
-                                                    child: Stack(
-                                                      children: [
-                                                        Positioned.fill(
-                                                          child: ClipRRect(
-                                                            borderRadius:
-                                                                const BorderRadius.vertical(
-                                                                  top:
-                                                                      Radius.circular(
-                                                                        20,
-                                                                      ),
-                                                                ),
-                                                            child:
-                                                                item.displayImage !=
-                                                                    null
-                                                                ? Image.network(
-                                                                    item.displayImage!,
-                                                                    fit: BoxFit
-                                                                        .cover,
-                                                                  )
-                                                                : const Icon(
-                                                                    Icons
-                                                                        .restaurant,
-                                                                    size: 50,
-                                                                    color: Colors
-                                                                        .grey,
-                                                                  ),
-                                                          ),
-                                                        ),
-                                                        if (badgeText != null)
-                                                          Positioned(
-                                                            top: 10,
-                                                            left: 10,
-                                                            child: Container(
-                                                              padding:
-                                                                  const EdgeInsets.symmetric(
-                                                                    horizontal:
-                                                                        8,
-                                                                    vertical: 4,
-                                                                  ),
-                                                              decoration: BoxDecoration(
-                                                                color:
-                                                                    badgeColor,
-                                                                borderRadius:
-                                                                    BorderRadius.circular(
-                                                                      6,
-                                                                    ),
-                                                              ),
-                                                              child: Text(
-                                                                badgeText,
-                                                                style: TextStyle(
-                                                                  fontSize: 9,
-                                                                  fontWeight:
-                                                                      FontWeight
-                                                                          .bold,
-                                                                  color:
-                                                                      badgeTextColor,
-                                                                ),
-                                                              ),
-                                                            ),
-                                                          ),
-                                                        Positioned(
-                                                          top: 10,
-                                                          right: 10,
-                                                          child: Container(
-                                                            padding:
-                                                                const EdgeInsets.all(
-                                                                  6,
-                                                                ),
-                                                            decoration:
-                                                                const BoxDecoration(
-                                                                  color: Colors
-                                                                      .black26,
-                                                                  shape: BoxShape
-                                                                      .circle,
-                                                                ),
-                                                            child: const Icon(
-                                                              Icons
-                                                                  .favorite_border,
-                                                              color:
-                                                                  Colors.white,
-                                                              size: 16,
-                                                            ),
-                                                          ),
-                                                        ),
-                                                      ],
-                                                    ),
-                                                  ),
-                                                  Padding(
-                                                    padding:
-                                                        const EdgeInsets.all(
-                                                          12.0,
-                                                        ),
-                                                    child: Column(
-                                                      crossAxisAlignment:
-                                                          CrossAxisAlignment
-                                                              .start,
-                                                      children: [
-                                                        Text(
-                                                          item.name,
-                                                          style:
-                                                              const TextStyle(
-                                                                fontSize: 14,
-                                                                fontWeight:
-                                                                    FontWeight
-                                                                        .bold,
-                                                                color: Color(
-                                                                  0xFF1A1A1A,
-                                                                ),
-                                                              ),
-                                                          maxLines: 1,
-                                                          overflow: TextOverflow
-                                                              .ellipsis,
-                                                        ),
-                                                        const SizedBox(
-                                                          height: 4,
-                                                        ),
-                                                        Text(
-                                                          item.description ??
-                                                              'Handcrafted fresh daily',
-                                                          style: TextStyle(
-                                                            fontSize: 11,
-                                                            color: Colors
-                                                                .grey
-                                                                .shade600,
-                                                          ),
-                                                          maxLines: 2,
-                                                          overflow: TextOverflow
-                                                              .ellipsis,
-                                                        ),
-                                                        const SizedBox(
-                                                          height: 8,
-                                                        ),
-                                                        Row(
-                                                          mainAxisAlignment:
-                                                              MainAxisAlignment
-                                                                  .spaceBetween,
-                                                          children: [
-                                                            Text(
-                                                              '₱${item.price.toStringAsFixed(0)}',
-                                                              style: const TextStyle(
-                                                                fontSize: 16,
-                                                                fontWeight:
-                                                                    FontWeight
-                                                                        .bold,
-                                                                color: Color(
-                                                                  0xFF1A1A1A,
-                                                                ),
-                                                              ),
-                                                            ),
-                                                            GestureDetector(
-                                                              onTap: () {
-                                                                _showAddItemConfirmation(
-                                                                  context,
-                                                                  item,
-                                                                );
-                                                              },
-                                                              child: Container(
-                                                                padding:
-                                                                    const EdgeInsets.all(
-                                                                      6,
-                                                                    ),
-                                                                decoration: const BoxDecoration(
-                                                                  color: Color(
-                                                                    0xFF1A1A1A,
-                                                                  ),
-                                                                  shape: BoxShape
-                                                                      .circle,
-                                                                ),
-                                                                child: const Icon(
-                                                                  Icons.add,
-                                                                  color: Colors
-                                                                      .white,
-                                                                  size: 18,
-                                                                ),
-                                                              ),
-                                                            ),
-                                                          ],
-                                                        ),
-                                                      ],
-                                                    ),
-                                                  ),
-                                                ],
-                                              ),
                                             );
                                           },
                                         ),
@@ -822,7 +733,7 @@ class _MenuPageState extends State<MenuPage> {
                 width: 40,
                 height: 4,
                 decoration: BoxDecoration(
-                  color: Colors.grey.shade400,
+                  color: Color.fromARGB(255, 0, 0, 0),
                   borderRadius: BorderRadius.circular(2),
                 ),
               ),
@@ -834,224 +745,30 @@ class _MenuPageState extends State<MenuPage> {
     );
   }
 
-  Future<void> _showAddItemConfirmation(BuildContext context, dynamic item) async {
-    int quantity = 1;
-    String? specialInstructions;
-
-    // Load any special-instruction questions for this item (local mode only).
+  Future<void> _showAddItemConfirmation(
+    BuildContext context,
+    dynamic item,
+  ) async {
     List<InstructionGroup> instructionGroups = [];
     try {
-      instructionGroups = await sl<MenuDataSource>().getItemInstructions(item.barcode);
+      instructionGroups = await sl<MenuDataSource>().getItemInstructions(
+        item.barcode,
+      );
     } catch (_) {
       instructionGroups = [];
     }
     if (!context.mounted) return;
 
-    // Add is gated until every required question is answered.
-    bool instructionsValid = instructionGroups.every((g) => !g.isRequired);
-
-    showDialog(
+    showModalBottomSheet(
       context: context,
-      builder: (dialogContext) {
-        return StatefulBuilder(
-          builder: (context, setState) {
-            return AlertDialog(
-              backgroundColor: Colors.white,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(20),
-              ),
-              content: SizedBox(
-                width: MediaQuery.of(context).size.width * 0.8,
-                child: SingleChildScrollView(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                    const Center(
-                      child: Text(
-                        "Confirm Order",
-                        style: TextStyle(
-                          fontSize: 20,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 15),
-                    Row(
-                      children: [
-                        item.displayImage != null &&
-                                item.displayImage!.isNotEmpty
-                            ? Image.network(
-                                item.displayImage!,
-                                width: 100,
-                                height: 100,
-                                fit: BoxFit.cover,
-                              )
-                            : Center(
-                                child: Image.asset(
-                                  'assets/images/logo.jpg',
-                                  width: 100,
-                                  height: 100,
-                                  color: Colors.grey,
-                                  colorBlendMode: BlendMode.lighten,
-                                ),
-                              ),
-                        const SizedBox(width: 10),
-                        Expanded(
-                          child: Column(
-                            mainAxisSize: MainAxisSize.min,
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              AutoSizeText(
-                                item.name,
-                                textAlign: TextAlign.left,
-                                style: const TextStyle(
-                                  fontSize: 18,
-                                  fontWeight: FontWeight.bold,
-                                  color: Color(0xfff25125),
-                                ),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                              const SizedBox(height: 5),
-                              Row(
-                                mainAxisAlignment:
-                                    MainAxisAlignment.spaceBetween,
-                                children: [
-                                  Container(
-                                    decoration: BoxDecoration(
-                                      border: Border.all(
-                                        color: Colors.grey.shade300,
-                                      ),
-                                      borderRadius: BorderRadius.circular(5),
-                                    ),
-                                    child: Row(
-                                      children: [
-                                        InkWell(
-                                          onTap: () {
-                                            if (quantity > 1) {
-                                              setState(() {
-                                                quantity--;
-                                              });
-                                            }
-                                          },
-                                          child: const Padding(
-                                            padding: EdgeInsets.symmetric(
-                                              horizontal: 8,
-                                              vertical: 4,
-                                            ),
-                                            child: Icon(Icons.remove, size: 16),
-                                          ),
-                                        ),
-                                        Text(
-                                          '$quantity',
-                                          style: const TextStyle(
-                                            fontSize: 14,
-                                            fontWeight: FontWeight.bold,
-                                          ),
-                                        ),
-                                        InkWell(
-                                          onTap: () {
-                                            setState(() {
-                                              quantity++;
-                                            });
-                                          },
-                                          child: const Padding(
-                                            padding: EdgeInsets.symmetric(
-                                              horizontal: 8,
-                                              vertical: 4,
-                                            ),
-                                            child: Icon(Icons.add, size: 16),
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                  Container(
-                                    decoration: BoxDecoration(
-                                      color: const Color(0xfff25125),
-                                      borderRadius: BorderRadius.circular(5),
-                                    ),
-                                    child: Padding(
-                                      padding: const EdgeInsets.all(8.0),
-                                      child: Text(
-                                        '₱${item.price}',
-                                        style: const TextStyle(
-                                          fontSize: 16,
-                                          fontWeight: FontWeight.w500,
-                                          color: Colors.white,
-                                        ),
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                    if (instructionGroups.isNotEmpty)
-                      SpecialInstructionsForm(
-                        groups: instructionGroups,
-                        onChanged: (valid, json) {
-                          setState(() {
-                            instructionsValid = valid;
-                            specialInstructions = json;
-                          });
-                        },
-                      ),
-                  ],
-                ),
-                ),
-              ),
-              actionsAlignment: MainAxisAlignment.center,
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.of(dialogContext).pop(),
-                  style: TextButton.styleFrom(
-                    side: BorderSide(color: Colors.grey.shade300),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                  ),
-                  child: const Text(
-                    'Cancel',
-                    style: TextStyle(color: Colors.grey),
-                  ),
-                ),
-                ElevatedButton(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xfff25125),
-                    foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                  ),
-                  onPressed: instructionsValid
-                      ? () {
-                          Navigator.of(dialogContext).pop();
-                          context.read<CartBloc>().add(
-                            AddToCart(
-                              SalesOrderItemModel(
-                                itemBarcode: item.barcode,
-                                itemName: item.name,
-                                quantity: quantity,
-                                amount: item.price,
-                                originalQuantity: 0,
-                                specialInstructions: specialInstructions,
-                              ),
-                            ),
-                          );
-                        }
-                      : null,
-                  child: const Text('Add to Order'),
-                ),
-              ],
-            );
-          },
-        );
-      },
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      barrierColor: Colors.black.withOpacity(0.5),
+      constraints: const BoxConstraints(maxWidth: 500),
+      builder: (_) => AddItemBottomSheet(
+        item: item,
+        instructionGroups: instructionGroups,
+      ),
     );
   }
 
