@@ -21,4 +21,17 @@ class OnlineTableDataSource implements TableDataSource {
       throw Exception('Failed to fetch table: $e');
     }
   }
+
+  @override
+  Future<TableModel> getTableByName(String name) async {
+    try {
+      final response = await _client.from('tables').select().ilike('table_desc', name.trim()).eq('branch_id', _branchId).maybeSingle();
+      if (response == null) {
+        throw Exception('Table "$name" not found.');
+      }
+      return TableModel.fromJson(response);
+    } catch (e) {
+      throw Exception('Failed to fetch table by name: $e');
+    }
+  }
 }

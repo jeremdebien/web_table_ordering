@@ -15,3 +15,16 @@ class GetTable extends TableEvent {
   @override
   List<Object?> get props => [uuid];
 }
+
+class GetTableByName extends TableEvent {
+  final String name;
+
+  const GetTableByName(this.name);
+
+  @override
+  List<Object?> get props => [name];
+}
+
+class ResetTableState extends TableEvent {
+  const ResetTableState();
+}
