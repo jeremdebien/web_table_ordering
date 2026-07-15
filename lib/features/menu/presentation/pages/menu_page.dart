@@ -55,6 +55,18 @@ class _MenuPageState extends State<MenuPage> {
     }
   }
 
+  IconData _getCategoryIcon(String name) {
+    final lower = name.toLowerCase();
+    if (lower.contains('all')) return Icons.grid_view_rounded;
+    if (lower.contains('carte')) return Icons.restaurant;
+    if (lower.contains('pasta')) return Icons.soup_kitchen;
+    if (lower.contains('main')) return Icons.flatware;
+    if (lower.contains('drink') || lower.contains('beverage')) {
+      return Icons.local_drink;
+    }
+    return Icons.dining;
+  }
+
   @override
   Widget build(BuildContext context) {
     return BlocListener<TableBloc, TableState>(
@@ -64,75 +76,7 @@ class _MenuPageState extends State<MenuPage> {
         }
       },
       child: Scaffold(
-        appBar: AppBar(
-          backgroundColor: Colors.transparent,
-          surfaceTintColor: Colors.transparent,
-          scrolledUnderElevation: 0,
-          titleSpacing: 0,
-          title: Row(
-            children: [
-              Image.asset('assets/images/logo.jpg', width: 80),
-              SizedBox(width: 10),
-              const Expanded(
-                child: AutoSizeText(
-                  'Browse our menu',
-                  style: TextStyle(fontSize: 20, fontFamily: 'Marous'),
-                  maxLines: 1,
-                  textAlign: TextAlign.center,
-                  minFontSize: 10,
-                ),
-              ),
-              SizedBox(width: 10),
-              GestureDetector(
-                onTap: () {
-                  setState(() {
-                    _isSearching = !_isSearching;
-                    if (!_isSearching) {
-                      _searchQuery = '';
-                      _searchController.clear();
-                    }
-                  });
-                },
-                child: Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: _isSearching ? Colors.red : const Color(0xfff25125),
-                    shape: BoxShape.circle,
-                  ),
-                  child: Icon(
-                    _isSearching ? Icons.close : Icons.search,
-                    size: 16,
-                    color: Colors.white,
-                  ),
-                ),
-              ),
-              SizedBox(
-                width: 10,
-              ),
-              BlocBuilder<CartBloc, CartState>(
-                builder: (context, state) {
-                  return IconButton(
-                    onPressed: () => _showNicknamePrompt(context, initialValue: state.nickname),
-                    icon: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        const Icon(Icons.person, size: 20, color: Color(0xfff25125)),
-                        if (state.nickname.isNotEmpty)
-                          Text(
-                            state.nickname,
-                            style: const TextStyle(fontSize: 10, color: Color(0xfff25125)),
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                      ],
-                    ),
-                    tooltip: 'Change Nickname',
-                  );
-                },
-              ),
-              const SizedBox(width: 10),
-            ],
-          ),
-        ),
+        backgroundColor: const Color(0xFFFAF7F2),
         floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
         floatingActionButton: BlocBuilder<CartBloc, CartState>(
           builder: (context, state) {
@@ -141,305 +85,718 @@ class _MenuPageState extends State<MenuPage> {
               0,
               (sum, item) => sum + item.quantity,
             );
+            final totalAmount = state.items.fold(
+              0.0,
+              (sum, item) => sum + (item.amount * item.quantity),
+            );
             return Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: SizedBox(
-                width: double.infinity,
-                child: FloatingActionButton.extended(
-                  backgroundColor: Colors.black,
-                  onPressed: () => _showOrderSummary(context),
-                  label: Text(
-                    'View Order ($totalCount)',
-                    style: TextStyle(color: Colors.white),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              child: GestureDetector(
+                onTap: () => _showOrderSummary(context),
+                child: Container(
+                  height: 70,
+                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF0F0F0F),
+                    borderRadius: BorderRadius.circular(35),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.3),
+                        blurRadius: 15,
+                        offset: const Offset(0, 5),
+                      ),
+                    ],
                   ),
-                  icon: const Icon(Icons.shopping_cart, color: Colors.white),
+                  child: Row(
+                    children: [
+                      Stack(
+                        clipBehavior: Clip.none,
+                        children: [
+                          const Icon(
+                            Icons.shopping_cart_outlined,
+                            color: Colors.white,
+                            size: 28,
+                          ),
+                          Positioned(
+                            top: -6,
+                            right: -6,
+                            child: Container(
+                              padding: const EdgeInsets.all(4),
+                              decoration: const BoxDecoration(
+                                color: Color(0xFFC5A880),
+                                shape: BoxShape.circle,
+                              ),
+                              constraints: const BoxConstraints(
+                                minWidth: 16,
+                                minHeight: 16,
+                              ),
+                              child: Text(
+                                '$totalCount',
+                                style: const TextStyle(
+                                  color: Colors.black,
+                                  fontSize: 9,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                                textAlign: TextAlign.center,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(width: 16),
+                      Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'View Order',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 15,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          Text(
+                            '$totalCount items',
+                            style: const TextStyle(
+                              color: Colors.white54,
+                              fontSize: 11,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const Spacer(),
+                      Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        children: [
+                          const Text(
+                            'Total',
+                            style: TextStyle(
+                              color: Colors.white54,
+                              fontSize: 11,
+                            ),
+                          ),
+                          Text(
+                            '₱${totalAmount.toStringAsFixed(2)}',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(width: 12),
+                      Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: const BoxDecoration(
+                          color: Color(0xFFC5A880),
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(
+                          Icons.chevron_right,
+                          color: Colors.black,
+                          size: 20,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
             );
           },
         ),
         body: BlocListener<CartBloc, CartState>(
-          listenWhen: (previous, current) => previous.nickname != current.nickname || (previous.deviceId != current.deviceId),
+          listenWhen: (previous, current) =>
+              previous.nickname != current.nickname ||
+              (previous.deviceId != current.deviceId),
           listener: (context, state) {
             if (state.nickname.isEmpty && state.deviceId != null) {
               _showNicknamePrompt(context);
             }
           },
           child: BlocBuilder<CartBloc, CartState>(
-          builder: (context, cartState) {
-            if (cartState.paymentStatus == 1) {
-              return Center(
-                child: Padding(
-                  padding: const EdgeInsets.all(20.0),
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      const Icon(
-                        Icons.receipt_long,
-                        size: 80,
-                        color: Color(0xfff25125),
-                      ),
-                      const SizedBox(height: 20),
-                      const Text(
-                        "You can't order since you request for a bill.",
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
+            builder: (context, cartState) {
+              if (cartState.paymentStatus == 1) {
+                return Center(
+                  child: Padding(
+                    padding: const EdgeInsets.all(20.0),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const Icon(
+                          Icons.receipt_long,
+                          size: 80,
+                          color: Color(0xfff25125),
                         ),
-                      ),
-                      const SizedBox(height: 20),
-                      ElevatedButton(
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xfff25125),
-                          foregroundColor: Colors.white,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(10),
+                        const SizedBox(height: 20),
+                        const Text(
+                          "You can't order since you request for a bill.",
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
                           ),
                         ),
-                        onPressed: () {
-                          final tableState = context.read<TableBloc>().state;
-                          if (tableState is TableLoaded) {
-                            context.read<CartBloc>().add(
-                              EnableOrdering(tableState.table.tableId),
-                            );
-                          }
-                        },
-                        child: const Text('Enable ordering again?'),
-                      ),
-                    ],
+                        const SizedBox(height: 20),
+                        ElevatedButton(
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xfff25125),
+                            foregroundColor: Colors.white,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                          ),
+                          onPressed: () {
+                            final tableState = context.read<TableBloc>().state;
+                            if (tableState is TableLoaded) {
+                              context.read<CartBloc>().add(
+                                EnableOrdering(tableState.table.tableId),
+                              );
+                            }
+                          },
+                          child: const Text('Enable ordering again?'),
+                        ),
+                      ],
+                    ),
                   ),
-                ),
-              );
-            }
+                );
+              }
 
-            return BlocBuilder<MenuBloc, MenuState>(
-              builder: (context, state) {
-                if (state is MenuLoading) {
-                  return const Center(child: CircularProgressIndicator());
-                }
-                if (state is MenuError) {
-                  return Center(child: Text(state.message));
-                }
-                if (state is MenuLoaded) {
-                  // Filter items based on search query
-                  final displayItems = _isSearching && _searchQuery.isNotEmpty
-                      ? state.items
-                            .where(
-                              (item) => item.name.toLowerCase().contains(
-                                _searchQuery.toLowerCase(),
-                              ),
-                            )
-                            .toList()
-                      : state.items
-                            .where(
-                              (item) => item.categoryId == state.selectedCategoryId,
-                            )
-                            .toList();
-
-                  return Column(
-                    children: [
-                      // Search bar (visible when searching)
-                      if (_isSearching)
-                        Padding(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 16.0,
-                            vertical: 8.0,
-                          ),
-                          child: TextField(
-                            controller: _searchController,
-                            autofocus: true,
-                            decoration: InputDecoration(
-                              hintText: 'Search for items...',
-                              prefixIcon: const Icon(
-                                Icons.search,
-                                color: Color(0xfff25125),
-                              ),
-                              filled: true,
-                              fillColor: Colors.white,
-                              border: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(12),
-                                borderSide: const BorderSide(
-                                  color: Color(0xfff25125),
+              return BlocBuilder<MenuBloc, MenuState>(
+                builder: (context, state) {
+                  if (state is MenuLoading) {
+                    return const Center(child: CircularProgressIndicator());
+                  }
+                  if (state is MenuError) {
+                    return Center(child: Text(state.message));
+                  }
+                  if (state is MenuLoaded) {
+                    final displayItems = _isSearching && _searchQuery.isNotEmpty
+                        ? state.items
+                              .where(
+                                (item) => item.name.toLowerCase().contains(
+                                  _searchQuery.toLowerCase(),
                                 ),
+                              )
+                              .toList()
+                        : state.items
+                              .where(
+                                (item) =>
+                                    item.categoryId == state.selectedCategoryId,
+                              )
+                              .toList();
+
+                    return CustomScrollView(
+                      slivers: [
+                        // Food Background Header
+                        SliverToBoxAdapter(
+                          child: Container(
+                            height: 340,
+                            alignment: Alignment.topRight,
+                            decoration: BoxDecoration(
+                              image: DecorationImage(
+                                image: const AssetImage(
+                                  "assets/images/menubg.png",
+                                ),
+                                fit: BoxFit.cover,
                               ),
-                              focusedBorder: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(12),
-                                borderSide: const BorderSide(
-                                  color: Color(0xfff25125),
-                                  width: 2,
+                            ),
+                            child: SafeArea(
+                              bottom: false,
+                              child: Padding(
+                                padding: const EdgeInsets.only(
+                                  top: 10.0,
+                                  left: 20.0,
+                                  right: 20.0,
+                                ),
+                                child: Row(
+                                  mainAxisAlignment: MainAxisAlignment.end,
+                                  children: [
+                                    IconButton(
+                                      icon: const Icon(
+                                        Icons.search,
+                                        color: Colors.white,
+                                        size: 24,
+                                      ),
+                                      onPressed: () {},
+                                    ),
+                                    const SizedBox(width: 8),
+                                    GestureDetector(
+                                      onTap: () => _showNicknamePrompt(
+                                        context,
+                                        initialValue: cartState.nickname,
+                                      ),
+                                      child: Column(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          const Icon(
+                                            Icons.account_circle,
+                                            color: Colors.white,
+                                            size: 24,
+                                          ),
+                                          if (cartState.nickname.isNotEmpty)
+                                            Text(
+                                              cartState.nickname.toLowerCase(),
+                                              style: const TextStyle(
+                                                color: Colors.white70,
+                                                fontSize: 10,
+                                              ),
+                                              overflow: TextOverflow.ellipsis,
+                                            ),
+                                        ],
+                                      ),
+                                    ),
+                                  ],
                                 ),
                               ),
                             ),
-                            onChanged: (value) {
-                              setState(() {
-                                _searchQuery = value;
-                              });
-                            },
                           ),
                         ),
-                      // Category chips (hidden when searching)
-                      if (!_isSearching)
-                        SizedBox(
-                          height: 50,
-                          child: ListView.builder(
-                            itemCount: state.categories.length,
-                            scrollDirection: Axis.horizontal,
-                            itemBuilder: (context, index) {
-                              final category = state.categories[index];
-                              final isSelected = category.categoryId == state.selectedCategoryId;
-                              return Padding(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 4.0,
+                        // Beige Content Box
+                        SliverToBoxAdapter(
+                          child: Transform.translate(
+                            offset: const Offset(0, -20),
+                            child: Container(
+                              padding: const EdgeInsets.only(top: 20),
+                              decoration: const BoxDecoration(
+                                color: Color(0xFFFAF7F2),
+                                borderRadius: BorderRadius.only(
+                                  topLeft: Radius.circular(30),
+                                  topRight: Radius.circular(30),
                                 ),
-                                child: ChoiceChip(
-                                  label: Text(category.name),
-                                  labelStyle: TextStyle(
-                                    color: isSelected ? Colors.white : Colors.black,
-                                  ),
-                                  selected: isSelected,
-                                  showCheckmark: false,
-                                  selectedColor: const Color(0xfff25125),
-                                  backgroundColor: Colors.white,
-                                  side: BorderSide(
-                                    color: isSelected ? Colors.white : const Color(0xfff25125),
-                                  ),
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(20),
-                                  ),
-                                  onSelected: (selected) {
-                                    if (selected) {
-                                      context.read<MenuBloc>().add(
-                                        SelectCategory(
-                                          category.categoryId ?? 0,
-                                        ),
-                                      );
-                                    }
-                                  },
-                                ),
-                              );
-                            },
-                          ),
-                        ),
-                      Divider(),
-                      Expanded(
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 20.0),
-                          child: displayItems.isEmpty
-                              ? const Center(
-                                  child: Text(
-                                    'No items found',
-                                    style: TextStyle(
-                                      fontSize: 16,
-                                      color: Colors.grey,
+                              ),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  const SizedBox(height: 20),
+                                  // Categories Horizontal List
+                                  SizedBox(
+                                    height: 85,
+                                    child: ListView.builder(
+                                      scrollDirection: Axis.horizontal,
+                                      itemCount: state.categories.length,
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 16,
+                                      ),
+                                      itemBuilder: (context, index) {
+                                        final category =
+                                            state.categories[index];
+                                        final isSelected =
+                                            category.categoryId ==
+                                            state.selectedCategoryId;
+                                        return GestureDetector(
+                                          onTap: () {
+                                            context.read<MenuBloc>().add(
+                                              SelectCategory(
+                                                category.categoryId ?? 0,
+                                              ),
+                                            );
+                                          },
+                                          child: Container(
+                                            width: 90,
+                                            margin: const EdgeInsets.only(
+                                              right: 12,
+                                            ),
+                                            decoration: BoxDecoration(
+                                              color: isSelected
+                                                  ? const Color(0xFF1A1A1A)
+                                                  : Colors.white,
+                                              borderRadius:
+                                                  BorderRadius.circular(16),
+                                              border: isSelected
+                                                  ? Border.all(
+                                                      color: const Color(
+                                                        0xFFC5A880,
+                                                      ),
+                                                      width: 1.5,
+                                                    )
+                                                  : Border.all(
+                                                      color:
+                                                          Colors.grey.shade200,
+                                                      width: 1,
+                                                    ),
+                                              boxShadow: [
+                                                if (!isSelected)
+                                                  BoxShadow(
+                                                    color: Colors.black
+                                                        .withValues(
+                                                          alpha: 0.03,
+                                                        ),
+                                                    blurRadius: 8,
+                                                    offset: const Offset(0, 2),
+                                                  ),
+                                              ],
+                                            ),
+                                            child: Column(
+                                              mainAxisAlignment:
+                                                  MainAxisAlignment.center,
+                                              children: [
+                                                Icon(
+                                                  _getCategoryIcon(
+                                                    category.name,
+                                                  ),
+                                                  color: isSelected
+                                                      ? const Color(0xFFC5A880)
+                                                      : Colors.grey.shade700,
+                                                  size: 24,
+                                                ),
+                                                const SizedBox(height: 6),
+                                                Text(
+                                                  category.name,
+                                                  style: TextStyle(
+                                                    fontSize: 12,
+                                                    fontWeight: isSelected
+                                                        ? FontWeight.bold
+                                                        : FontWeight.normal,
+                                                    color: isSelected
+                                                        ? Colors.white
+                                                        : Colors.grey.shade800,
+                                                  ),
+                                                  textAlign: TextAlign.center,
+                                                  maxLines: 1,
+                                                  overflow:
+                                                      TextOverflow.ellipsis,
+                                                ),
+                                              ],
+                                            ),
+                                          ),
+                                        );
+                                      },
                                     ),
                                   ),
-                                )
-                              : GridView.builder(
-                                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                                    crossAxisCount: 2,
-                                    childAspectRatio: 0.8,
-                                    crossAxisSpacing: 10,
+                                  // Category title header
+                                  Padding(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 20,
+                                      vertical: 16,
+                                    ),
+                                    child: Row(
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.spaceBetween,
+                                      children: [
+                                        Text(
+                                          state.categories
+                                              .firstWhere(
+                                                (c) =>
+                                                    c.categoryId ==
+                                                    state.selectedCategoryId,
+                                                orElse: () =>
+                                                    state.categories.first,
+                                              )
+                                              .name,
+                                          style: const TextStyle(
+                                            fontSize: 20,
+                                            fontWeight: FontWeight.bold,
+                                            fontFamily: 'serif',
+                                            color: Color(0xFF1A1A1A),
+                                          ),
+                                        ),
+                                        GestureDetector(
+                                          onTap: () {},
+                                          child: const Row(
+                                            children: [
+                                              Text(
+                                                'View all',
+                                                style: TextStyle(
+                                                  fontSize: 13,
+                                                  color: Colors.grey,
+                                                  fontWeight: FontWeight.w500,
+                                                ),
+                                              ),
+                                              SizedBox(width: 4),
+                                              Icon(
+                                                Icons.chevron_right,
+                                                size: 16,
+                                                color: Colors.grey,
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                      ],
+                                    ),
                                   ),
-                                  itemCount: displayItems.length,
-                                  itemBuilder: (context, index) {
-                                    final item = displayItems[index];
-                                    return GestureDetector(
-                                      onTap: () {
-                                        _showAddItemConfirmation(context, item);
-                                      },
-                                      child: Card(
-                                        color: Colors.white,
-                                        shape: RoundedRectangleBorder(
-                                          borderRadius: BorderRadius.circular(
-                                            20,
-                                          ),
-                                          side: BorderSide(
-                                            color: Colors.grey.shade300,
-                                          ),
-                                        ),
-                                        child: Column(
-                                          mainAxisAlignment: MainAxisAlignment.center,
-                                          children: [
-                                            Expanded(
-                                              child: item.displayImage != null && item.displayImage!.isNotEmpty
-                                                  ? ClipRRect(
-                                                      borderRadius: BorderRadius.only(
-                                                        topLeft: Radius.circular(20),
-                                                        topRight: Radius.circular(20),
-                                                      ),
-                                                      child: SizedBox.expand(
-                                                        child: Image.network(
-                                                          item.displayImage!,
-                                                          fit: BoxFit.cover,
-                                                        ),
-                                                      ),
-                                                    )
-                                                  : Center(
-                                                      child: Image.asset(
-                                                        'assets/images/logo.jpg',
-                                                        color: Colors.grey,
-                                                        colorBlendMode: BlendMode.lighten,
-                                                      ),
-                                                    ),
+                                  // GridView for items
+                                  displayItems.isEmpty
+                                      ? const Center(
+                                          child: Padding(
+                                            padding: EdgeInsets.symmetric(
+                                              vertical: 40.0,
                                             ),
+                                            child: Text(
+                                              'No items found',
+                                              style: TextStyle(
+                                                fontSize: 16,
+                                                color: Colors.grey,
+                                              ),
+                                            ),
+                                          ),
+                                        )
+                                      : GridView.builder(
+                                          shrinkWrap: true,
+                                          physics:
+                                              const NeverScrollableScrollPhysics(),
+                                          padding: const EdgeInsets.symmetric(
+                                            horizontal: 16,
+                                          ),
+                                          gridDelegate:
+                                              const SliverGridDelegateWithFixedCrossAxisCount(
+                                                crossAxisCount: 2,
+                                                childAspectRatio: 0.65,
+                                                crossAxisSpacing: 12,
+                                                mainAxisSpacing: 12,
+                                              ),
+                                          itemCount: displayItems.length,
+                                          itemBuilder: (context, index) {
+                                            final item = displayItems[index];
+                                            String? badgeText;
+                                            Color? badgeColor;
+                                            Color badgeTextColor = Colors.white;
+                                            if (index % 4 == 0) {
+                                              badgeText = '★ BESTSELLER';
+                                              badgeColor = const Color(
+                                                0xFFC5A880,
+                                              );
+                                              badgeTextColor = Colors.black;
+                                            } else if (index % 4 == 1) {
+                                              badgeText = '🔥 POPULAR';
+                                              badgeColor = const Color(
+                                                0xFFE25822,
+                                              );
+                                            } else if (index % 4 == 2) {
+                                              badgeText = 'NEW';
+                                              badgeColor = Colors.black;
+                                            }
 
-                                            Container(
-                                              width: double.infinity,
+                                            return Container(
                                               decoration: BoxDecoration(
-                                                color: Color(0xfff25125),
-                                                borderRadius: BorderRadius.only(
-                                                  bottomLeft: Radius.circular(
-                                                    20,
+                                                color: Colors.white,
+                                                borderRadius:
+                                                    BorderRadius.circular(20),
+                                                border: Border.all(
+                                                  color: Colors.grey.shade100,
+                                                ),
+                                                boxShadow: [
+                                                  BoxShadow(
+                                                    color: Colors.black
+                                                        .withValues(
+                                                          alpha: 0.02,
+                                                        ),
+                                                    blurRadius: 10,
+                                                    offset: const Offset(0, 4),
                                                   ),
-                                                  bottomRight: Radius.circular(
-                                                    20,
+                                                ],
+                                              ),
+                                              child: Column(
+                                                crossAxisAlignment:
+                                                    CrossAxisAlignment.start,
+                                                children: [
+                                                  Expanded(
+                                                    child: Stack(
+                                                      children: [
+                                                        Positioned.fill(
+                                                          child: ClipRRect(
+                                                            borderRadius:
+                                                                const BorderRadius.vertical(
+                                                                  top:
+                                                                      Radius.circular(
+                                                                        20,
+                                                                      ),
+                                                                ),
+                                                            child:
+                                                                item.displayImage !=
+                                                                    null
+                                                                ? Image.network(
+                                                                    item.displayImage!,
+                                                                    fit: BoxFit
+                                                                        .cover,
+                                                                  )
+                                                                : const Icon(
+                                                                    Icons
+                                                                        .restaurant,
+                                                                    size: 50,
+                                                                    color: Colors
+                                                                        .grey,
+                                                                  ),
+                                                          ),
+                                                        ),
+                                                        if (badgeText != null)
+                                                          Positioned(
+                                                            top: 10,
+                                                            left: 10,
+                                                            child: Container(
+                                                              padding:
+                                                                  const EdgeInsets.symmetric(
+                                                                    horizontal:
+                                                                        8,
+                                                                    vertical: 4,
+                                                                  ),
+                                                              decoration: BoxDecoration(
+                                                                color:
+                                                                    badgeColor,
+                                                                borderRadius:
+                                                                    BorderRadius.circular(
+                                                                      6,
+                                                                    ),
+                                                              ),
+                                                              child: Text(
+                                                                badgeText,
+                                                                style: TextStyle(
+                                                                  fontSize: 9,
+                                                                  fontWeight:
+                                                                      FontWeight
+                                                                          .bold,
+                                                                  color:
+                                                                      badgeTextColor,
+                                                                ),
+                                                              ),
+                                                            ),
+                                                          ),
+                                                        Positioned(
+                                                          top: 10,
+                                                          right: 10,
+                                                          child: Container(
+                                                            padding:
+                                                                const EdgeInsets.all(
+                                                                  6,
+                                                                ),
+                                                            decoration:
+                                                                const BoxDecoration(
+                                                                  color: Colors
+                                                                      .black26,
+                                                                  shape: BoxShape
+                                                                      .circle,
+                                                                ),
+                                                            child: const Icon(
+                                                              Icons
+                                                                  .favorite_border,
+                                                              color:
+                                                                  Colors.white,
+                                                              size: 16,
+                                                            ),
+                                                          ),
+                                                        ),
+                                                      ],
+                                                    ),
                                                   ),
-                                                ),
-                                              ),
-                                              child: Padding(
-                                                padding: const EdgeInsets.symmetric(
-                                                  horizontal: 10,
-                                                  vertical: 5,
-                                                ),
-                                                child: Column(
-                                                  children: [
-                                                    Text(
-                                                      item.name,
-                                                      textAlign: TextAlign.center,
-                                                      style: const TextStyle(
-                                                        fontFamily: 'FactorySansMedium',
-                                                        color: Colors.white,
-                                                      ),
+                                                  Padding(
+                                                    padding:
+                                                        const EdgeInsets.all(
+                                                          12.0,
+                                                        ),
+                                                    child: Column(
+                                                      crossAxisAlignment:
+                                                          CrossAxisAlignment
+                                                              .start,
+                                                      children: [
+                                                        Text(
+                                                          item.name,
+                                                          style:
+                                                              const TextStyle(
+                                                                fontSize: 14,
+                                                                fontWeight:
+                                                                    FontWeight
+                                                                        .bold,
+                                                                color: Color(
+                                                                  0xFF1A1A1A,
+                                                                ),
+                                                              ),
+                                                          maxLines: 1,
+                                                          overflow: TextOverflow
+                                                              .ellipsis,
+                                                        ),
+                                                        const SizedBox(
+                                                          height: 4,
+                                                        ),
+                                                        Text(
+                                                          item.description ??
+                                                              'Handcrafted fresh daily',
+                                                          style: TextStyle(
+                                                            fontSize: 11,
+                                                            color: Colors
+                                                                .grey
+                                                                .shade600,
+                                                          ),
+                                                          maxLines: 2,
+                                                          overflow: TextOverflow
+                                                              .ellipsis,
+                                                        ),
+                                                        const SizedBox(
+                                                          height: 8,
+                                                        ),
+                                                        Row(
+                                                          mainAxisAlignment:
+                                                              MainAxisAlignment
+                                                                  .spaceBetween,
+                                                          children: [
+                                                            Text(
+                                                              '₱${item.price.toStringAsFixed(0)}',
+                                                              style: const TextStyle(
+                                                                fontSize: 16,
+                                                                fontWeight:
+                                                                    FontWeight
+                                                                        .bold,
+                                                                color: Color(
+                                                                  0xFF1A1A1A,
+                                                                ),
+                                                              ),
+                                                            ),
+                                                            GestureDetector(
+                                                              onTap: () {
+                                                                _showAddItemConfirmation(
+                                                                  context,
+                                                                  item,
+                                                                );
+                                                              },
+                                                              child: Container(
+                                                                padding:
+                                                                    const EdgeInsets.all(
+                                                                      6,
+                                                                    ),
+                                                                decoration: const BoxDecoration(
+                                                                  color: Color(
+                                                                    0xFF1A1A1A,
+                                                                  ),
+                                                                  shape: BoxShape
+                                                                      .circle,
+                                                                ),
+                                                                child: const Icon(
+                                                                  Icons.add,
+                                                                  color: Colors
+                                                                      .white,
+                                                                  size: 18,
+                                                                ),
+                                                              ),
+                                                            ),
+                                                          ],
+                                                        ),
+                                                      ],
                                                     ),
-                                                    Text(
-                                                      '₱${item.price}',
-                                                      style: const TextStyle(
-                                                        color: Colors.white,
-                                                      ),
-                                                    ),
-                                                  ],
-                                                ),
+                                                  ),
+                                                ],
                                               ),
-                                            ),
-                                          ],
+                                            );
+                                          },
                                         ),
-                                      ),
-                                    );
-                                  },
-                                ),
+                                  const SizedBox(
+                                    height: 100,
+                                  ), // padding for floating action button
+                                ],
+                              ),
+                            ),
+                          ),
                         ),
-                      ),
-                    ],
-                  );
-                }
-                return const SizedBox.shrink();
-              },
-            );
-          },
+                      ],
+                    );
+                  }
+                  return const SizedBox.shrink();
+                },
+              );
+            },
+          ),
         ),
       ),
-    ),
     );
   }
 
@@ -503,7 +860,8 @@ class _MenuPageState extends State<MenuPage> {
                     const SizedBox(height: 15),
                     Row(
                       children: [
-                        item.displayImage != null && item.displayImage!.isNotEmpty
+                        item.displayImage != null &&
+                                item.displayImage!.isNotEmpty
                             ? Image.network(
                                 item.displayImage!,
                                 width: 100,
@@ -538,7 +896,8 @@ class _MenuPageState extends State<MenuPage> {
                               ),
                               const SizedBox(height: 5),
                               Row(
-                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceBetween,
                                 children: [
                                   Container(
                                     decoration: BoxDecoration(
@@ -667,10 +1026,15 @@ class _MenuPageState extends State<MenuPage> {
     final controller = TextEditingController(text: initialValue);
     showDialog(
       context: context,
-      barrierDismissible: initialValue.isNotEmpty, // Only dismissible if they already have one
+      barrierDismissible:
+          initialValue.isNotEmpty, // Only dismissible if they already have one
       builder: (context) {
         return AlertDialog(
-          title: Text(initialValue.isEmpty ? 'Welcome! Enter your nickname' : 'Change Nickname'),
+          title: Text(
+            initialValue.isEmpty
+                ? 'Welcome! Enter your nickname'
+                : 'Change Nickname',
+          ),
           content: TextField(
             controller: controller,
             decoration: const InputDecoration(

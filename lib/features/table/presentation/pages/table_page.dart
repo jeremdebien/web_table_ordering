@@ -29,7 +29,7 @@ class TablePage extends StatelessWidget {
               Container(
                 decoration: const BoxDecoration(
                   image: DecorationImage(
-                    image: AssetImage("assets/images/bg_image.jpg"),
+                    image: AssetImage("assets/images/nyx.jpg"),
                     fit: BoxFit.cover,
                   ),
                 ),
@@ -46,7 +46,7 @@ class TablePage extends StatelessWidget {
                         children: [
                           ClipOval(
                             child: Image.asset(
-                              'assets/images/logo.jpg',
+                              'assets/images/nyx_logo.jpg',
                               fit: BoxFit.contain,
                               width: 150,
                               height: 150,
@@ -74,16 +74,16 @@ class TablePage extends StatelessWidget {
                                         foreground: Paint()
                                           ..style = PaintingStyle.stroke
                                           ..strokeWidth = 1
-                                          ..color = Colors.black, // Color of the stroke
+                                          ..color = Colors
+                                              .black, // Color of the stroke
                                       ),
                                     ),
                                     // Solid Text Layer
                                     Text(
-                                      "Welcome to Chickey's Inasal",
+                                      "Welcome to NYX Vikings",
                                       style: TextStyle(
                                         fontSize: 14,
                                         fontWeight: FontWeight.bold,
-                                        fontFamily: 'Marous',
                                         color: Colors.white,
                                       ),
                                     ),
@@ -154,19 +154,19 @@ class TablePage extends StatelessWidget {
                             width: 200,
                             child: ElevatedButton(
                               style: ElevatedButton.styleFrom(
-                                backgroundColor: Color(0xfff25125),
-                                foregroundColor: Colors.white,
-                                side: const BorderSide(color: Colors.white, width: 1),
+                                backgroundColor: Colors.white,
+                                foregroundColor: Colors.black,
                                 shape: RoundedRectangleBorder(
                                   borderRadius: BorderRadius.circular(15),
                                 ),
                               ),
-                              onPressed: () => context.go('/table/${table.uuid}/menu'),
+                              onPressed: () =>
+                                  context.go('/table/${table.uuid}/menu'),
                               child: const Text(
                                 'Start Ordering',
                                 style: TextStyle(
                                   fontSize: 14,
-                                  color: Colors.white,
+                                  color: Colors.black,
                                   fontFamily: 'SolemnSojourn',
                                 ),
                               ),
@@ -177,19 +177,24 @@ class TablePage extends StatelessWidget {
                             width: 200,
                             child: ElevatedButton(
                               style: ElevatedButton.styleFrom(
-                                backgroundColor: Color(0xfff25125),
-                                foregroundColor: Colors.white,
-                                side: const BorderSide(color: Colors.white, width: 1),
+                                backgroundColor: Colors.white,
+                                foregroundColor: Colors.black,
+                                side: const BorderSide(
+                                  color: Colors.white,
+                                  width: 1,
+                                ),
                                 shape: RoundedRectangleBorder(
                                   borderRadius: BorderRadius.circular(15),
                                 ),
                               ),
-                              onPressed: () => context.go('/table/${table.uuid}/order_summary'),
+                              onPressed: () => context.go(
+                                '/table/${table.uuid}/order_summary',
+                              ),
                               child: const Text(
                                 'View Orders',
                                 style: TextStyle(
                                   fontSize: 14,
-                                  color: Colors.white,
+                                  color: Colors.black,
                                   fontFamily: 'SolemnSojourn',
                                 ),
                               ),
@@ -201,12 +206,16 @@ class TablePage extends StatelessWidget {
                             width: 200,
                             child: BlocBuilder<CartBloc, CartState>(
                               builder: (context, cartState) {
-                                final hasActiveOrders = cartState.activeOrders.isNotEmpty;
+                                final hasActiveOrders =
+                                    cartState.activeOrders.isNotEmpty;
                                 return ElevatedButton(
                                   style: ElevatedButton.styleFrom(
-                                    backgroundColor: const Color(0xfff25125),
-                                    foregroundColor: Colors.white,
-                                    side: const BorderSide(color: Colors.white, width: 1),
+                                    backgroundColor: Colors.white,
+                                    foregroundColor: Colors.black,
+                                    side: const BorderSide(
+                                      color: Colors.white,
+                                      width: 1,
+                                    ),
                                     shape: RoundedRectangleBorder(
                                       borderRadius: BorderRadius.circular(15),
                                     ),
@@ -217,28 +226,52 @@ class TablePage extends StatelessWidget {
                                             context: context,
                                             builder: (dialogContext) {
                                               return AlertDialog(
-                                                title: const Text('Request Bill'),
+                                                title: const Text(
+                                                  'Request Bill',
+                                                ),
                                                 content: const Text(
                                                   'Are you sure you want to request the bill?\nThis will lock the menu from further ordering.',
                                                 ),
                                                 actions: [
                                                   TextButton(
-                                                    onPressed: () => Navigator.of(dialogContext).pop(),
+                                                    onPressed: () =>
+                                                        Navigator.of(
+                                                          dialogContext,
+                                                        ).pop(),
                                                     child: const Text('Cancel'),
                                                   ),
                                                   ElevatedButton(
-                                                    style: ElevatedButton.styleFrom(
-                                                      backgroundColor: const Color(0xfff25125),
-                                                      foregroundColor: Colors.white,
-                                                    ),
+                                                    style:
+                                                        ElevatedButton.styleFrom(
+                                                          backgroundColor:
+                                                              Colors.white,
+                                                          foregroundColor:
+                                                              Colors.black,
+                                                        ),
                                                     onPressed: () {
-                                                      Navigator.of(dialogContext).pop();
-                                                      context.read<CartBloc>().add(RequestBill(table.tableId));
-                                                      ScaffoldMessenger.of(context).showSnackBar(
-                                                        const SnackBar(content: Text('Bill requested successfully')),
+                                                      Navigator.of(
+                                                        dialogContext,
+                                                      ).pop();
+                                                      context
+                                                          .read<CartBloc>()
+                                                          .add(
+                                                            RequestBill(
+                                                              table.tableId,
+                                                            ),
+                                                          );
+                                                      ScaffoldMessenger.of(
+                                                        context,
+                                                      ).showSnackBar(
+                                                        const SnackBar(
+                                                          content: Text(
+                                                            'Bill requested successfully',
+                                                          ),
+                                                        ),
                                                       );
                                                     },
-                                                    child: const Text('Confirm'),
+                                                    child: const Text(
+                                                      'Confirm',
+                                                    ),
                                                   ),
                                                 ],
                                               );
@@ -251,7 +284,7 @@ class TablePage extends StatelessWidget {
                                     style: TextStyle(
                                       fontSize: 14,
                                       color: Colors
-                                          .white, // Note: This might look white on inactive button, but ElevatedButton handles it usually.
+                                          .black, // Note: This might look white on inactive button, but ElevatedButton handles it usually.
                                       fontFamily: 'SolemnSojourn',
                                     ),
                                   ),
