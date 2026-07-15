@@ -152,10 +152,15 @@ class CartBloc extends Bloc<CartEvent, CartState> {
   }
 
   void _onAddToCart(AddToCart event, Emitter<CartState> emit) {
-    // Find existing "New" item (originalQuantity == 0)
-    // We intentionally ignore items with originalQuantity > 0 (Preloaded items)
+    // Find existing "New" item (originalQuantity == 0). Only merge when the
+    // orderer AND the special-instruction answers also match, so the same item
+    // with different instructions (or a different guest) stays a separate line.
     final existingNewIndex = state.items.indexWhere(
-      (i) => i.itemBarcode == event.item.itemBarcode && i.originalQuantity == 0,
+      (i) =>
+          i.itemBarcode == event.item.itemBarcode &&
+          i.originalQuantity == 0 &&
+          i.nickname == state.nickname &&
+          (i.specialInstructions ?? '') == (event.item.specialInstructions ?? ''),
     );
 
     if (existingNewIndex >= 0) {

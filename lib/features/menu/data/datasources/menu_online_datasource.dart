@@ -3,6 +3,7 @@ import '../../../../core/config/app_config.dart';
 import '../models/department_model.dart';
 import '../models/category_model.dart';
 import '../models/item_model.dart';
+import '../models/instruction_group_model.dart';
 import 'menu_data_source.dart';
 
 /// Online (hosted) menu catalog: plural, branch-scoped tables.
@@ -57,4 +58,8 @@ class OnlineMenuDataSource implements MenuDataSource {
   String getItemImageUrl(String imagePath) {
     return _client.storage.from('items').getPublicUrl(imagePath);
   }
+
+  // Special instructions are a local-mode feature; online path is unchanged.
+  @override
+  Future<List<InstructionGroup>> getItemInstructions(String barcode) async => [];
 }

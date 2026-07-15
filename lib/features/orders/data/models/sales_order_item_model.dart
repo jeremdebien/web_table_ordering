@@ -15,6 +15,7 @@ class SalesOrderItemModel {
   final int originalQuantity; // Added to distinguish new vs existing items
   final String status; // Added to distinguish pending vs accepted items
   final String nickname; // Added for customer tracking
+  final String? specialInstructions; // JSON: answers to per-item instruction questions
 
   // Amount is now the Unit Price
   double get unitPrice => amount;
@@ -39,6 +40,7 @@ class SalesOrderItemModel {
     this.originalQuantity = 0,
     this.status = 'Accepted',
     this.nickname = '',
+    this.specialInstructions,
   });
 
   factory SalesOrderItemModel.fromJson(Map<String, dynamic> json) {
@@ -66,6 +68,7 @@ class SalesOrderItemModel {
       originalQuantity: qty, // Set originalQuantity to quantity for DB items
       status: json['status'] as String? ?? 'Accepted',
       nickname: json['nickname'] as String? ?? json['customer_name'] as String? ?? '',
+      specialInstructions: json['special_instructions'] as String?,
     );
   }
 
@@ -86,6 +89,7 @@ class SalesOrderItemModel {
       'status': status,
       'nickname': nickname,
       'customer_name': nickname,
+      'special_instructions': specialInstructions,
     };
   }
 
@@ -106,6 +110,7 @@ class SalesOrderItemModel {
     int? originalQuantity,
     String? status,
     String? nickname,
+    String? specialInstructions,
   }) {
     return SalesOrderItemModel(
       id: id ?? this.id,
@@ -124,6 +129,7 @@ class SalesOrderItemModel {
       originalQuantity: originalQuantity ?? this.originalQuantity,
       status: status ?? this.status,
       nickname: nickname ?? this.nickname,
+      specialInstructions: specialInstructions ?? this.specialInstructions,
     );
   }
 }

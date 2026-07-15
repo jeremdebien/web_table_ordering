@@ -3,6 +3,8 @@ import '../../../../core/config/app_config.dart';
 import '../models/department_model.dart';
 import '../models/category_model.dart';
 import '../models/item_model.dart';
+import '../models/instruction_group_model.dart';
+import '../models/instruction_choice_model.dart';
 import 'menu_data_source.dart';
 
 /// Local (self-hosted) menu catalog targeting the local_supabase_migration
@@ -99,5 +101,38 @@ class LocalMenuDataSource implements MenuDataSource {
   @override
   String getItemImageUrl(String imagePath) {
     return '${AppConfig.imageStoragePath}$imagePath';
+  }
+
+  @override
+  Future<List<InstructionGroup>> getItemInstructions(String barcode) async {
+    final groupRows = await _client
+        .from('item_instruction_group')
+        .select()
+        .eq('item_barcode', barcode)
+        .eq('group_status', 1)
+        .order('display_order');
+
+    final groups = List<Map<String, dynamic>>.from(groupRows as List);
+    if (groups.isEmpty) return [];
+
+    final groupIds = groups.map((g) => (g['id'] as num).toInt()).toList();
+    final choiceRows = await _client
+        .from('item_instruction_choice')
+        .select()
+        .inFilter('group_id', groupIds)
+        .eq('choice_status', 1)
+        .order('display_order');
+
+    // Bucket choices by their group.
+    final choicesByGroup = <int, List<InstructionChoice>>{};
+    for (final row in (choiceRows as List)) {
+      final choice = InstructionChoice.fromJson(Map<String, dynamic>.from(row));
+      choicesByGroup.putIfAbsent(choice.groupId, () => []).add(choice);
+    }
+
+    return groups.map((g) {
+      final id = (g['id'] as num).toInt();
+      return InstructionGroup.fromJson(g, choices: choicesByGroup[id] ?? const []);
+    }).toList();
   }
 }

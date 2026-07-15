@@ -5,6 +5,10 @@ import 'package:web_table_ordering/features/menu/presentation/bloc/menu_bloc.dar
 import 'package:web_table_ordering/features/orders/presentation/bloc/cart_bloc.dart';
 import 'package:web_table_ordering/features/orders/data/models/sales_order_item_model.dart';
 import 'package:web_table_ordering/features/table/presentation/bloc/table_bloc.dart';
+import '../../../../core/di/injection_container.dart';
+import '../../data/datasources/menu_data_source.dart';
+import '../../data/models/instruction_group_model.dart';
+import '../widgets/special_instructions_form.dart';
 import '../../../../features/orders/presentation/widgets/cart_summary.dart';
 
 class MenuPage extends StatefulWidget {
@@ -473,8 +477,21 @@ class _MenuPageState extends State<MenuPage> {
     );
   }
 
-  void _showAddItemConfirmation(BuildContext context, dynamic item) {
+  Future<void> _showAddItemConfirmation(BuildContext context, dynamic item) async {
     int quantity = 1;
+    String? specialInstructions;
+
+    // Load any special-instruction questions for this item (local mode only).
+    List<InstructionGroup> instructionGroups = [];
+    try {
+      instructionGroups = await sl<MenuDataSource>().getItemInstructions(item.barcode);
+    } catch (_) {
+      instructionGroups = [];
+    }
+    if (!context.mounted) return;
+
+    // Add is gated until every required question is answered.
+    bool instructionsValid = instructionGroups.every((g) => !g.isRequired);
 
     showDialog(
       context: context,
@@ -488,16 +505,18 @@ class _MenuPageState extends State<MenuPage> {
               ),
               content: SizedBox(
                 width: MediaQuery.of(context).size.width * 0.8,
-                height: MediaQuery.of(context).size.height * 0.2,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.center,
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    const Text(
-                      "Confirm Order",
-                      style: TextStyle(
-                        fontSize: 20,
-                        fontWeight: FontWeight.bold,
+                child: SingleChildScrollView(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                    const Center(
+                      child: Text(
+                        "Confirm Order",
+                        style: TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
                     ),
                     const SizedBox(height: 15),
@@ -613,7 +632,18 @@ class _MenuPageState extends State<MenuPage> {
                         ),
                       ],
                     ),
+                    if (instructionGroups.isNotEmpty)
+                      SpecialInstructionsForm(
+                        groups: instructionGroups,
+                        onChanged: (valid, json) {
+                          setState(() {
+                            instructionsValid = valid;
+                            specialInstructions = json;
+                          });
+                        },
+                      ),
                   ],
+                ),
                 ),
               ),
               actionsAlignment: MainAxisAlignment.center,
@@ -639,20 +669,23 @@ class _MenuPageState extends State<MenuPage> {
                       borderRadius: BorderRadius.circular(10),
                     ),
                   ),
-                  onPressed: () {
-                    Navigator.of(dialogContext).pop();
-                    context.read<CartBloc>().add(
-                      AddToCart(
-                        SalesOrderItemModel(
-                          itemBarcode: item.barcode,
-                          itemName: item.name,
-                          quantity: quantity,
-                          amount: item.price,
-                          originalQuantity: 0,
-                        ),
-                      ),
-                    );
-                  },
+                  onPressed: instructionsValid
+                      ? () {
+                          Navigator.of(dialogContext).pop();
+                          context.read<CartBloc>().add(
+                            AddToCart(
+                              SalesOrderItemModel(
+                                itemBarcode: item.barcode,
+                                itemName: item.name,
+                                quantity: quantity,
+                                amount: item.price,
+                                originalQuantity: 0,
+                                specialInstructions: specialInstructions,
+                              ),
+                            ),
+                          );
+                        }
+                      : null,
                   child: const Text('Add to Order'),
                 ),
               ],

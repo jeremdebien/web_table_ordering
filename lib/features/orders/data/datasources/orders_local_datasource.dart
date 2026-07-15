@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:rxdart/rxdart.dart';
 import '../../../../core/config/app_config.dart';
@@ -59,7 +60,7 @@ class LocalOrdersDataSource implements OrdersDataSource {
         // Fetch existing items for this order to check for duplicates
         final existingItemsRes = await _client
             .from('sales_order_item')
-            .select('order_item_id, item_barcode, quantity, customer_name')
+            .select('order_item_id, item_barcode, quantity, customer_name, special_instructions')
             .eq('sales_order_id', salesOrderId);
 
         final existingItems = List<Map<String, dynamic>>.from(existingItemsRes);
@@ -70,7 +71,9 @@ class LocalOrdersDataSource implements OrdersDataSource {
         for (final item in items) {
           final matchIndex = existingItems.indexWhere((existing) =>
               existing['item_barcode'] == item.itemBarcode &&
-              (existing['customer_name'] ?? '') == item.nickname);
+              (existing['customer_name'] ?? '') == item.nickname &&
+              _normalizeInstructions(existing['special_instructions'] as String?) ==
+                  _normalizeInstructions(item.specialInstructions));
 
           if (matchIndex > -1) {
             final validMatch = existingItems[matchIndex];
@@ -101,6 +104,7 @@ class LocalOrdersDataSource implements OrdersDataSource {
               'is_disc_exempt': item.isDiscExempt,
               'item_discount': item.itemDiscount,
               'customer_name': item.nickname,
+              'special_instructions': item.specialInstructions,
             });
           }
         }
@@ -240,5 +244,30 @@ class LocalOrdersDataSource implements OrdersDataSource {
     item['status'] = 'Accepted';
     item['nickname'] = row['customer_name'] ?? '';
     return item;
+  }
+}
+
+/// Canonical string form of a special-instructions JSON payload so two order
+/// lines are treated as "same instructions" only when their answers match
+/// (groups sorted by id, choices sorted). Null/empty both normalize to ''.
+String _normalizeInstructions(String? raw) {
+  if (raw == null || raw.trim().isEmpty) return '';
+  try {
+    final decoded = jsonDecode(raw);
+    if (decoded is! List) return raw;
+    final groups = decoded.map((g) {
+      final m = Map<String, dynamic>.from(g as Map);
+      final choices = (m['choices'] as List?)?.map((e) => e.toString()).toList() ?? <String>[];
+      choices.sort();
+      return {
+        'group_id': m['group_id'],
+        'choices': choices,
+        'free_text': (m['free_text'] as String?)?.trim() ?? '',
+      };
+    }).toList()
+      ..sort((a, b) => '${a['group_id']}'.compareTo('${b['group_id']}'));
+    return jsonEncode(groups);
+  } catch (_) {
+    return raw;
   }
 }

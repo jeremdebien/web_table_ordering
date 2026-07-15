@@ -1,6 +1,7 @@
 import '../models/department_model.dart';
 import '../models/category_model.dart';
 import '../models/item_model.dart';
+import '../models/instruction_group_model.dart';
 
 /// Read contract for the menu catalog, implemented per app mode.
 abstract class MenuDataSource {
@@ -8,4 +9,7 @@ abstract class MenuDataSource {
   Future<List<CategoryModel>> getCategories({int? departmentId});
   Future<List<ItemModel>> getItems({int? categoryId});
   String getItemImageUrl(String imagePath);
+
+  /// User-defined special-instruction questions for an item (empty if none).
+  Future<List<InstructionGroup>> getItemInstructions(String barcode);
 }
