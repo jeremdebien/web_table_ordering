@@ -84,7 +84,7 @@ class CartSummary extends StatelessWidget {
                       fontSize: 24,
                       fontWeight: FontWeight.bold,
                       color: Color(0xFF1A1A1A),
-                      fontFamily: 'serif',
+                      fontFamily: 'PTSerif',
                     ),
                   ),
                   IconButton(

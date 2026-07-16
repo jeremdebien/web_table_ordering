@@ -17,7 +17,30 @@ enum AppMode {
 class AppConfig {
   AppConfig._();
 
-  static String _env(String key) => dotenv.env[key] ?? '';
+  /// Compile-time configuration, injected via `--dart-define-from-file=.env`.
+  /// These take priority so web / production builds do NOT depend on fetching
+  /// the `.env` asset over HTTP at runtime (IIS and other static hosts often
+  /// refuse to serve a `.env` file, which left the config empty and sent
+  /// Supabase calls to the page origin). Values fall back to dotenv (the
+  /// bundled `.env`) so `flutter run` keeps working without extra flags.
+  static const Map<String, String> _defines = {
+    'APP_MODE': String.fromEnvironment('APP_MODE'),
+    'ONLINE_SUPABASE_URL': String.fromEnvironment('ONLINE_SUPABASE_URL'),
+    'ONLINE_SUPABASE_ANON_KEY': String.fromEnvironment('ONLINE_SUPABASE_ANON_KEY'),
+    'ONLINE_IMAGE_STORAGE_PATH': String.fromEnvironment('ONLINE_IMAGE_STORAGE_PATH'),
+    'LOCAL_SUPABASE_URL': String.fromEnvironment('LOCAL_SUPABASE_URL'),
+    'LOCAL_SUPABASE_ANON_KEY': String.fromEnvironment('LOCAL_SUPABASE_ANON_KEY'),
+    'LOCAL_IMAGE_STORAGE_PATH': String.fromEnvironment('LOCAL_IMAGE_STORAGE_PATH'),
+    'POS_CLIENT_ID': String.fromEnvironment('POS_CLIENT_ID'),
+    'BRANCH_ID': String.fromEnvironment('BRANCH_ID'),
+    'ORDER_TYPE_CODE': String.fromEnvironment('ORDER_TYPE_CODE'),
+  };
+
+  static String _env(String key) {
+    final fromDefine = _defines[key];
+    if (fromDefine != null && fromDefine.isNotEmpty) return fromDefine;
+    return dotenv.env[key] ?? '';
+  }
 
   static AppMode get mode =>
       _env('APP_MODE').toLowerCase() == 'local' ? AppMode.local : AppMode.online;

@@ -1,0 +1,26 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "web (offline / local CanvasKit)",
+      "request": "launch",
+      "type": "dart",
+      "toolArgs": [
+        "-d",
+        "chrome",
+        "--no-web-resources-cdn"
+      ]
+    },
+    {
+      "name": "web (offline, release)",
+      "request": "launch",
+      "type": "dart",
+      "flutterMode": "release",
+      "toolArgs": [
+        "-d",
+        "chrome",
+        "--no-web-resources-cdn"
+      ]
+    }
+  ]
+}

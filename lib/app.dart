@@ -25,6 +25,7 @@ class MyApp extends StatelessWidget {
         routerConfig: appRouter,
         theme: ThemeData(
           scaffoldBackgroundColor: Colors.white,
+          fontFamily: 'Roboto',
         ),
       ),
     );

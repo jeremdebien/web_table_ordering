@@ -514,7 +514,7 @@ class _MenuPageState extends State<MenuPage> {
                                                           fontSize: 20,
                                                           fontWeight:
                                                               FontWeight.bold,
-                                                          fontFamily: 'serif',
+                                                          fontFamily: 'PTSerif',
                                                           color: Color(
                                                             0xFF1A1A1A,
                                                           ),
@@ -879,7 +879,7 @@ class _MenuPageState extends State<MenuPage> {
                             color: Colors.white,
                             fontSize: 20,
                             fontWeight: FontWeight.bold,
-                            fontFamily: 'serif',
+                            fontFamily: 'PTSerif',
                           ),
                         ),
                       ],
