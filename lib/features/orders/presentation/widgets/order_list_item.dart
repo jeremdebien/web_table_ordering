@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../data/models/sales_order_item_model.dart';
 import '../bloc/cart_bloc.dart';
+import 'serving_status_badge.dart';
 
 /// Renders the stored special-instructions JSON as a compact human-readable
 /// summary, e.g. "How done?: Rare • Notes: no salt". Returns null when empty.
@@ -111,9 +112,23 @@ class OrderListItem extends StatelessWidget {
             buildImage(),
         ],
       ),
-      title: Text(
-        item.itemName.isEmpty ? 'Unknown Item' : item.itemName,
-        style: textStyle,
+      title: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Flexible(
+            child: Text(
+              item.itemName.isEmpty ? 'Unknown Item' : item.itemName,
+              style: textStyle,
+            ),
+          ),
+          // Kitchen serving state, advanced as staff scan each ticket barcode.
+          // Hidden for lines not yet submitted and in online mode, where the
+          // backing column doesn't exist.
+          if (!isCancelled && item.hasServingStatus) ...[
+            const SizedBox(width: 6),
+            ServingStatusBadge(item: item),
+          ],
+        ],
       ),
       subtitle: Builder(
         builder: (context) {

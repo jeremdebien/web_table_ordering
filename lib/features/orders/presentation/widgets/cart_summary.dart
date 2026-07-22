@@ -4,6 +4,7 @@ import '../bloc/cart_bloc.dart';
 import '../../../table/presentation/bloc/table_bloc.dart';
 import '../../../menu/data/models/item_model.dart';
 import '../../../menu/presentation/bloc/menu_bloc.dart';
+import 'serving_status_badge.dart';
 
 class CartSummary extends StatelessWidget {
   const CartSummary({
@@ -257,6 +258,17 @@ class CartSummary extends StatelessWidget {
                                                       ),
                                                     ),
                                                     const SizedBox(width: 8),
+                                                  ],
+                                                  // Kitchen serving state, live
+                                                  // as staff scan each ticket.
+                                                  // Renders nothing for lines
+                                                  // not yet submitted.
+                                                  if (item
+                                                      .hasServingStatus) ...[
+                                                    const SizedBox(width: 8),
+                                                    ServingStatusBadge(
+                                                      item: item,
+                                                    ),
                                                   ],
                                                 ],
                                               ),

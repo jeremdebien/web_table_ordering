@@ -17,6 +17,33 @@ class SalesOrderItemModel {
   final String nickname; // Added for customer tracking
   final String? specialInstructions; // JSON: answers to per-item instruction questions
 
+  /// Kitchen serving state of the line: 'preparing' or 'served'. Distinct from
+  /// [status], which tracks pending/accepted/cancelled submission. Derived on
+  /// the consolidator from [servedQuantity] vs [quantity]
+  /// (`sales_order_item.item_status`); null in online mode, which has no such
+  /// column. Read-only — the app never writes it. Prefer [isServed] for display.
+  final String? servingStatus;
+
+  /// How much of the line has been served so far. Each printed ticket covers
+  /// only the quantity it was printed for, so a line can be partly served
+  /// (e.g. 2 of 3). Read-only, see [servingStatus].
+  final double servedQuantity;
+
+  /// True once the whole line has been served.
+  ///
+  /// Derived from the quantities rather than [servingStatus] so it stays correct
+  /// the moment a served line grows — re-ordering the same item merges into the
+  /// existing line, turning a fully-served "3x A" into "4x A", and the stored
+  /// status would still read 'served' until the new ticket is scanned.
+  bool get isServed => quantity > 0 && servedQuantity >= quantity;
+
+  /// True when some — but not all — of the line has been served.
+  bool get isPartiallyServed => !isServed && servedQuantity > 0;
+
+  /// Whether this line has serving information to show at all. False for lines
+  /// not yet submitted, and in online mode.
+  bool get hasServingStatus => servingStatus != null && originalQuantity > 0;
+
   // Amount is now the Unit Price
   double get unitPrice => amount;
 
@@ -41,6 +68,8 @@ class SalesOrderItemModel {
     this.status = 'Accepted',
     this.nickname = '',
     this.specialInstructions,
+    this.servingStatus,
+    this.servedQuantity = 0,
   });
 
   factory SalesOrderItemModel.fromJson(Map<String, dynamic> json) {
@@ -69,6 +98,9 @@ class SalesOrderItemModel {
       status: json['status'] as String? ?? 'Accepted',
       nickname: json['nickname'] as String? ?? json['customer_name'] as String? ?? '',
       specialInstructions: json['special_instructions'] as String?,
+      // Present only in local (consolidator) mode; absent online.
+      servingStatus: json['item_status'] as String?,
+      servedQuantity: (json['served_quantity'] as num?)?.toDouble() ?? 0,
     );
   }
 
@@ -111,6 +143,8 @@ class SalesOrderItemModel {
     String? status,
     String? nickname,
     String? specialInstructions,
+    String? servingStatus,
+    double? servedQuantity,
   }) {
     return SalesOrderItemModel(
       id: id ?? this.id,
@@ -130,6 +164,8 @@ class SalesOrderItemModel {
       status: status ?? this.status,
       nickname: nickname ?? this.nickname,
       specialInstructions: specialInstructions ?? this.specialInstructions,
+      servingStatus: servingStatus ?? this.servingStatus,
+      servedQuantity: servedQuantity ?? this.servedQuantity,
     );
   }
 }

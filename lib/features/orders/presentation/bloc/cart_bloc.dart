@@ -66,7 +66,7 @@ class CartBloc extends Bloc<CartEvent, CartState> {
   }
 
   Future<void> _onExternalOrderUpdateReceived(ExternalOrderUpdateReceived event, Emitter<CartState> emit) async {
-    add(LoadActiveOrder(event.tableId));
+    add(LoadActiveOrder(event.tableId, isBackground: true));
   }
 
   void _subscribeToRealtimeUpdates(int salesOrderSupabaseId, int salesOrderId, int tableId) {
@@ -83,14 +83,22 @@ class CartBloc extends Bloc<CartEvent, CartState> {
   }
 
   Future<void> _onLoadActiveOrder(LoadActiveOrder event, Emitter<CartState> emit) async {
-    // Only show loading if we are NOT already conducting a background refresh?
-    // For now, let's keep it standard to ensure UI consistency.
     final deviceId = _deviceIdService.getDeviceId();
-    emit(state.copyWith(status: CartStatus.loading, deviceId: deviceId));
+    // A background refresh (realtime: POS edit, or the kitchen scanning a
+    // ticket) must not flash the loading state over a guest who is mid-order.
+    if (event.isBackground) {
+      emit(state.copyWith(deviceId: deviceId));
+    } else {
+      emit(state.copyWith(status: CartStatus.loading, deviceId: deviceId));
+    }
+    // Items the guest has added but not submitted yet live in the same list as
+    // the server's lines, so a refresh would otherwise wipe them. Hold them
+    // aside and re-append below.
+    final unsubmitted = state.newOrders;
     try {
       final order = await _ordersDataSource.getActiveOrder(tableId: event.tableId);
       if (order != null) {
-        var items = order.items;
+        var items = [...order.items, ...unsubmitted];
         final sOrderId = order.salesOrderId ?? order.id;
 
         // Map names immediately if menu is loaded
@@ -121,7 +129,12 @@ class CartBloc extends Bloc<CartEvent, CartState> {
         // If no order, cancel subscription
         _realtimeSubscription?.cancel();
         _subscribedSalesOrderId = null;
-        emit(state.copyWith(status: CartStatus.success, items: [], paymentStatus: 0, salesOrderId: null));
+        emit(state.copyWith(
+          status: CartStatus.success,
+          items: unsubmitted,
+          paymentStatus: 0,
+          salesOrderId: null,
+        ));
       }
     } catch (e) {
       emit(state.copyWith(status: CartStatus.failure, errorMessage: e.toString()));
@@ -142,7 +155,13 @@ class CartBloc extends Bloc<CartEvent, CartState> {
         );
       }
 
-      emit(state.copyWith(status: CartStatus.submitted));
+      // Drop the just-submitted lines: they belong to the backend now and come
+      // back as accepted items on the reload below. Leaving them in state would
+      // double them up, since a reload preserves anything still unsubmitted.
+      emit(state.copyWith(
+        status: CartStatus.submitted,
+        items: state.items.where((i) => i.originalQuantity > 0).toList(),
+      ));
 
       // Reload the active order to reflect merged state from backend
       add(LoadActiveOrder(event.tableId));

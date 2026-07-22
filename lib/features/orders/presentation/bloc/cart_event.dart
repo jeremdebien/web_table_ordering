@@ -26,7 +26,12 @@ class SubmitOrder extends CartEvent {
 class LoadActiveOrder extends CartEvent {
   final int tableId;
 
-  LoadActiveOrder(this.tableId);
+  /// A refresh the guest did not ask for — a realtime update from the POS or
+  /// the kitchen's ticket scanner. Keeps the cart quiet (no loading state) so
+  /// the screen doesn't flicker underneath someone who is mid-order.
+  final bool isBackground;
+
+  LoadActiveOrder(this.tableId, {this.isBackground = false});
 }
 
 class UpdateCartItemNames extends CartEvent {
