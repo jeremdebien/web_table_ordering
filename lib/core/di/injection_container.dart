@@ -15,6 +15,11 @@ import '../../features/table/data/datasources/table_online_datasource.dart';
 import '../../features/table/data/datasources/table_local_datasource.dart';
 import '../../features/table/presentation/bloc/table_bloc.dart';
 import '../../features/orders/presentation/bloc/cart_bloc.dart';
+import '../../features/auth/data/auth_session_store.dart';
+import '../../features/auth/data/datasources/user_data_source.dart';
+import '../../features/auth/data/datasources/local_user_data_source.dart';
+import '../../features/auth/data/datasources/online_user_data_source.dart';
+import '../../features/auth/presentation/bloc/auth_bloc.dart';
 
 final sl = GetIt.instance;
 
@@ -43,10 +48,17 @@ Future<void> init() async {
   sl.registerLazySingleton<TableDataSource>(
     () => AppConfig.isLocal ? LocalTableDataSource(sl()) : OnlineTableDataSource(sl()),
   );
+  sl.registerLazySingleton<UserDataSource>(
+    () => AppConfig.isLocal ? LocalUserDataSource(sl()) : OnlineUserDataSource(),
+  );
+
+  // Auth session persistence (survives browser refresh)
+  sl.registerLazySingleton(() => AuthSessionStore(sl()));
 
   // Bloct
   sl.registerFactory(() => TableBloc(sl()));
   sl.registerFactory(() => CartBloc(sl(), sl(), sl()));
+  sl.registerLazySingleton(() => AuthBloc(sl(), sl()));
 
   // Core
 

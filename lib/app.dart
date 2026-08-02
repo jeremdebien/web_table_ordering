@@ -4,6 +4,7 @@ import 'core/router/app_router.dart';
 import 'features/menu/presentation/bloc/menu_bloc.dart';
 import 'features/table/presentation/bloc/table_bloc.dart';
 import 'features/orders/presentation/bloc/cart_bloc.dart';
+import 'features/auth/presentation/bloc/auth_bloc.dart';
 import 'core/di/injection_container.dart' as di;
 
 class MyApp extends StatelessWidget {
@@ -18,6 +19,9 @@ class MyApp extends StatelessWidget {
         ),
         BlocProvider<TableBloc>(create: (context) => di.sl<TableBloc>()),
         BlocProvider<CartBloc>(create: (context) => di.sl<CartBloc>()),
+        BlocProvider<AuthBloc>(
+          create: (context) => di.sl<AuthBloc>()..add(const AuthCheckSession()),
+        ),
       ],
       child: MaterialApp.router(
         debugShowCheckedModeBanner: false,

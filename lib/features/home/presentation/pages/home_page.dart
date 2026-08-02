@@ -5,6 +5,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 import '../../../table/presentation/bloc/table_bloc.dart';
+import '../../../auth/presentation/bloc/auth_bloc.dart';
 
 class HomePage extends StatefulWidget {
   final String? tableUuid;
@@ -306,10 +307,73 @@ class _HomePageState extends State<HomePage> {
                   ),
                 ),
               ),
+              // Waiter session header (local mode, only when signed in).
+              const _WaiterHeader(),
             ],
           ),
         ),
       ),
+    );
+  }
+}
+
+/// Top overlay bar shown on the waiter tool: the signed-in staff name and a
+/// logout action. Renders nothing unless a waiter is authenticated, so it stays
+/// invisible on the customer-facing (online mode) landing.
+class _WaiterHeader extends StatelessWidget {
+  const _WaiterHeader();
+
+  @override
+  Widget build(BuildContext context) {
+    return BlocBuilder<AuthBloc, AuthState>(
+      builder: (context, state) {
+        if (state is! AuthAuthenticated) return const SizedBox.shrink();
+        return SafeArea(
+          child: Align(
+            alignment: Alignment.topCenter,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Flexible(
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(Icons.badge_outlined,
+                            color: Colors.white, size: 18),
+                        const SizedBox(width: 8),
+                        Flexible(
+                          child: Text(
+                            state.user.name,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  TextButton.icon(
+                    onPressed: () =>
+                        context.read<AuthBloc>().add(const AuthLogout()),
+                    icon: const Icon(Icons.logout, size: 18, color: Colors.white),
+                    label: const Text(
+                      'Log out',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
     );
   }
 }
