@@ -1,5 +1,4 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
-import '../../../../core/config/app_config.dart';
 import '../models/department_model.dart';
 import '../models/category_model.dart';
 import '../models/item_model.dart';
@@ -15,6 +14,11 @@ class LocalMenuDataSource implements MenuDataSource {
   final SupabaseClient _client;
 
   LocalMenuDataSource(this._client);
+
+  /// Shared Storage bucket the POS uploads item images to (see the POS
+  /// consolidator's migration 0025). Item rows reference an object inside it via
+  /// `image_object` (e.g. `items/<barcode>.jpg`).
+  static const String _imageBucket = 'master-file';
 
   static bool _flag(dynamic v) => v == 1 || v == true;
 
@@ -91,7 +95,12 @@ class LocalMenuDataSource implements MenuDataSource {
         'assigned_printer': row['assigned_printer'],
         'is_disc_exempt': _flag(row['disc_exempt']),
         'is_non_vat': _flag(row['non_vat']),
-        'display_image': row['disp_image'],
+        // `disp_image` is a POS-terminal-local file path and means nothing to a
+        // browser; the shared, downloadable image is keyed by `image_object`
+        // inside the `master-file` bucket. ItemModel.displayImage prepends the
+        // storage `.../object/public/` base, so include the bucket name here.
+        'display_image':
+            row['image_object'] != null ? '$_imageBucket/${row['image_object']}' : null,
         'created_at': row['d_tran_date'] ?? _now(),
         'update_at': row['date_change'],
       });
@@ -100,7 +109,7 @@ class LocalMenuDataSource implements MenuDataSource {
 
   @override
   String getItemImageUrl(String imagePath) {
-    return '${AppConfig.imageStoragePath}$imagePath';
+    return _client.storage.from(_imageBucket).getPublicUrl(imagePath);
   }
 
   @override

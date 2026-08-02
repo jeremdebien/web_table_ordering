@@ -13,9 +13,12 @@ flutter clean | Out-Null
 flutter pub get | Out-Null
 
 # --dart-define-from-file=.env compiles the config INTO main.dart.js so the app
-# does not depend on IIS serving the .env asset at runtime.
-Write-Host "Building web (offline, local CanvasKit, compiled-in config)..." -ForegroundColor Cyan
-flutter build web --release --no-web-resources-cdn --dart-define-from-file=.env
+#   does not depend on IIS serving the .env asset at runtime.
+# --pwa-strategy=none disables the Flutter service worker. On a LAN/IIS deploy
+#   the offline PWA cache isn't needed and it repeatedly served STALE builds
+#   (old CanvasKit-from-CDN bootstrap) after redeploys. No SW = always fresh.
+Write-Host "Building web (offline, local CanvasKit, compiled-in config, no service worker)..." -ForegroundColor Cyan
+flutter build web --release --no-web-resources-cdn --dart-define-from-file=.env --pwa-strategy=none
 
 # --- verify the build is actually offline-safe ---
 $bootstrap = "build/web/flutter_bootstrap.js"

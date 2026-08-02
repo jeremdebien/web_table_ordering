@@ -1,0 +1,1 @@
+flutter build web --release --no-web-resources-cdn --dart-define-from-file=.env --pwa-strategy=none

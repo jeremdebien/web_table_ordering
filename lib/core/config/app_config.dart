@@ -53,8 +53,17 @@ class AppConfig {
   static String get supabaseAnonKey =>
       isLocal ? _env('LOCAL_SUPABASE_ANON_KEY') : _env('ONLINE_SUPABASE_ANON_KEY');
 
-  static String get imageStoragePath =>
-      isLocal ? _env('LOCAL_IMAGE_STORAGE_PATH') : _env('ONLINE_IMAGE_STORAGE_PATH');
+  /// Base URL for public Storage objects, ending in `.../object/public/`.
+  ///
+  /// In local mode this is derived from [supabaseUrl] so there is a single URL
+  /// to configure — the local Supabase serves Storage from its own origin, so
+  /// changing `LOCAL_SUPABASE_URL` moves images with it. (The old, separate
+  /// `LOCAL_IMAGE_STORAGE_PATH` env var is no longer used and can be removed.)
+  static String get imageStoragePath {
+    if (!isLocal) return _env('ONLINE_IMAGE_STORAGE_PATH');
+    final base = supabaseUrl.replaceAll(RegExp(r'/+$'), '');
+    return '$base/storage/v1/object/public/';
+  }
 
   /// pos_clients.client_id stamped on locally-written order rows.
   static String get posClientId => _env('POS_CLIENT_ID');
