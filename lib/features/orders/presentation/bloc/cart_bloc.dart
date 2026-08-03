@@ -96,7 +96,7 @@ class CartBloc extends Bloc<CartEvent, CartState> {
     // aside and re-append below.
     final unsubmitted = state.newOrders;
     try {
-      final order = await _ordersDataSource.getActiveOrder(tableId: event.tableId);
+      final order = await _ordersDataSource.getActiveOrder(tableId: event.tableId, deviceId: deviceId);
       if (order != null) {
         var items = [...order.items, ...unsubmitted];
         final sOrderId = order.salesOrderId ?? order.id;
@@ -197,10 +197,15 @@ class CartBloc extends Bloc<CartEvent, CartState> {
       );
       emit(state.copyWith(items: updatedItems));
     } else {
-      // Add as a new row, even if an "Old" item exists
-      // Tag it with current nickname
-      final itemWithNickname = event.item.copyWith(nickname: state.nickname);
-      emit(state.copyWith(items: [...state.items, itemWithNickname]));
+      // Add as a new row, even if an "Old" item exists.
+      // Tag it with the current nickname AND the stable ordering-device id, so
+      // the line is owned by this device regardless of later nickname edits.
+      final deviceId = state.deviceId ?? _deviceIdService.getDeviceId();
+      final itemWithOwner = event.item.copyWith(
+        nickname: state.nickname,
+        webDeviceId: deviceId,
+      );
+      emit(state.copyWith(items: [...state.items, itemWithOwner]));
     }
   }
 

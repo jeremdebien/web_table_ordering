@@ -23,7 +23,9 @@ abstract class OrdersDataSource {
     int salesOrderId,
   );
 
-  Future<SalesOrderModel?> getActiveOrder({required int tableId});
+  /// Active order for a table. When [deviceId] is provided, the returned line
+  /// items are filtered to that ordering device (the header stays table-wide).
+  Future<SalesOrderModel?> getActiveOrder({required int tableId, String? deviceId});
 
   Future<List<SalesOrderModel>> getOrders({int? tableId});
 

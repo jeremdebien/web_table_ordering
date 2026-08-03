@@ -60,7 +60,7 @@ class LocalOrdersDataSource implements OrdersDataSource {
         // Fetch existing items for this order to check for duplicates
         final existingItemsRes = await _client
             .from('sales_order_item')
-            .select('order_item_id, item_barcode, quantity, customer_name, special_instructions')
+            .select('order_item_id, item_barcode, quantity, customer_name, web_device_id, special_instructions')
             .eq('sales_order_id', salesOrderId);
 
         final existingItems = List<Map<String, dynamic>>.from(existingItemsRes);
@@ -69,9 +69,12 @@ class LocalOrdersDataSource implements OrdersDataSource {
         final newRows = <Map<String, dynamic>>[];
 
         for (final item in items) {
+          // Merge only into a line from the SAME device — different devices keep
+          // separate lines even with the same item/nickname/instructions.
           final matchIndex = existingItems.indexWhere((existing) =>
               existing['item_barcode'] == item.itemBarcode &&
               (existing['customer_name'] ?? '') == item.nickname &&
+              (existing['web_device_id'] as String?) == item.webDeviceId &&
               _normalizeInstructions(existing['special_instructions'] as String?) ==
                   _normalizeInstructions(item.specialInstructions));
 
@@ -104,6 +107,7 @@ class LocalOrdersDataSource implements OrdersDataSource {
               'is_disc_exempt': item.isDiscExempt,
               'item_discount': item.itemDiscount,
               'customer_name': item.nickname,
+              'web_device_id': item.webDeviceId,
               'special_instructions': item.specialInstructions,
             });
           }
@@ -169,7 +173,7 @@ class LocalOrdersDataSource implements OrdersDataSource {
   }
 
   @override
-  Future<SalesOrderModel?> getActiveOrder({required int tableId}) async {
+  Future<SalesOrderModel?> getActiveOrder({required int tableId, String? deviceId}) async {
     try {
       final activeOrderRes = await _client
           .from('sales_order_2')
@@ -183,7 +187,14 @@ class LocalOrdersDataSource implements OrdersDataSource {
       final finalOrderData = _mapHeader(activeOrderRes);
       final orderId = finalOrderData['sales_order_id'];
 
-      final items = await _client.from('sales_order_item').select().eq('sales_order_id', orderId);
+      // Line items scoped to the current ordering device. Rows with a NULL
+      // web_device_id (POS/waiter-added or pre-device legacy) are intentionally
+      // excluded so a guest sees only their own items.
+      var itemQuery = _client.from('sales_order_item').select().eq('sales_order_id', orderId);
+      if (deviceId != null) {
+        itemQuery = itemQuery.eq('web_device_id', deviceId);
+      }
+      final items = await itemQuery;
       finalOrderData['sales_order_item'] = items.map(_mapItem).toList();
 
       return SalesOrderModel.fromJson(finalOrderData);

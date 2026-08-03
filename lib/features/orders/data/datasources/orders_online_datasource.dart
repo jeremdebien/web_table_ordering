@@ -99,7 +99,7 @@ class OnlineOrdersDataSource implements OrdersDataSource {
 
   /// Fetch active order for a table
   @override
-  Future<SalesOrderModel?> getActiveOrder({required int tableId}) async {
+  Future<SalesOrderModel?> getActiveOrder({required int tableId, String? deviceId}) async {
     try {
       // 1. Fetch active sales_order
       final activeOrderRes = await _client

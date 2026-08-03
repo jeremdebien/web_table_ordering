@@ -15,6 +15,7 @@ class SalesOrderItemModel {
   final int originalQuantity; // Added to distinguish new vs existing items
   final String status; // Added to distinguish pending vs accepted items
   final String nickname; // Added for customer tracking
+  final String? webDeviceId; // Stable ordering-device id (web app); nullable for POS/legacy rows
   final String? specialInstructions; // JSON: answers to per-item instruction questions
 
   /// Kitchen serving state of the line: 'preparing' or 'served'. Distinct from
@@ -67,6 +68,7 @@ class SalesOrderItemModel {
     this.originalQuantity = 0,
     this.status = 'Accepted',
     this.nickname = '',
+    this.webDeviceId,
     this.specialInstructions,
     this.servingStatus,
     this.servedQuantity = 0,
@@ -97,6 +99,7 @@ class SalesOrderItemModel {
       originalQuantity: qty, // Set originalQuantity to quantity for DB items
       status: json['status'] as String? ?? 'Accepted',
       nickname: json['nickname'] as String? ?? json['customer_name'] as String? ?? '',
+      webDeviceId: json['web_device_id'] as String?,
       specialInstructions: json['special_instructions'] as String?,
       // Present only in local (consolidator) mode; absent online.
       servingStatus: json['item_status'] as String?,
@@ -121,6 +124,7 @@ class SalesOrderItemModel {
       'status': status,
       'nickname': nickname,
       'customer_name': nickname,
+      if (webDeviceId != null) 'web_device_id': webDeviceId,
       'special_instructions': specialInstructions,
     };
   }
@@ -142,6 +146,7 @@ class SalesOrderItemModel {
     int? originalQuantity,
     String? status,
     String? nickname,
+    String? webDeviceId,
     String? specialInstructions,
     String? servingStatus,
     double? servedQuantity,
@@ -163,6 +168,7 @@ class SalesOrderItemModel {
       originalQuantity: originalQuantity ?? this.originalQuantity,
       status: status ?? this.status,
       nickname: nickname ?? this.nickname,
+      webDeviceId: webDeviceId ?? this.webDeviceId,
       specialInstructions: specialInstructions ?? this.specialInstructions,
       servingStatus: servingStatus ?? this.servingStatus,
       servedQuantity: servedQuantity ?? this.servedQuantity,
