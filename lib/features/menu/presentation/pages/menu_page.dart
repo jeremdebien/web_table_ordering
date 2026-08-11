@@ -23,6 +23,10 @@ class MenuPage extends StatefulWidget {
 // I will start with Import change.
 
 class _MenuPageState extends State<MenuPage> {
+  // When true, a guest can only start ordering once the table already has a
+  // sales order open (created by staff). Hardcoded for now.
+  static const bool _requireSalesOrder = false;
+
   bool _isSearching = false;
   String _searchQuery = '';
   final TextEditingController _searchController = TextEditingController();
@@ -82,8 +86,7 @@ class _MenuPageState extends State<MenuPage> {
         backgroundColor: const Color(0xFFFAF7F2),
         body: BlocListener<CartBloc, CartState>(
           listenWhen: (previous, current) =>
-              previous.nickname != current.nickname ||
-              (previous.deviceId != current.deviceId),
+              previous.nickname != current.nickname || (previous.deviceId != current.deviceId),
           listener: (context, state) {
             if (state.nickname.isEmpty && state.deviceId != null) {
               _showNicknamePrompt(context);
@@ -125,9 +128,7 @@ class _MenuPageState extends State<MenuPage> {
                                   ),
                                 ),
                                 onPressed: () {
-                                  final tableState = context
-                                      .read<TableBloc>()
-                                      .state;
+                                  final tableState = context.read<TableBloc>().state;
                                   if (tableState is TableLoaded) {
                                     context.read<CartBloc>().add(
                                       EnableOrdering(tableState.table.tableId),
@@ -135,6 +136,38 @@ class _MenuPageState extends State<MenuPage> {
                                   }
                                 },
                                 child: const Text('Enable ordering again?'),
+                              ),
+                            ],
+                          ),
+                        ),
+                      );
+                    }
+
+                    // Block ordering until the table has a sales order open.
+                    // Only decide once the active order has been loaded, so we
+                    // don't flash this over a table that actually has an order.
+                    final orderLoaded =
+                        cartState.status == CartStatus.success || cartState.status == CartStatus.submitted;
+                    if (_requireSalesOrder && orderLoaded && cartState.salesOrderId == null) {
+                      return Center(
+                        child: Padding(
+                          padding: const EdgeInsets.all(20.0),
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: const [
+                              Icon(
+                                Icons.table_restaurant,
+                                size: 80,
+                                color: Colors.black,
+                              ),
+                              SizedBox(height: 20),
+                              Text(
+                                "Ordering isn't available yet.\nPlease ask our staff to open your table first.",
+                                textAlign: TextAlign.center,
+                                style: TextStyle(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.bold,
+                                ),
                               ),
                             ],
                           ),
@@ -153,21 +186,17 @@ class _MenuPageState extends State<MenuPage> {
                           return Center(child: Text(state.message));
                         }
                         if (state is MenuLoaded) {
-                          final displayItems =
-                              _isSearching && _searchQuery.isNotEmpty
+                          final displayItems = _isSearching && _searchQuery.isNotEmpty
                               ? state.items
                                     .where(
-                                      (item) =>
-                                          item.name.toLowerCase().contains(
-                                            _searchQuery.toLowerCase(),
-                                          ),
+                                      (item) => item.name.toLowerCase().contains(
+                                        _searchQuery.toLowerCase(),
+                                      ),
                                     )
                                     .toList()
                               : state.items
                                     .where(
-                                      (item) =>
-                                          item.categoryId ==
-                                          state.selectedCategoryId,
+                                      (item) => item.categoryId == state.selectedCategoryId,
                                     )
                                     .toList();
 
@@ -195,8 +224,7 @@ class _MenuPageState extends State<MenuPage> {
                                         right: 20.0,
                                       ),
                                       child: Row(
-                                        mainAxisAlignment:
-                                            MainAxisAlignment.end,
+                                        mainAxisAlignment: MainAxisAlignment.end,
                                         children: [
                                           GestureDetector(
                                             onTap: () => _showNicknamePrompt(
@@ -211,18 +239,14 @@ class _MenuPageState extends State<MenuPage> {
                                                   color: Colors.white,
                                                   size: 24,
                                                 ),
-                                                if (cartState
-                                                    .nickname
-                                                    .isNotEmpty)
+                                                if (cartState.nickname.isNotEmpty)
                                                   Text(
-                                                    cartState.nickname
-                                                        .toLowerCase(),
+                                                    cartState.nickname.toLowerCase(),
                                                     style: const TextStyle(
                                                       color: Colors.white70,
                                                       fontSize: 10,
                                                     ),
-                                                    overflow:
-                                                        TextOverflow.ellipsis,
+                                                    overflow: TextOverflow.ellipsis,
                                                   ),
                                               ],
                                             ),
@@ -247,8 +271,7 @@ class _MenuPageState extends State<MenuPage> {
                                       ),
                                     ),
                                     child: Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
+                                      crossAxisAlignment: CrossAxisAlignment.start,
                                       children: [
                                         const SizedBox(height: 20),
                                         // Categories Horizontal List
@@ -261,11 +284,8 @@ class _MenuPageState extends State<MenuPage> {
                                               horizontal: 16,
                                             ),
                                             itemBuilder: (context, index) {
-                                              final category =
-                                                  state.categories[index];
-                                              final isSelected =
-                                                  category.categoryId ==
-                                                  state.selectedCategoryId;
+                                              final category = state.categories[index];
+                                              final isSelected = category.categoryId == state.selectedCategoryId;
                                               return GestureDetector(
                                                 onTap: () {
                                                   context.read<MenuBloc>().add(
@@ -285,10 +305,9 @@ class _MenuPageState extends State<MenuPage> {
                                                             0xFF1A1A1A,
                                                           )
                                                         : Colors.white,
-                                                    borderRadius:
-                                                        BorderRadius.circular(
-                                                          16,
-                                                        ),
+                                                    borderRadius: BorderRadius.circular(
+                                                      16,
+                                                    ),
                                                     border: isSelected
                                                         ? Border.all(
                                                             color: const Color(
@@ -297,18 +316,15 @@ class _MenuPageState extends State<MenuPage> {
                                                             width: 1.5,
                                                           )
                                                         : Border.all(
-                                                            color: Colors
-                                                                .grey
-                                                                .shade200,
+                                                            color: Colors.grey.shade200,
                                                             width: 1,
                                                           ),
                                                     boxShadow: [
                                                       if (!isSelected)
                                                         BoxShadow(
-                                                          color: Colors.black
-                                                              .withValues(
-                                                                alpha: 0.03,
-                                                              ),
+                                                          color: Colors.black.withValues(
+                                                            alpha: 0.03,
+                                                          ),
                                                           blurRadius: 8,
                                                           offset: const Offset(
                                                             0,
@@ -318,9 +334,7 @@ class _MenuPageState extends State<MenuPage> {
                                                     ],
                                                   ),
                                                   child: Column(
-                                                    mainAxisAlignment:
-                                                        MainAxisAlignment
-                                                            .center,
+                                                    mainAxisAlignment: MainAxisAlignment.center,
                                                     children: [
                                                       Icon(
                                                         _getCategoryIcon(
@@ -330,9 +344,7 @@ class _MenuPageState extends State<MenuPage> {
                                                             ? const Color(
                                                                 0xFFC5A880,
                                                               )
-                                                            : Colors
-                                                                  .grey
-                                                                  .shade700,
+                                                            : Colors.grey.shade700,
                                                         size: 24,
                                                       ),
                                                       const SizedBox(height: 6),
@@ -340,21 +352,12 @@ class _MenuPageState extends State<MenuPage> {
                                                         category.name,
                                                         style: TextStyle(
                                                           fontSize: 12,
-                                                          fontWeight: isSelected
-                                                              ? FontWeight.bold
-                                                              : FontWeight
-                                                                    .normal,
-                                                          color: isSelected
-                                                              ? Colors.white
-                                                              : Colors
-                                                                    .grey
-                                                                    .shade800,
+                                                          fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                                                          color: isSelected ? Colors.white : Colors.grey.shade800,
                                                         ),
-                                                        textAlign:
-                                                            TextAlign.center,
+                                                        textAlign: TextAlign.center,
                                                         maxLines: 1,
-                                                        overflow: TextOverflow
-                                                            .ellipsis,
+                                                        overflow: TextOverflow.ellipsis,
                                                       ),
                                                     ],
                                                   ),
@@ -384,76 +387,58 @@ class _MenuPageState extends State<MenuPage> {
                                                           height: 44,
                                                           decoration: BoxDecoration(
                                                             color: Colors.white,
-                                                            borderRadius:
-                                                                BorderRadius.circular(
-                                                                  12,
-                                                                ),
+                                                            borderRadius: BorderRadius.circular(
+                                                              12,
+                                                            ),
                                                             border: Border.all(
-                                                              color:
-                                                                  const Color(
-                                                                    0xFFC5A880,
-                                                                  ),
+                                                              color: const Color(
+                                                                0xFFC5A880,
+                                                              ),
                                                               width: 1.5,
                                                             ),
                                                             boxShadow: [
                                                               BoxShadow(
-                                                                color: Colors
-                                                                    .black
-                                                                    .withValues(
-                                                                      alpha:
-                                                                          0.06,
-                                                                    ),
+                                                                color: Colors.black.withValues(
+                                                                  alpha: 0.06,
+                                                                ),
                                                                 blurRadius: 8,
-                                                                offset:
-                                                                    const Offset(
-                                                                      0,
-                                                                      2,
-                                                                    ),
+                                                                offset: const Offset(
+                                                                  0,
+                                                                  2,
+                                                                ),
                                                               ),
                                                             ],
                                                           ),
                                                           child: TextField(
-                                                            controller:
-                                                                _searchController,
+                                                            controller: _searchController,
                                                             autofocus: true,
-                                                            style:
-                                                                const TextStyle(
-                                                                  fontSize: 15,
-                                                                  color: Color(
-                                                                    0xFF1A1A1A,
-                                                                  ),
-                                                                ),
+                                                            style: const TextStyle(
+                                                              fontSize: 15,
+                                                              color: Color(
+                                                                0xFF1A1A1A,
+                                                              ),
+                                                            ),
                                                             decoration: InputDecoration(
-                                                              hintText:
-                                                                  'Search menu…',
+                                                              hintText: 'Search menu…',
                                                               hintStyle: TextStyle(
-                                                                color: Colors
-                                                                    .grey
-                                                                    .shade400,
+                                                                color: Colors.grey.shade400,
                                                                 fontSize: 15,
                                                               ),
-                                                              prefixIcon:
-                                                                  const Icon(
-                                                                    Icons
-                                                                        .search,
-                                                                    color: Color(
-                                                                      0xFFC5A880,
-                                                                    ),
-                                                                    size: 20,
-                                                                  ),
-                                                              border:
-                                                                  InputBorder
-                                                                      .none,
-                                                              contentPadding:
-                                                                  const EdgeInsets.symmetric(
-                                                                    vertical:
-                                                                        12,
-                                                                  ),
+                                                              prefixIcon: const Icon(
+                                                                Icons.search,
+                                                                color: Color(
+                                                                  0xFFC5A880,
+                                                                ),
+                                                                size: 20,
+                                                              ),
+                                                              border: InputBorder.none,
+                                                              contentPadding: const EdgeInsets.symmetric(
+                                                                vertical: 12,
+                                                              ),
                                                             ),
                                                             onChanged: (value) {
                                                               setState(() {
-                                                                _searchQuery =
-                                                                    value;
+                                                                _searchQuery = value;
                                                               });
                                                             },
                                                           ),
@@ -463,24 +448,20 @@ class _MenuPageState extends State<MenuPage> {
                                                       GestureDetector(
                                                         onTap: () {
                                                           setState(() {
-                                                            _isSearching =
-                                                                false;
+                                                            _isSearching = false;
                                                             _searchQuery = '';
-                                                            _searchController
-                                                                .clear();
+                                                            _searchController.clear();
                                                           });
                                                         },
                                                         child: Container(
                                                           width: 44,
                                                           height: 44,
-                                                          decoration:
-                                                              const BoxDecoration(
-                                                                color: Color(
-                                                                  0xFF1A1A1A,
-                                                                ),
-                                                                shape: BoxShape
-                                                                    .circle,
-                                                              ),
+                                                          decoration: const BoxDecoration(
+                                                            color: Color(
+                                                              0xFF1A1A1A,
+                                                            ),
+                                                            shape: BoxShape.circle,
+                                                          ),
                                                           child: const Icon(
                                                             Icons.close,
                                                             color: Colors.white,
@@ -494,26 +475,18 @@ class _MenuPageState extends State<MenuPage> {
                                                     key: const ValueKey(
                                                       'category_title',
                                                     ),
-                                                    mainAxisAlignment:
-                                                        MainAxisAlignment
-                                                            .spaceBetween,
+                                                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                                     children: [
                                                       Text(
                                                         state.categories
                                                             .firstWhere(
-                                                              (c) =>
-                                                                  c.categoryId ==
-                                                                  state
-                                                                      .selectedCategoryId,
-                                                              orElse: () => state
-                                                                  .categories
-                                                                  .first,
+                                                              (c) => c.categoryId == state.selectedCategoryId,
+                                                              orElse: () => state.categories.first,
                                                             )
                                                             .name,
                                                         style: const TextStyle(
                                                           fontSize: 20,
-                                                          fontWeight:
-                                                              FontWeight.bold,
+                                                          fontWeight: FontWeight.bold,
                                                           fontFamily: 'PTSerif',
                                                           color: Color(
                                                             0xFF1A1A1A,
@@ -525,21 +498,18 @@ class _MenuPageState extends State<MenuPage> {
                                                           setState(() {
                                                             _isSearching = true;
                                                             _searchQuery = '';
-                                                            _searchController
-                                                                .clear();
+                                                            _searchController.clear();
                                                           });
                                                         },
                                                         child: Container(
                                                           width: 38,
                                                           height: 38,
-                                                          decoration:
-                                                              const BoxDecoration(
-                                                                color: Color(
-                                                                  0xFF1A1A1A,
-                                                                ),
-                                                                shape: BoxShape
-                                                                    .circle,
-                                                              ),
+                                                          decoration: const BoxDecoration(
+                                                            color: Color(
+                                                              0xFF1A1A1A,
+                                                            ),
+                                                            shape: BoxShape.circle,
+                                                          ),
                                                           child: const Icon(
                                                             Icons.search,
                                                             color: Colors.white,
@@ -569,34 +539,28 @@ class _MenuPageState extends State<MenuPage> {
                                               )
                                             : GridView.builder(
                                                 shrinkWrap: true,
-                                                physics:
-                                                    const NeverScrollableScrollPhysics(),
-                                                padding:
-                                                    const EdgeInsets.symmetric(
-                                                      horizontal: 16,
-                                                    ),
-                                                gridDelegate:
-                                                    const SliverGridDelegateWithFixedCrossAxisCount(
-                                                      crossAxisCount: 2,
-                                                      childAspectRatio: 0.65,
-                                                      crossAxisSpacing: 12,
-                                                      mainAxisSpacing: 12,
-                                                    ),
+                                                physics: const NeverScrollableScrollPhysics(),
+                                                padding: const EdgeInsets.symmetric(
+                                                  horizontal: 16,
+                                                ),
+                                                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                                                  crossAxisCount: 2,
+                                                  childAspectRatio: 0.65,
+                                                  crossAxisSpacing: 12,
+                                                  mainAxisSpacing: 12,
+                                                ),
                                                 itemCount: displayItems.length,
                                                 itemBuilder: (context, index) {
-                                                  final item =
-                                                      displayItems[index];
+                                                  final item = displayItems[index];
                                                   String? badgeText;
                                                   Color? badgeColor;
-                                                  Color badgeTextColor =
-                                                      Colors.white;
+                                                  Color badgeTextColor = Colors.white;
                                                   if (index % 4 == 0) {
                                                     badgeText = '★ BESTSELLER';
                                                     badgeColor = const Color(
                                                       0xFFC5A880,
                                                     );
-                                                    badgeTextColor =
-                                                        Colors.black;
+                                                    badgeTextColor = Colors.black;
                                                   } else if (index % 4 == 1) {
                                                     badgeText = '🔥 POPULAR';
                                                     badgeColor = const Color(
@@ -609,11 +573,10 @@ class _MenuPageState extends State<MenuPage> {
 
                                                   return MenuItemCard(
                                                     item: item,
-                                                    onTap: () =>
-                                                        _showAddItemConfirmation(
-                                                          context,
-                                                          item,
-                                                        ),
+                                                    onTap: () => _showAddItemConfirmation(
+                                                      context,
+                                                      item,
+                                                    ),
                                                   );
                                                 },
                                               ),
@@ -872,9 +835,7 @@ class _MenuPageState extends State<MenuPage> {
                         ),
                         const SizedBox(width: 12),
                         Text(
-                          initialValue.isEmpty
-                              ? 'Identify Yourself'
-                              : 'Edit Nickname',
+                          initialValue.isEmpty ? 'Identify Yourself' : 'Edit Nickname',
                           style: const TextStyle(
                             color: Colors.white,
                             fontSize: 20,

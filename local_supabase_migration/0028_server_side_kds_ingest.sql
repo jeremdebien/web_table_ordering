@@ -54,14 +54,27 @@ END $$;
 ALTER TABLE pos_clients
   ADD COLUMN IF NOT EXISTS device_type TEXT NOT NULL DEFAULT 'pos';   -- 'pos' | 'kds'
 
--- ── KDS order ↔ sales order link ─────────────────────────────────
+-- ── KDS order ↔ sales order / submission link ────────────────────
 ALTER TABLE kds_orders
-  ADD COLUMN IF NOT EXISTS sales_order_id BIGINT;
+  ADD COLUMN IF NOT EXISTS sales_order_id BIGINT,
+  ADD COLUMN IF NOT EXISTS kds_batch_id   TEXT;
 
--- One kitchen order per sales order. Nulls (legacy rows from the old Dart path)
--- don't collide under a unique index, and ON CONFLICT below relies on this.
-CREATE UNIQUE INDEX IF NOT EXISTS idx_kds_orders_sales_order_id
+-- One kitchen order (card) per SUBMISSION, not per sales order: a later "send"
+-- to the same table/order is a new batch → a new card with the next sequence
+-- badge, and two orders submitted at once never merge. kds_batch_id is stamped
+-- per submission by the writer (web app / POS); all items of one submission
+-- share it. When absent, the trigger falls back to one card per sales order.
+CREATE UNIQUE INDEX IF NOT EXISTS idx_kds_orders_kds_batch_id
+  ON kds_orders (kds_batch_id);
+
+-- sales_order_id is NOT unique (a sales order can span several submissions).
+DROP INDEX IF EXISTS idx_kds_orders_sales_order_id;
+CREATE INDEX IF NOT EXISTS idx_kds_orders_sales_order_id
   ON kds_orders (sales_order_id);
+
+-- Per-submission grouping key on the line; null → grouped by sales order.
+ALTER TABLE sales_order_item
+  ADD COLUMN IF NOT EXISTS kds_batch_id TEXT;
 
 -- ── Ingest trigger ───────────────────────────────────────────────
 -- Fires on a new item line and on a quantity bump of an existing line. The
@@ -92,6 +105,8 @@ DECLARE
   v_table_name   TEXT;
   v_order_number TEXT;
   v_client_id    TEXT;
+  v_batch_key    TEXT;
+  v_sequence     INTEGER;
   v_kds_order_id BIGINT;
   v_kds_item_id  BIGINT;
   v_ticket_code  TEXT;
@@ -145,11 +160,25 @@ BEGIN
   -- Only reference a registered client (avoid an FK abort on the sale insert).
   SELECT client_id INTO v_client_id FROM pos_clients WHERE client_id = NEW.pos_client_id;
 
-  -- Find-or-create the kitchen order for this sales order.
-  INSERT INTO kds_orders (sales_order_id, pos_client_id, order_number, table_number, customer_name)
-  VALUES (NEW.sales_order_id, v_client_id, v_order_number, v_table_name, NEW.customer_name)
-  ON CONFLICT (sales_order_id) DO NOTHING;
-  SELECT id INTO v_kds_order_id FROM kds_orders WHERE sales_order_id = NEW.sales_order_id;
+  -- One card per SUBMISSION: group by the writer's batch id, falling back to one
+  -- card per sales order when none was stamped. Concurrent submissions carry
+  -- different batch ids, so they never merge.
+  v_batch_key := COALESCE(NULLIF(btrim(NEW.kds_batch_id), ''), 'so:' || NEW.sales_order_id::text);
+
+  SELECT id INTO v_kds_order_id FROM kds_orders WHERE kds_batch_id = v_batch_key;
+  IF v_kds_order_id IS NULL THEN
+    -- Sequence badge: how many kitchen orders already share this order number
+    -- (mirrors the POS's per-send badge, so a 2nd send to a table shows "2").
+    SELECT count(*) + 1 INTO v_sequence FROM kds_orders WHERE order_number = v_order_number;
+
+    INSERT INTO kds_orders (kds_batch_id, sales_order_id, pos_client_id, order_number,
+                            table_number, customer_name, order_sequence)
+    VALUES (v_batch_key, NEW.sales_order_id, v_client_id, v_order_number,
+            v_table_name, NEW.customer_name, v_sequence)
+    ON CONFLICT (kds_batch_id) DO NOTHING;
+
+    SELECT id INTO v_kds_order_id FROM kds_orders WHERE kds_batch_id = v_batch_key;
+  END IF;
 
   -- Kitchen line for the newly-ordered delta.
   INSERT INTO kds_order_items (

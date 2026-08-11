@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:rxdart/rxdart.dart';
+import 'package:uuid/uuid.dart';
 import '../../../../core/config/app_config.dart';
 import '../models/sales_order_model.dart';
 import '../models/sales_order_item_model.dart';
@@ -57,6 +58,11 @@ class LocalOrdersDataSource implements OrdersDataSource {
 
       // 2. Process and insert/update lines in sales_order_item (no pending stage).
       if (items.isNotEmpty) {
+        // One batch id per submission: every line touched by this send shares it
+        // so the KDS ingest trigger groups them into a single kitchen card (a
+        // later send to the same order becomes a new card). See migration 0028.
+        final batchId = const Uuid().v4();
+
         // Fetch existing items for this order to check for duplicates
         final existingItemsRes = await _client
             .from('sales_order_item')
@@ -90,6 +96,9 @@ class LocalOrdersDataSource implements OrdersDataSource {
                   .update({
                     'quantity': newQty,
                     'amount': newAmount,
+                    // Re-stamp so the newly-ordered delta routes to THIS send's
+                    // kitchen card rather than the original submission's.
+                    'kds_batch_id': batchId,
                   })
                   .eq('order_item_id', validMatch['order_item_id']),
             );
@@ -109,6 +118,7 @@ class LocalOrdersDataSource implements OrdersDataSource {
               'customer_name': item.nickname,
               'web_device_id': item.webDeviceId,
               'special_instructions': item.specialInstructions,
+              'kds_batch_id': batchId,
             });
           }
         }
