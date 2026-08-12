@@ -4,7 +4,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import '../bloc/auth_bloc.dart';
 
 /// Staff PIN login shown at `/` when there is no session (local mode).
-/// A numeric keypad matching the NYX dark/glass aesthetic; submitting fires
+/// A numeric keypad matching the IKOKA dark/glass aesthetic; submitting fires
 /// [AuthLoginRequested] and the root gate swaps to the waiter tool on success.
 class PinLoginPage extends StatefulWidget {
   const PinLoginPage({super.key});

@@ -44,8 +44,7 @@ class MenuItemCard extends StatelessWidget {
                       ? Image.network(
                           item.displayImage!,
                           fit: BoxFit.cover,
-                          errorBuilder: (ctx, err, stack) =>
-                              const _Placeholder(),
+                          errorBuilder: (ctx, err, stack) => const _Placeholder(),
                         )
                       : const _Placeholder(),
                 ),
@@ -116,7 +115,7 @@ class _Placeholder extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      color: Colors.grey.shade100,
+      color: Colors.grey.shade800,
       child: const Icon(Icons.restaurant, size: 50, color: Colors.grey),
     );
   }

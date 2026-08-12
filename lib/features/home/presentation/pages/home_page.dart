@@ -75,7 +75,7 @@ class _HomePageState extends State<HomePage> {
               Container(
                 decoration: const BoxDecoration(
                   image: DecorationImage(
-                    image: AssetImage("assets/images/nyx.jpg"),
+                    image: AssetImage('assets/images/welcome_ikoka.png'),
                     fit: BoxFit.cover,
                   ),
                 ),
@@ -117,7 +117,7 @@ class _HomePageState extends State<HomePage> {
                               ),
                               child: ClipOval(
                                 child: Image.asset(
-                                  'assets/images/nyx_logo.jpg',
+                                  'assets/images/ikoka_logo.png',
                                   fit: BoxFit.contain,
                                   width: 140,
                                   height: 140,
@@ -131,7 +131,7 @@ class _HomePageState extends State<HomePage> {
                           Stack(
                             children: [
                               Text(
-                                "Welcome to NYX Vikings",
+                                "Welcome to IKOKA",
                                 textAlign: TextAlign.center,
                                 style: TextStyle(
                                   fontSize: 24,
@@ -143,7 +143,7 @@ class _HomePageState extends State<HomePage> {
                                 ),
                               ),
                               const Text(
-                                "Welcome to NYX Vikings",
+                                "Welcome to IKOKA",
                                 textAlign: TextAlign.center,
                                 style: TextStyle(
                                   fontSize: 24,
@@ -157,7 +157,7 @@ class _HomePageState extends State<HomePage> {
                           Stack(
                             children: [
                               Text(
-                                "A place where gastronomy meets grandeur.",
+                                "Staff & Waiter Console",
                                 textAlign: TextAlign.center,
                                 style: TextStyle(
                                   fontSize: 16,
@@ -169,7 +169,7 @@ class _HomePageState extends State<HomePage> {
                                 ),
                               ),
                               const Text(
-                                "A place where gastronomy meets grandeur.",
+                                "Staff & Waiter Console",
                                 textAlign: TextAlign.center,
                                 style: TextStyle(
                                   fontSize: 16,
