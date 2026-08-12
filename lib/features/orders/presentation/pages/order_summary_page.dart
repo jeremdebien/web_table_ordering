@@ -52,7 +52,7 @@ class _OrderSummaryPageState extends State<OrderSummaryPage> {
                   Container(
                     height: 200,
                     child: Image.asset(
-                      'assets/images/logo.jpg',
+                      'assets/images/nyx_logo.jpg',
                       fit: BoxFit.contain,
                     ),
                   ),
@@ -66,7 +66,7 @@ class _OrderSummaryPageState extends State<OrderSummaryPage> {
                 left: 16,
                 child: IconButton(
                   style: IconButton.styleFrom(
-                    backgroundColor: Color(0xfff25125),
+                    backgroundColor: Color(0xFF121212),
                     shape: CircleBorder(),
                   ),
                   icon: Icon(
