@@ -80,12 +80,11 @@ class CartSummary extends StatelessWidget {
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   const Text(
-                    'Your Order',
+                    'Order Summary',
                     style: TextStyle(
                       fontSize: 24,
                       fontWeight: FontWeight.bold,
                       color: Color(0xFF1A1A1A),
-                      fontFamily: 'PTSerif',
                     ),
                   ),
                   IconButton(
@@ -349,7 +348,7 @@ class CartSummary extends StatelessWidget {
                                             width: 28,
                                             height: 28,
                                             decoration: const BoxDecoration(
-                                              color: Color(0xFF1A1A1A),
+                                              color: Color(0xFFe62b28),
                                               shape: BoxShape.circle,
                                             ),
                                             child: const Icon(
@@ -482,7 +481,7 @@ class CartSummary extends StatelessWidget {
                 height: 56,
                 child: ElevatedButton(
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.black,
+                    backgroundColor: Color(0xffe62b28),
                     foregroundColor: Colors.white,
                     disabledBackgroundColor: Colors.black12,
                     disabledForegroundColor: Colors.black26,

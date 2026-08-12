@@ -42,115 +42,125 @@ class _PinLoginPageState extends State<PinLoginPage> {
           Container(
             decoration: const BoxDecoration(
               image: DecorationImage(
-                image: AssetImage('assets/images/nyx.jpg'),
+                image: AssetImage('assets/images/welcome_ikoka.png'),
                 fit: BoxFit.cover,
               ),
             ),
           ),
-          Container(color: Colors.black.withValues(alpha: 0.55)),
           SafeArea(
             child: Center(
               child: SingleChildScrollView(
-                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
-                child: ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: 380),
-                  child: BlocConsumer<AuthBloc, AuthState>(
-                    listenWhen: (prev, curr) => curr is AuthFailure,
-                    listener: (context, state) {
-                      // Clear the field after a failed attempt.
-                      setState(() => _pin = '');
-                    },
-                    builder: (context, state) {
-                      final isLoading = state is AuthAuthenticating;
-                      final error = state is AuthFailure ? state.message : null;
-                      return Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          ClipOval(
-                            child: Image.asset(
-                              'assets/images/nyx_logo.jpg',
-                              width: 96,
-                              height: 96,
-                              fit: BoxFit.contain,
-                            ),
-                          ),
-                          const SizedBox(height: 20),
-                          const Text(
-                            'Staff Login',
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontSize: 22,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                          const SizedBox(height: 6),
-                          Text(
-                            'Enter your PIN to continue',
-                            style: TextStyle(
-                              color: Colors.white.withValues(alpha: 0.7),
-                              fontSize: 14,
-                            ),
-                          ),
-                          const SizedBox(height: 28),
-                          _PinDots(length: _pin.length, hasError: error != null),
-                          const SizedBox(height: 12),
-                          SizedBox(
-                            height: 20,
-                            child: error != null
-                                ? Text(
-                                    error,
-                                    style: const TextStyle(
-                                      color: Colors.redAccent,
-                                      fontSize: 13,
-                                      fontWeight: FontWeight.w600,
-                                    ),
-                                  )
-                                : null,
-                          ),
-                          const SizedBox(height: 16),
-                          _Keypad(
-                            enabled: !isLoading,
-                            onDigit: _append,
-                            onBackspace: _backspace,
-                          ),
-                          const SizedBox(height: 24),
-                          SizedBox(
-                            width: double.infinity,
-                            height: 54,
-                            child: ElevatedButton(
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: const Color.fromARGB(255, 235, 209, 16),
-                                foregroundColor: Colors.black,
-                                disabledBackgroundColor:
-                                    const Color(0xfff25125).withValues(alpha: 0.4),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(14),
-                                ),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 24,
+                  vertical: 32,
+                ),
+                child: Container(
+                  padding: const EdgeInsets.all(20),
+                  decoration: BoxDecoration(
+                    color: Colors.black.withValues(alpha: 0.7),
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 380),
+                    child: BlocConsumer<AuthBloc, AuthState>(
+                      listenWhen: (prev, curr) => curr is AuthFailure,
+                      listener: (context, state) {
+                        // Clear the field after a failed attempt.
+                        setState(() => _pin = '');
+                      },
+                      builder: (context, state) {
+                        final isLoading = state is AuthAuthenticating;
+                        final error = state is AuthFailure
+                            ? state.message
+                            : null;
+                        return Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              'Enter your PIN to continue',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 14,
                               ),
-                              onPressed: (isLoading || _pin.isEmpty) ? null : _submit,
-                              child: isLoading
-                                  ? const SizedBox(
-                                      width: 22,
-                                      height: 22,
-                                      child: CircularProgressIndicator(
-                                        strokeWidth: 2,
-                                        valueColor:
-                                            AlwaysStoppedAnimation<Color>(Colors.black),
+                            ),
+                            const SizedBox(height: 28),
+                            _PinDots(
+                              length: _pin.length,
+                              hasError: error != null,
+                            ),
+                            const SizedBox(height: 12),
+                            SizedBox(
+                              height: 20,
+                              child: error != null
+                                  ? Text(
+                                      error,
+                                      style: const TextStyle(
+                                        color: Colors.redAccent,
+                                        fontSize: 13,
+                                        fontWeight: FontWeight.w600,
                                       ),
                                     )
-                                  : const Text(
-                                      'SIGN IN',
-                                      style: TextStyle(
-                                        fontSize: 16,
-                                        fontWeight: FontWeight.bold,
-                                        letterSpacing: 1.2,
-                                      ),
-                                    ),
+                                  : null,
                             ),
-                          ),
-                        ],
-                      );
-                    },
+                            const SizedBox(height: 16),
+                            _Keypad(
+                              enabled: !isLoading,
+                              onDigit: _append,
+                              onBackspace: _backspace,
+                            ),
+                            const SizedBox(height: 24),
+                            SizedBox(
+                              width: double.infinity,
+                              height: 54,
+                              child: ElevatedButton(
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: const Color.fromARGB(
+                                    255,
+                                    216,
+                                    5,
+                                    5,
+                                  ),
+                                  foregroundColor: Colors.black,
+                                  disabledBackgroundColor: const Color.fromARGB(
+                                    255,
+                                    255,
+                                    255,
+                                    255,
+                                  ).withValues(alpha: 0.4),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(14),
+                                  ),
+                                ),
+                                onPressed: (isLoading || _pin.isEmpty)
+                                    ? null
+                                    : _submit,
+                                child: isLoading
+                                    ? const SizedBox(
+                                        width: 22,
+                                        height: 22,
+                                        child: CircularProgressIndicator(
+                                          strokeWidth: 2,
+                                          valueColor:
+                                              AlwaysStoppedAnimation<Color>(
+                                                Colors.black,
+                                              ),
+                                        ),
+                                      )
+                                    : const Text(
+                                        'SIGN IN',
+                                        style: TextStyle(
+                                          color: Colors.white,
+                                          fontSize: 16,
+                                          fontWeight: FontWeight.bold,
+                                          letterSpacing: 1.2,
+                                        ),
+                                      ),
+                              ),
+                            ),
+                          ],
+                        );
+                      },
+                    ),
                   ),
                 ),
               ),
@@ -209,7 +219,8 @@ class _Keypad extends StatelessWidget {
       return _KeypadButton(
         enabled: enabled && onTap != null,
         onTap: onTap,
-        child: child ??
+        child:
+            child ??
             Text(
               label,
               style: const TextStyle(
@@ -222,22 +233,32 @@ class _Keypad extends StatelessWidget {
     }
 
     Widget row(List<Widget> children) => Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: children,
-        );
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: children,
+    );
 
     return Column(
       children: [
-        row([for (final d in ['1', '2', '3']) key(d, onTap: () => onDigit(d))]),
-        row([for (final d in ['4', '5', '6']) key(d, onTap: () => onDigit(d))]),
-        row([for (final d in ['7', '8', '9']) key(d, onTap: () => onDigit(d))]),
+        row([
+          for (final d in ['1', '2', '3']) key(d, onTap: () => onDigit(d)),
+        ]),
+        row([
+          for (final d in ['4', '5', '6']) key(d, onTap: () => onDigit(d)),
+        ]),
+        row([
+          for (final d in ['7', '8', '9']) key(d, onTap: () => onDigit(d)),
+        ]),
         row([
           key('', onTap: null),
           key('0', onTap: () => onDigit('0')),
           key(
             '',
             onTap: onBackspace,
-            child: const Icon(Icons.backspace_outlined, color: Colors.white, size: 24),
+            child: const Icon(
+              Icons.backspace_outlined,
+              color: Colors.white,
+              size: 24,
+            ),
           ),
         ]),
       ],
@@ -261,10 +282,12 @@ class _KeypadButton extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.all(8),
       child: Material(
-        color: Colors.white.withValues(alpha: 0.10),
-        shape: const CircleBorder(),
+        color: Colors.black,
+        shape: const CircleBorder(side: BorderSide(color: Colors.white)),
         child: InkWell(
-          customBorder: const CircleBorder(),
+          customBorder: const CircleBorder(
+            side: BorderSide(color: Colors.white),
+          ),
           onTap: enabled ? onTap : null,
           child: SizedBox(width: 64, height: 64, child: Center(child: child)),
         ),

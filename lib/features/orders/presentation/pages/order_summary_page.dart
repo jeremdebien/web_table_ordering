@@ -52,7 +52,7 @@ class _OrderSummaryPageState extends State<OrderSummaryPage> {
                   Container(
                     height: 200,
                     child: Image.asset(
-                      'assets/images/nyx_logo.jpg',
+                      'assets/images/ikoka_logo.png',
                       fit: BoxFit.contain,
                     ),
                   ),

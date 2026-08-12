@@ -16,143 +16,66 @@ class WelcomePage extends StatelessWidget {
           Container(
             decoration: const BoxDecoration(
               image: DecorationImage(
-                image: AssetImage('assets/images/nyx.jpg'),
+                image: AssetImage('assets/images/welcome_ikoka.png'),
                 fit: BoxFit.cover,
               ),
             ),
           ),
-          Container(color: Colors.black.withValues(alpha: 0.45)),
           SafeArea(
-            child: Center(
+            child: Align(
+              alignment: Alignment.bottomCenter,
               child: SingleChildScrollView(
-                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 24,
+                  vertical: 32,
+                ),
                 child: ConstrainedBox(
                   constraints: const BoxConstraints(maxWidth: 500),
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Hero(
-                        tag: 'app-logo',
-                        child: Container(
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            border: Border.all(
-                              color: Colors.white.withValues(alpha: 0.8),
-                              width: 3,
-                            ),
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.black.withValues(alpha: 0.3),
-                                blurRadius: 20,
-                                spreadRadius: 2,
-                              ),
-                            ],
-                          ),
-                          child: ClipOval(
-                            child: Image.asset(
-                              'assets/images/nyx_logo.jpg',
-                              fit: BoxFit.contain,
-                              width: 140,
-                              height: 140,
-                            ),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 24),
-                      Stack(
-                        children: [
-                          Text(
-                            'Welcome to NYX Vikings',
-                            textAlign: TextAlign.center,
-                            style: TextStyle(
-                              fontSize: 26,
-                              fontWeight: FontWeight.bold,
-                              foreground: Paint()
-                                ..style = PaintingStyle.stroke
-                                ..strokeWidth = 2.5
-                                ..color = Colors.black,
-                            ),
-                          ),
-                          const Text(
-                            'Welcome to NYX Vikings',
-                            textAlign: TextAlign.center,
-                            style: TextStyle(
-                              fontSize: 26,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.white,
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 8),
-                      Stack(
-                        children: [
-                          Text(
-                            'A place where gastronomy meets grandeur.',
-                            textAlign: TextAlign.center,
-                            style: TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.bold,
-                              foreground: Paint()
-                                ..style = PaintingStyle.stroke
-                                ..strokeWidth = 2
-                                ..color = Colors.black,
-                            ),
-                          ),
-                          const Text(
-                            'A place where gastronomy meets grandeur.',
-                            textAlign: TextAlign.center,
-                            style: TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.amber,
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 32),
                       ClipRRect(
                         borderRadius: BorderRadius.circular(24),
-                        child: BackdropFilter(
-                          filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
-                          child: Container(
-                            padding: const EdgeInsets.all(24),
-                            decoration: BoxDecoration(
-                              color: Colors.white.withValues(alpha: 0.15),
-                              borderRadius: BorderRadius.circular(24),
-                              border: Border.all(
-                                color: Colors.white.withValues(alpha: 0.25),
-                                width: 1.5,
+                        child: Container(
+                          padding: const EdgeInsets.all(24),
+                          decoration: BoxDecoration(
+                            color: Colors.black.withValues(alpha: 0.7),
+                            borderRadius: BorderRadius.circular(24),
+                            border: Border.all(
+                              color: Colors.white.withValues(alpha: 0.25),
+                              width: 1.5,
+                            ),
+                          ),
+                          child: Column(
+                            children: [
+                              const Icon(
+                                Icons.qr_code_scanner,
+                                color: Colors.white,
+                                size: 32,
                               ),
-                            ),
-                            child: Column(
-                              children: [
-                                const Icon(Icons.qr_code_scanner,
-                                    color: Colors.white, size: 32),
-                                const SizedBox(height: 12),
-                                const Text(
-                                  'Scan Your Table QR Code',
-                                  style: TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 18,
-                                    fontWeight: FontWeight.bold,
-                                    letterSpacing: 0.5,
-                                  ),
+                              const SizedBox(height: 12),
+                              const Text(
+                                'Scan Your Table QR Code',
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.bold,
+                                  letterSpacing: 0.5,
                                 ),
-                                const SizedBox(height: 12),
-                                Text(
-                                  'Point your phone camera at the QR code on your '
-                                  'table to browse the menu and order directly from '
-                                  'your seat.',
-                                  textAlign: TextAlign.center,
-                                  style: TextStyle(
-                                    color: Colors.white.withValues(alpha: 0.9),
-                                    fontSize: 14,
-                                    height: 1.5,
-                                  ),
+                              ),
+                              const SizedBox(height: 12),
+                              Text(
+                                'Point your phone camera at the QR code on your '
+                                'table to browse the menu and order directly from '
+                                'your seat.',
+                                textAlign: TextAlign.center,
+                                style: TextStyle(
+                                  color: Colors.white.withValues(alpha: 0.9),
+                                  fontSize: 14,
+                                  height: 1.5,
                                 ),
-                              ],
-                            ),
+                              ),
+                            ],
                           ),
                         ),
                       ),
@@ -170,8 +93,11 @@ class WelcomePage extends StatelessWidget {
                 padding: const EdgeInsets.all(8),
                 child: TextButton.icon(
                   onPressed: () => context.go('/staff'),
-                  icon: const Icon(Icons.lock_outline,
-                      size: 16, color: Colors.white70),
+                  icon: const Icon(
+                    Icons.lock_outline,
+                    size: 16,
+                    color: Colors.white70,
+                  ),
                   label: const Text(
                     'Staff',
                     style: TextStyle(

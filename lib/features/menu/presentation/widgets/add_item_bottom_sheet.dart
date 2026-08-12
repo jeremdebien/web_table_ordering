@@ -107,7 +107,8 @@ class _AddItemBottomSheetState extends State<AddItemBottomSheet> {
                               stops: const [0.0, 0.5, 1.0],
                             ),
                           ),
-                          child: item.displayImage != null &&
+                          child:
+                              item.displayImage != null &&
                                   item.displayImage!.isNotEmpty
                               ? Image.network(
                                   item.displayImage!,
@@ -121,7 +122,9 @@ class _AddItemBottomSheetState extends State<AddItemBottomSheet> {
                           top: 12,
                           right: 12,
                           child: CircleAvatar(
-                            backgroundColor: Colors.black.withValues(alpha: 0.4),
+                            backgroundColor: Colors.black.withValues(
+                              alpha: 0.4,
+                            ),
                             child: IconButton(
                               icon: const Icon(
                                 Icons.close,
@@ -261,7 +264,7 @@ class _AddItemBottomSheetState extends State<AddItemBottomSheet> {
                             width: 36,
                             height: 36,
                             decoration: const BoxDecoration(
-                              color: Colors.black,
+                              color: Color(0xffe62b28),
                               shape: BoxShape.circle,
                             ),
                             child: const Icon(
@@ -281,7 +284,7 @@ class _AddItemBottomSheetState extends State<AddItemBottomSheet> {
                       height: 48,
                       child: ElevatedButton(
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFFCEB38C),
+                          backgroundColor: const Color(0xFFe62b28),
                           foregroundColor: const Color(0xFF1A1A1A),
                           elevation: 0,
                           shape: RoundedRectangleBorder(
@@ -292,6 +295,7 @@ class _AddItemBottomSheetState extends State<AddItemBottomSheet> {
                         child: Text(
                           'Add to Order  •  ₱${(item.price * _quantity).toStringAsFixed(0)}',
                           style: const TextStyle(
+                            color: Colors.white,
                             fontSize: 15,
                             fontWeight: FontWeight.bold,
                           ),

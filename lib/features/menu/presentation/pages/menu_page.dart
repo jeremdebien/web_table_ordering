@@ -83,650 +83,764 @@ class _MenuPageState extends State<MenuPage> {
         }
       },
       child: Scaffold(
-        backgroundColor: const Color(0xFFFAF7F2),
-        body: BlocListener<CartBloc, CartState>(
-          listenWhen: (previous, current) =>
-              previous.nickname != current.nickname || (previous.deviceId != current.deviceId),
-          listener: (context, state) {
-            if (state.nickname.isEmpty && state.deviceId != null) {
-              _showNicknamePrompt(context);
-            }
-          },
-          child: Column(
-            children: [
-              Expanded(
-                child: BlocBuilder<CartBloc, CartState>(
-                  builder: (context, cartState) {
-                    if (cartState.paymentStatus == 1) {
-                      return Center(
-                        child: Padding(
-                          padding: const EdgeInsets.all(20.0),
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              const Icon(
-                                Icons.receipt_long,
-                                size: 80,
-                                color: Colors.black,
-                              ),
-                              const SizedBox(height: 20),
-                              const Text(
-                                "You can't order since you request for a bill.",
-                                textAlign: TextAlign.center,
-                                style: TextStyle(
-                                  fontSize: 18,
-                                  fontWeight: FontWeight.bold,
+        backgroundColor: Colors.black,
+        body: Container(
+          decoration: const BoxDecoration(
+            image: DecorationImage(
+              image: AssetImage('assets/images/bg_ikoka.png'),
+              fit: BoxFit.cover,
+            ),
+          ),
+          child: BlocListener<CartBloc, CartState>(
+            listenWhen: (previous, current) =>
+                previous.nickname != current.nickname ||
+                (previous.deviceId != current.deviceId),
+            listener: (context, state) {
+              if (state.nickname.isEmpty && state.deviceId != null) {
+                _showNicknamePrompt(context);
+              }
+            },
+            child: Column(
+              children: [
+                Expanded(
+                  child: BlocBuilder<CartBloc, CartState>(
+                    builder: (context, cartState) {
+                      if (cartState.paymentStatus == 1) {
+                        return Center(
+                          child: Padding(
+                            padding: const EdgeInsets.all(20.0),
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                const Icon(
+                                  Icons.receipt_long,
+                                  size: 80,
+                                  color: Colors.black,
                                 ),
-                              ),
-                              const SizedBox(height: 20),
-                              ElevatedButton(
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: Colors.black,
-                                  foregroundColor: Colors.white,
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(10),
+                                const SizedBox(height: 20),
+                                const Text(
+                                  "You can't order since you request for a bill.",
+                                  textAlign: TextAlign.center,
+                                  style: TextStyle(
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.bold,
                                   ),
                                 ),
-                                onPressed: () {
-                                  final tableState = context.read<TableBloc>().state;
-                                  if (tableState is TableLoaded) {
-                                    context.read<CartBloc>().add(
-                                      EnableOrdering(tableState.table.tableId),
-                                    );
-                                  }
-                                },
-                                child: const Text('Enable ordering again?'),
-                              ),
-                            ],
-                          ),
-                        ),
-                      );
-                    }
-
-                    // Block ordering until the table has a sales order open.
-                    // Only decide once the active order has been loaded, so we
-                    // don't flash this over a table that actually has an order.
-                    final orderLoaded =
-                        cartState.status == CartStatus.success || cartState.status == CartStatus.submitted;
-                    if (_requireSalesOrder && orderLoaded && cartState.salesOrderId == null) {
-                      return Center(
-                        child: Padding(
-                          padding: const EdgeInsets.all(20.0),
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: const [
-                              Icon(
-                                Icons.table_restaurant,
-                                size: 80,
-                                color: Colors.black,
-                              ),
-                              SizedBox(height: 20),
-                              Text(
-                                "Ordering isn't available yet.\nPlease ask our staff to open your table first.",
-                                textAlign: TextAlign.center,
-                                style: TextStyle(
-                                  fontSize: 18,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      );
-                    }
-
-                    return BlocBuilder<MenuBloc, MenuState>(
-                      builder: (context, state) {
-                        if (state is MenuLoading) {
-                          return const Center(
-                            child: CircularProgressIndicator(),
-                          );
-                        }
-                        if (state is MenuError) {
-                          return Center(child: Text(state.message));
-                        }
-                        if (state is MenuLoaded) {
-                          final displayItems = _isSearching && _searchQuery.isNotEmpty
-                              ? state.items
-                                    .where(
-                                      (item) => item.name.toLowerCase().contains(
-                                        _searchQuery.toLowerCase(),
-                                      ),
-                                    )
-                                    .toList()
-                              : state.items
-                                    .where(
-                                      (item) => item.categoryId == state.selectedCategoryId,
-                                    )
-                                    .toList();
-
-                          return CustomScrollView(
-                            slivers: [
-                              // Food Background Header
-                              SliverToBoxAdapter(
-                                child: Container(
-                                  height: 340,
-                                  alignment: Alignment.topRight,
-                                  decoration: BoxDecoration(
-                                    image: DecorationImage(
-                                      image: const AssetImage(
-                                        "assets/images/menubg.png",
-                                      ),
-                                      fit: BoxFit.cover,
+                                const SizedBox(height: 20),
+                                ElevatedButton(
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: Colors.black,
+                                    foregroundColor: Colors.white,
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(10),
                                     ),
                                   ),
-                                  child: SafeArea(
-                                    bottom: false,
-                                    child: Padding(
-                                      padding: const EdgeInsets.only(
-                                        top: 10.0,
-                                        left: 20.0,
-                                        right: 20.0,
-                                      ),
-                                      child: Row(
-                                        mainAxisAlignment: MainAxisAlignment.end,
-                                        children: [
-                                          GestureDetector(
-                                            onTap: () => _showNicknamePrompt(
-                                              context,
-                                              initialValue: cartState.nickname,
+                                  onPressed: () {
+                                    final tableState = context
+                                        .read<TableBloc>()
+                                        .state;
+                                    if (tableState is TableLoaded) {
+                                      context.read<CartBloc>().add(
+                                        EnableOrdering(
+                                          tableState.table.tableId,
+                                        ),
+                                      );
+                                    }
+                                  },
+                                  child: const Text('Enable ordering again?'),
+                                ),
+                              ],
+                            ),
+                          ),
+                        );
+                      }
+
+                      // Block ordering until the table has a sales order open.
+                      // Only decide once the active order has been loaded, so we
+                      // don't flash this over a table that actually has an order.
+                      final orderLoaded =
+                          cartState.status == CartStatus.success ||
+                          cartState.status == CartStatus.submitted;
+                      if (_requireSalesOrder &&
+                          orderLoaded &&
+                          cartState.salesOrderId == null) {
+                        return Center(
+                          child: Padding(
+                            padding: const EdgeInsets.all(20.0),
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: const [
+                                Icon(
+                                  Icons.table_restaurant,
+                                  size: 80,
+                                  color: Colors.black,
+                                ),
+                                SizedBox(height: 20),
+                                Text(
+                                  "Ordering isn't available yet.\nPlease ask our staff to open your table first.",
+                                  textAlign: TextAlign.center,
+                                  style: TextStyle(
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        );
+                      }
+
+                      return BlocBuilder<MenuBloc, MenuState>(
+                        builder: (context, state) {
+                          if (state is MenuLoading) {
+                            return const Center(
+                              child: CircularProgressIndicator(),
+                            );
+                          }
+                          if (state is MenuError) {
+                            return Center(child: Text(state.message));
+                          }
+                          if (state is MenuLoaded) {
+                            final displayItems =
+                                _isSearching && _searchQuery.isNotEmpty
+                                ? state.items
+                                      .where(
+                                        (item) =>
+                                            item.name.toLowerCase().contains(
+                                              _searchQuery.toLowerCase(),
                                             ),
-                                            child: Column(
-                                              mainAxisSize: MainAxisSize.min,
-                                              children: [
-                                                const Icon(
-                                                  Icons.account_circle,
-                                                  color: Colors.white,
-                                                  size: 24,
-                                                ),
-                                                if (cartState.nickname.isNotEmpty)
-                                                  Text(
-                                                    cartState.nickname.toLowerCase(),
-                                                    style: const TextStyle(
-                                                      color: Colors.white70,
-                                                      fontSize: 10,
-                                                    ),
-                                                    overflow: TextOverflow.ellipsis,
+                                      )
+                                      .toList()
+                                : state.items
+                                      .where(
+                                        (item) =>
+                                            item.categoryId ==
+                                            state.selectedCategoryId,
+                                      )
+                                      .toList();
+
+                            return CustomScrollView(
+                              slivers: [
+                                // Food Background Header
+                                SliverToBoxAdapter(
+                                  child: Container(
+                                    height: 340,
+                                    alignment: Alignment.topRight,
+                                    decoration: BoxDecoration(
+                                      image: DecorationImage(
+                                        image: const AssetImage(
+                                          "assets/images/ikoka_header.png",
+                                        ),
+                                        fit: BoxFit.cover,
+                                      ),
+                                    ),
+                                    child: SafeArea(
+                                      bottom: false,
+                                      child: Padding(
+                                        padding: const EdgeInsets.only(
+                                          top: 10.0,
+                                          left: 20.0,
+                                          right: 20.0,
+                                        ),
+                                        child: Row(
+                                          mainAxisAlignment:
+                                              MainAxisAlignment.end,
+                                          children: [
+                                            GestureDetector(
+                                              onTap: () => _showNicknamePrompt(
+                                                context,
+                                                initialValue:
+                                                    cartState.nickname,
+                                              ),
+                                              child: Column(
+                                                mainAxisSize: MainAxisSize.min,
+                                                children: [
+                                                  const Icon(
+                                                    Icons.account_circle,
+                                                    color: Colors.white,
+                                                    size: 24,
                                                   ),
-                                              ],
+                                                  if (cartState
+                                                      .nickname
+                                                      .isNotEmpty)
+                                                    Text(
+                                                      cartState.nickname
+                                                          .toLowerCase(),
+                                                      style: const TextStyle(
+                                                        color: Colors.white70,
+                                                        fontSize: 10,
+                                                      ),
+                                                      overflow:
+                                                          TextOverflow.ellipsis,
+                                                    ),
+                                                ],
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                                // Beige Content Box
+                                SliverToBoxAdapter(
+                                  child: Transform.translate(
+                                    offset: const Offset(0, -20),
+                                    child: Container(
+                                      padding: const EdgeInsets.only(top: 20),
+                                      decoration: const BoxDecoration(
+                                        color: Colors.transparent,
+                                        borderRadius: BorderRadius.only(
+                                          topLeft: Radius.circular(30),
+                                          topRight: Radius.circular(30),
+                                        ),
+                                      ),
+                                      child: Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                          const SizedBox(height: 20),
+                                          // Categories Horizontal List
+                                          SizedBox(
+                                            height: 85,
+                                            child: ListView.builder(
+                                              scrollDirection: Axis.horizontal,
+                                              itemCount:
+                                                  state.categories.length,
+                                              padding:
+                                                  const EdgeInsets.symmetric(
+                                                    horizontal: 16,
+                                                  ),
+                                              itemBuilder: (context, index) {
+                                                final category =
+                                                    state.categories[index];
+                                                final isSelected =
+                                                    category.categoryId ==
+                                                    state.selectedCategoryId;
+                                                return GestureDetector(
+                                                  onTap: () {
+                                                    context.read<MenuBloc>().add(
+                                                      SelectCategory(
+                                                        category.categoryId ??
+                                                            0,
+                                                      ),
+                                                    );
+                                                  },
+                                                  child: Container(
+                                                    width: 90,
+                                                    margin:
+                                                        const EdgeInsets.only(
+                                                          right: 12,
+                                                        ),
+                                                    decoration: BoxDecoration(
+                                                      color: isSelected
+                                                          ? const Color(
+                                                              0xFF1A1A1A,
+                                                            )
+                                                          : Colors.white,
+                                                      borderRadius:
+                                                          BorderRadius.circular(
+                                                            16,
+                                                          ),
+                                                      border: isSelected
+                                                          ? Border.all(
+                                                              color:
+                                                                  const Color.fromARGB(
+                                                                    255,
+                                                                    255,
+                                                                    255,
+                                                                    255,
+                                                                  ),
+                                                              width: 1.5,
+                                                            )
+                                                          : Border.all(
+                                                              color: Colors
+                                                                  .grey
+                                                                  .shade200,
+                                                              width: 1,
+                                                            ),
+                                                      boxShadow: [
+                                                        if (!isSelected)
+                                                          BoxShadow(
+                                                            color: Colors.black
+                                                                .withValues(
+                                                                  alpha: 0.03,
+                                                                ),
+                                                            blurRadius: 8,
+                                                            offset:
+                                                                const Offset(
+                                                                  0,
+                                                                  2,
+                                                                ),
+                                                          ),
+                                                      ],
+                                                    ),
+                                                    child: Column(
+                                                      mainAxisAlignment:
+                                                          MainAxisAlignment
+                                                              .center,
+                                                      children: [
+                                                        Icon(
+                                                          _getCategoryIcon(
+                                                            category.name,
+                                                          ),
+                                                          color: isSelected
+                                                              ? const Color(
+                                                                  0xFFe62b28,
+                                                                )
+                                                              : Colors
+                                                                    .grey
+                                                                    .shade700,
+                                                          size: 24,
+                                                        ),
+                                                        const SizedBox(
+                                                          height: 6,
+                                                        ),
+                                                        Text(
+                                                          category.name,
+                                                          style: TextStyle(
+                                                            fontSize: 12,
+                                                            fontWeight:
+                                                                isSelected
+                                                                ? FontWeight
+                                                                      .bold
+                                                                : FontWeight
+                                                                      .normal,
+                                                            color: isSelected
+                                                                ? Colors.white
+                                                                : Colors
+                                                                      .grey
+                                                                      .shade800,
+                                                          ),
+                                                          textAlign:
+                                                              TextAlign.center,
+                                                          maxLines: 1,
+                                                          overflow: TextOverflow
+                                                              .ellipsis,
+                                                        ),
+                                                      ],
+                                                    ),
+                                                  ),
+                                                );
+                                              },
                                             ),
                                           ),
+                                          // Category title header
+                                          Padding(
+                                            padding: const EdgeInsets.symmetric(
+                                              horizontal: 20,
+                                              vertical: 16,
+                                            ),
+                                            child: AnimatedSwitcher(
+                                              duration: const Duration(
+                                                milliseconds: 250,
+                                              ),
+                                              child: _isSearching
+                                                  ? Row(
+                                                      key: const ValueKey(
+                                                        'search_field',
+                                                      ),
+                                                      children: [
+                                                        Expanded(
+                                                          child: Container(
+                                                            height: 44,
+                                                            decoration: BoxDecoration(
+                                                              color:
+                                                                  Colors.white,
+                                                              borderRadius:
+                                                                  BorderRadius.circular(
+                                                                    12,
+                                                                  ),
+                                                              border: Border.all(
+                                                                color:
+                                                                    const Color(
+                                                                      0xFFe62b28,
+                                                                    ),
+                                                                width: 1.5,
+                                                              ),
+                                                              boxShadow: [
+                                                                BoxShadow(
+                                                                  color: Colors
+                                                                      .black
+                                                                      .withValues(
+                                                                        alpha:
+                                                                            0.06,
+                                                                      ),
+                                                                  blurRadius: 8,
+                                                                  offset:
+                                                                      const Offset(
+                                                                        0,
+                                                                        2,
+                                                                      ),
+                                                                ),
+                                                              ],
+                                                            ),
+                                                            child: TextField(
+                                                              controller:
+                                                                  _searchController,
+                                                              autofocus: true,
+                                                              style:
+                                                                  const TextStyle(
+                                                                    fontSize:
+                                                                        15,
+                                                                    color: Color(
+                                                                      0xFF1A1A1A,
+                                                                    ),
+                                                                  ),
+                                                              decoration: InputDecoration(
+                                                                hintText:
+                                                                    'Search menu…',
+                                                                hintStyle: TextStyle(
+                                                                  color: Colors
+                                                                      .grey
+                                                                      .shade400,
+                                                                  fontSize: 15,
+                                                                ),
+                                                                prefixIcon:
+                                                                    const Icon(
+                                                                      Icons
+                                                                          .search,
+                                                                      color:
+                                                                          Color.fromARGB(
+                                                                            255,
+                                                                            0,
+                                                                            0,
+                                                                            0,
+                                                                          ),
+                                                                      size: 20,
+                                                                    ),
+                                                                border:
+                                                                    InputBorder
+                                                                        .none,
+                                                                contentPadding:
+                                                                    const EdgeInsets.symmetric(
+                                                                      vertical:
+                                                                          12,
+                                                                    ),
+                                                              ),
+                                                              onChanged: (value) {
+                                                                setState(() {
+                                                                  _searchQuery =
+                                                                      value;
+                                                                });
+                                                              },
+                                                            ),
+                                                          ),
+                                                        ),
+                                                        const SizedBox(
+                                                          width: 8,
+                                                        ),
+                                                        GestureDetector(
+                                                          onTap: () {
+                                                            setState(() {
+                                                              _isSearching =
+                                                                  false;
+                                                              _searchQuery = '';
+                                                              _searchController
+                                                                  .clear();
+                                                            });
+                                                          },
+                                                          child: Container(
+                                                            width: 44,
+                                                            height: 44,
+                                                            decoration:
+                                                                const BoxDecoration(
+                                                                  color: Color(
+                                                                    0xFF1A1A1A,
+                                                                  ),
+                                                                  shape: BoxShape
+                                                                      .circle,
+                                                                ),
+                                                            child: const Icon(
+                                                              Icons.close,
+                                                              color:
+                                                                  Colors.white,
+                                                              size: 20,
+                                                            ),
+                                                          ),
+                                                        ),
+                                                      ],
+                                                    )
+                                                  : Row(
+                                                      key: const ValueKey(
+                                                        'category_title',
+                                                      ),
+                                                      mainAxisAlignment:
+                                                          MainAxisAlignment
+                                                              .spaceBetween,
+                                                      children: [
+                                                        Text(
+                                                          state.categories
+                                                              .firstWhere(
+                                                                (c) =>
+                                                                    c.categoryId ==
+                                                                    state
+                                                                        .selectedCategoryId,
+                                                                orElse: () => state
+                                                                    .categories
+                                                                    .first,
+                                                              )
+                                                              .name,
+                                                          style:
+                                                              const TextStyle(
+                                                                fontSize: 20,
+                                                                fontWeight:
+                                                                    FontWeight
+                                                                        .bold,
+                                                                color: Colors
+                                                                    .white,
+                                                              ),
+                                                        ),
+                                                        GestureDetector(
+                                                          onTap: () {
+                                                            setState(() {
+                                                              _isSearching =
+                                                                  true;
+                                                              _searchQuery = '';
+                                                              _searchController
+                                                                  .clear();
+                                                            });
+                                                          },
+                                                          child: Container(
+                                                            width: 38,
+                                                            height: 38,
+                                                            decoration:
+                                                                const BoxDecoration(
+                                                                  color: Color(
+                                                                    0xFFe62b28,
+                                                                  ),
+                                                                  shape: BoxShape
+                                                                      .circle,
+                                                                ),
+                                                            child: const Icon(
+                                                              Icons.search,
+                                                              color:
+                                                                  Colors.white,
+                                                              size: 20,
+                                                            ),
+                                                          ),
+                                                        ),
+                                                      ],
+                                                    ),
+                                            ),
+                                          ),
+                                          // GridView for items
+                                          displayItems.isEmpty
+                                              ? const Center(
+                                                  child: Padding(
+                                                    padding:
+                                                        EdgeInsets.symmetric(
+                                                          vertical: 40.0,
+                                                        ),
+                                                    child: Text(
+                                                      'No items found',
+                                                      style: TextStyle(
+                                                        fontSize: 16,
+                                                        color: Colors.grey,
+                                                      ),
+                                                    ),
+                                                  ),
+                                                )
+                                              : GridView.builder(
+                                                  shrinkWrap: true,
+                                                  physics:
+                                                      const NeverScrollableScrollPhysics(),
+                                                  padding:
+                                                      const EdgeInsets.symmetric(
+                                                        horizontal: 16,
+                                                      ),
+                                                  gridDelegate:
+                                                      const SliverGridDelegateWithFixedCrossAxisCount(
+                                                        crossAxisCount: 2,
+                                                        childAspectRatio: 0.65,
+                                                        crossAxisSpacing: 12,
+                                                        mainAxisSpacing: 12,
+                                                      ),
+                                                  itemCount:
+                                                      displayItems.length,
+                                                  itemBuilder: (context, index) {
+                                                    final item =
+                                                        displayItems[index];
+                                                    String? badgeText;
+                                                    Color? badgeColor;
+                                                    Color badgeTextColor =
+                                                        Colors.white;
+                                                    if (index % 4 == 0) {
+                                                      badgeText =
+                                                          '★ BESTSELLER';
+                                                      badgeColor = const Color(
+                                                        0xFFC5A880,
+                                                      );
+                                                      badgeTextColor =
+                                                          Colors.black;
+                                                    } else if (index % 4 == 1) {
+                                                      badgeText = '🔥 POPULAR';
+                                                      badgeColor = const Color(
+                                                        0xFFE25822,
+                                                      );
+                                                    } else if (index % 4 == 2) {
+                                                      badgeText = 'NEW';
+                                                      badgeColor = Colors.black;
+                                                    }
+
+                                                    return MenuItemCard(
+                                                      item: item,
+                                                      onTap: () =>
+                                                          _showAddItemConfirmation(
+                                                            context,
+                                                            item,
+                                                          ),
+                                                    );
+                                                  },
+                                                ),
+                                          const SizedBox(height: 20),
                                         ],
                                       ),
                                     ),
                                   ),
                                 ),
-                              ),
-                              // Beige Content Box
-                              SliverToBoxAdapter(
-                                child: Transform.translate(
-                                  offset: const Offset(0, -20),
+                              ],
+                            );
+                          }
+                          return const SizedBox.shrink();
+                        },
+                      );
+                    },
+                  ),
+                ),
+                // Fixed bottom "View Order" bar
+                BlocBuilder<CartBloc, CartState>(
+                  builder: (context, state) {
+                    if (state.items.isEmpty) return const SizedBox.shrink();
+                    final totalCount = state.items.fold(
+                      0,
+                      (sum, item) => sum + item.quantity,
+                    );
+                    final totalAmount = state.items.fold(
+                      0.0,
+                      (sum, item) => sum + (item.amount * item.quantity),
+                    );
+                    return GestureDetector(
+                      onTap: () => _showOrderSummary(context),
+                      child: Container(
+                        height: 70,
+                        margin: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 10,
+                        ),
+                        padding: const EdgeInsets.symmetric(horizontal: 20),
+                        decoration: BoxDecoration(
+                          color: Colors.transparent,
+                          borderRadius: BorderRadius.circular(14),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withValues(alpha: 0.3),
+                              blurRadius: 15,
+                              offset: const Offset(0, 5),
+                            ),
+                          ],
+                        ),
+                        child: Row(
+                          children: [
+                            Stack(
+                              clipBehavior: Clip.none,
+                              children: [
+                                const Icon(
+                                  Icons.shopping_cart_outlined,
+                                  color: Colors.white,
+                                  size: 28,
+                                ),
+                                Positioned(
+                                  top: -6,
+                                  right: -6,
                                   child: Container(
-                                    padding: const EdgeInsets.only(top: 20),
+                                    padding: const EdgeInsets.all(4),
                                     decoration: const BoxDecoration(
-                                      color: Color(0xFFFAF7F2),
-                                      borderRadius: BorderRadius.only(
-                                        topLeft: Radius.circular(30),
-                                        topRight: Radius.circular(30),
-                                      ),
+                                      color: Color(0xFFe62b28),
+                                      shape: BoxShape.circle,
                                     ),
-                                    child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      children: [
-                                        const SizedBox(height: 20),
-                                        // Categories Horizontal List
-                                        SizedBox(
-                                          height: 85,
-                                          child: ListView.builder(
-                                            scrollDirection: Axis.horizontal,
-                                            itemCount: state.categories.length,
-                                            padding: const EdgeInsets.symmetric(
-                                              horizontal: 16,
-                                            ),
-                                            itemBuilder: (context, index) {
-                                              final category = state.categories[index];
-                                              final isSelected = category.categoryId == state.selectedCategoryId;
-                                              return GestureDetector(
-                                                onTap: () {
-                                                  context.read<MenuBloc>().add(
-                                                    SelectCategory(
-                                                      category.categoryId ?? 0,
-                                                    ),
-                                                  );
-                                                },
-                                                child: Container(
-                                                  width: 90,
-                                                  margin: const EdgeInsets.only(
-                                                    right: 12,
-                                                  ),
-                                                  decoration: BoxDecoration(
-                                                    color: isSelected
-                                                        ? const Color(
-                                                            0xFF1A1A1A,
-                                                          )
-                                                        : Colors.white,
-                                                    borderRadius: BorderRadius.circular(
-                                                      16,
-                                                    ),
-                                                    border: isSelected
-                                                        ? Border.all(
-                                                            color: const Color(
-                                                              0xFFC5A880,
-                                                            ),
-                                                            width: 1.5,
-                                                          )
-                                                        : Border.all(
-                                                            color: Colors.grey.shade200,
-                                                            width: 1,
-                                                          ),
-                                                    boxShadow: [
-                                                      if (!isSelected)
-                                                        BoxShadow(
-                                                          color: Colors.black.withValues(
-                                                            alpha: 0.03,
-                                                          ),
-                                                          blurRadius: 8,
-                                                          offset: const Offset(
-                                                            0,
-                                                            2,
-                                                          ),
-                                                        ),
-                                                    ],
-                                                  ),
-                                                  child: Column(
-                                                    mainAxisAlignment: MainAxisAlignment.center,
-                                                    children: [
-                                                      Icon(
-                                                        _getCategoryIcon(
-                                                          category.name,
-                                                        ),
-                                                        color: isSelected
-                                                            ? const Color(
-                                                                0xFFC5A880,
-                                                              )
-                                                            : Colors.grey.shade700,
-                                                        size: 24,
-                                                      ),
-                                                      const SizedBox(height: 6),
-                                                      Text(
-                                                        category.name,
-                                                        style: TextStyle(
-                                                          fontSize: 12,
-                                                          fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                                                          color: isSelected ? Colors.white : Colors.grey.shade800,
-                                                        ),
-                                                        textAlign: TextAlign.center,
-                                                        maxLines: 1,
-                                                        overflow: TextOverflow.ellipsis,
-                                                      ),
-                                                    ],
-                                                  ),
-                                                ),
-                                              );
-                                            },
-                                          ),
-                                        ),
-                                        // Category title header
-                                        Padding(
-                                          padding: const EdgeInsets.symmetric(
-                                            horizontal: 20,
-                                            vertical: 16,
-                                          ),
-                                          child: AnimatedSwitcher(
-                                            duration: const Duration(
-                                              milliseconds: 250,
-                                            ),
-                                            child: _isSearching
-                                                ? Row(
-                                                    key: const ValueKey(
-                                                      'search_field',
-                                                    ),
-                                                    children: [
-                                                      Expanded(
-                                                        child: Container(
-                                                          height: 44,
-                                                          decoration: BoxDecoration(
-                                                            color: Colors.white,
-                                                            borderRadius: BorderRadius.circular(
-                                                              12,
-                                                            ),
-                                                            border: Border.all(
-                                                              color: const Color(
-                                                                0xFFC5A880,
-                                                              ),
-                                                              width: 1.5,
-                                                            ),
-                                                            boxShadow: [
-                                                              BoxShadow(
-                                                                color: Colors.black.withValues(
-                                                                  alpha: 0.06,
-                                                                ),
-                                                                blurRadius: 8,
-                                                                offset: const Offset(
-                                                                  0,
-                                                                  2,
-                                                                ),
-                                                              ),
-                                                            ],
-                                                          ),
-                                                          child: TextField(
-                                                            controller: _searchController,
-                                                            autofocus: true,
-                                                            style: const TextStyle(
-                                                              fontSize: 15,
-                                                              color: Color(
-                                                                0xFF1A1A1A,
-                                                              ),
-                                                            ),
-                                                            decoration: InputDecoration(
-                                                              hintText: 'Search menu…',
-                                                              hintStyle: TextStyle(
-                                                                color: Colors.grey.shade400,
-                                                                fontSize: 15,
-                                                              ),
-                                                              prefixIcon: const Icon(
-                                                                Icons.search,
-                                                                color: Color(
-                                                                  0xFFC5A880,
-                                                                ),
-                                                                size: 20,
-                                                              ),
-                                                              border: InputBorder.none,
-                                                              contentPadding: const EdgeInsets.symmetric(
-                                                                vertical: 12,
-                                                              ),
-                                                            ),
-                                                            onChanged: (value) {
-                                                              setState(() {
-                                                                _searchQuery = value;
-                                                              });
-                                                            },
-                                                          ),
-                                                        ),
-                                                      ),
-                                                      const SizedBox(width: 8),
-                                                      GestureDetector(
-                                                        onTap: () {
-                                                          setState(() {
-                                                            _isSearching = false;
-                                                            _searchQuery = '';
-                                                            _searchController.clear();
-                                                          });
-                                                        },
-                                                        child: Container(
-                                                          width: 44,
-                                                          height: 44,
-                                                          decoration: const BoxDecoration(
-                                                            color: Color(
-                                                              0xFF1A1A1A,
-                                                            ),
-                                                            shape: BoxShape.circle,
-                                                          ),
-                                                          child: const Icon(
-                                                            Icons.close,
-                                                            color: Colors.white,
-                                                            size: 20,
-                                                          ),
-                                                        ),
-                                                      ),
-                                                    ],
-                                                  )
-                                                : Row(
-                                                    key: const ValueKey(
-                                                      'category_title',
-                                                    ),
-                                                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                                    children: [
-                                                      Text(
-                                                        state.categories
-                                                            .firstWhere(
-                                                              (c) => c.categoryId == state.selectedCategoryId,
-                                                              orElse: () => state.categories.first,
-                                                            )
-                                                            .name,
-                                                        style: const TextStyle(
-                                                          fontSize: 20,
-                                                          fontWeight: FontWeight.bold,
-                                                          fontFamily: 'PTSerif',
-                                                          color: Color(
-                                                            0xFF1A1A1A,
-                                                          ),
-                                                        ),
-                                                      ),
-                                                      GestureDetector(
-                                                        onTap: () {
-                                                          setState(() {
-                                                            _isSearching = true;
-                                                            _searchQuery = '';
-                                                            _searchController.clear();
-                                                          });
-                                                        },
-                                                        child: Container(
-                                                          width: 38,
-                                                          height: 38,
-                                                          decoration: const BoxDecoration(
-                                                            color: Color(
-                                                              0xFF1A1A1A,
-                                                            ),
-                                                            shape: BoxShape.circle,
-                                                          ),
-                                                          child: const Icon(
-                                                            Icons.search,
-                                                            color: Colors.white,
-                                                            size: 20,
-                                                          ),
-                                                        ),
-                                                      ),
-                                                    ],
-                                                  ),
-                                          ),
-                                        ),
-                                        // GridView for items
-                                        displayItems.isEmpty
-                                            ? const Center(
-                                                child: Padding(
-                                                  padding: EdgeInsets.symmetric(
-                                                    vertical: 40.0,
-                                                  ),
-                                                  child: Text(
-                                                    'No items found',
-                                                    style: TextStyle(
-                                                      fontSize: 16,
-                                                      color: Colors.grey,
-                                                    ),
-                                                  ),
-                                                ),
-                                              )
-                                            : GridView.builder(
-                                                shrinkWrap: true,
-                                                physics: const NeverScrollableScrollPhysics(),
-                                                padding: const EdgeInsets.symmetric(
-                                                  horizontal: 16,
-                                                ),
-                                                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                                                  crossAxisCount: 2,
-                                                  childAspectRatio: 0.65,
-                                                  crossAxisSpacing: 12,
-                                                  mainAxisSpacing: 12,
-                                                ),
-                                                itemCount: displayItems.length,
-                                                itemBuilder: (context, index) {
-                                                  final item = displayItems[index];
-                                                  String? badgeText;
-                                                  Color? badgeColor;
-                                                  Color badgeTextColor = Colors.white;
-                                                  if (index % 4 == 0) {
-                                                    badgeText = '★ BESTSELLER';
-                                                    badgeColor = const Color(
-                                                      0xFFC5A880,
-                                                    );
-                                                    badgeTextColor = Colors.black;
-                                                  } else if (index % 4 == 1) {
-                                                    badgeText = '🔥 POPULAR';
-                                                    badgeColor = const Color(
-                                                      0xFFE25822,
-                                                    );
-                                                  } else if (index % 4 == 2) {
-                                                    badgeText = 'NEW';
-                                                    badgeColor = Colors.black;
-                                                  }
-
-                                                  return MenuItemCard(
-                                                    item: item,
-                                                    onTap: () => _showAddItemConfirmation(
-                                                      context,
-                                                      item,
-                                                    ),
-                                                  );
-                                                },
-                                              ),
-                                        const SizedBox(height: 20),
-                                      ],
+                                    constraints: const BoxConstraints(
+                                      minWidth: 16,
+                                      minHeight: 16,
+                                    ),
+                                    child: Text(
+                                      '$totalCount',
+                                      style: const TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 9,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                      textAlign: TextAlign.center,
                                     ),
                                   ),
                                 ),
+                              ],
+                            ),
+                            const SizedBox(width: 16),
+                            Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Text(
+                                  'View Order',
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 15,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                                Text(
+                                  '$totalCount items',
+                                  style: const TextStyle(
+                                    color: Colors.white54,
+                                    fontSize: 11,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const Spacer(),
+                            Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              crossAxisAlignment: CrossAxisAlignment.end,
+                              children: [
+                                const Text(
+                                  'Total',
+                                  style: TextStyle(
+                                    color: Colors.white54,
+                                    fontSize: 11,
+                                  ),
+                                ),
+                                Text(
+                                  '₱${totalAmount.toStringAsFixed(2)}',
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(width: 12),
+                            Container(
+                              padding: const EdgeInsets.all(8),
+                              decoration: const BoxDecoration(
+                                color: Color(0xFFe62b28),
+                                shape: BoxShape.circle,
                               ),
-                            ],
-                          );
-                        }
-                        return const SizedBox.shrink();
-                      },
+                              child: const Icon(
+                                Icons.chevron_right,
+                                color: Colors.white,
+                                size: 20,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
                     );
                   },
                 ),
-              ),
-              // Fixed bottom "View Order" bar
-              BlocBuilder<CartBloc, CartState>(
-                builder: (context, state) {
-                  if (state.items.isEmpty) return const SizedBox.shrink();
-                  final totalCount = state.items.fold(
-                    0,
-                    (sum, item) => sum + item.quantity,
-                  );
-                  final totalAmount = state.items.fold(
-                    0.0,
-                    (sum, item) => sum + (item.amount * item.quantity),
-                  );
-                  return GestureDetector(
-                    onTap: () => _showOrderSummary(context),
-                    child: Container(
-                      height: 70,
-                      margin: const EdgeInsets.symmetric(
-                        horizontal: 16,
-                        vertical: 10,
-                      ),
-                      padding: const EdgeInsets.symmetric(horizontal: 20),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF0F0F0F),
-                        borderRadius: BorderRadius.circular(14),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withValues(alpha: 0.3),
-                            blurRadius: 15,
-                            offset: const Offset(0, 5),
-                          ),
-                        ],
-                      ),
-                      child: Row(
-                        children: [
-                          Stack(
-                            clipBehavior: Clip.none,
-                            children: [
-                              const Icon(
-                                Icons.shopping_cart_outlined,
-                                color: Colors.white,
-                                size: 28,
-                              ),
-                              Positioned(
-                                top: -6,
-                                right: -6,
-                                child: Container(
-                                  padding: const EdgeInsets.all(4),
-                                  decoration: const BoxDecoration(
-                                    color: Color(0xFFC5A880),
-                                    shape: BoxShape.circle,
-                                  ),
-                                  constraints: const BoxConstraints(
-                                    minWidth: 16,
-                                    minHeight: 16,
-                                  ),
-                                  child: Text(
-                                    '$totalCount',
-                                    style: const TextStyle(
-                                      color: Colors.black,
-                                      fontSize: 9,
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                    textAlign: TextAlign.center,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(width: 16),
-                          Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              const Text(
-                                'View Order',
-                                style: TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 15,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                              Text(
-                                '$totalCount items',
-                                style: const TextStyle(
-                                  color: Colors.white54,
-                                  fontSize: 11,
-                                ),
-                              ),
-                            ],
-                          ),
-                          const Spacer(),
-                          Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            crossAxisAlignment: CrossAxisAlignment.end,
-                            children: [
-                              const Text(
-                                'Total',
-                                style: TextStyle(
-                                  color: Colors.white54,
-                                  fontSize: 11,
-                                ),
-                              ),
-                              Text(
-                                '₱${totalAmount.toStringAsFixed(2)}',
-                                style: const TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(width: 12),
-                          Container(
-                            padding: const EdgeInsets.all(8),
-                            decoration: const BoxDecoration(
-                              color: Color(0xFFC5A880),
-                              shape: BoxShape.circle,
-                            ),
-                            child: const Icon(
-                              Icons.chevron_right,
-                              color: Colors.black,
-                              size: 20,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  );
-                },
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
@@ -822,25 +936,29 @@ class _MenuPageState extends State<MenuPage> {
                         Container(
                           padding: const EdgeInsets.all(8),
                           decoration: BoxDecoration(
-                            color: const Color(
-                              0xFFC5A880,
+                            color: const Color.fromARGB(
+                              255,
+                              255,
+                              255,
+                              255,
                             ).withValues(alpha: 0.1),
                             shape: BoxShape.circle,
                           ),
                           child: const Icon(
                             Icons.person_pin,
-                            color: Color.fromARGB(255, 235, 209, 16),
+                            color: Color.fromARGB(255, 255, 255, 255),
                             size: 24,
                           ),
                         ),
                         const SizedBox(width: 12),
                         Text(
-                          initialValue.isEmpty ? 'Identify Yourself' : 'Edit Nickname',
+                          initialValue.isEmpty
+                              ? 'Identify Yourself'
+                              : 'Edit Nickname',
                           style: const TextStyle(
                             color: Colors.white,
                             fontSize: 20,
                             fontWeight: FontWeight.bold,
-                            fontFamily: 'PTSerif',
                           ),
                         ),
                       ],
@@ -861,13 +979,13 @@ class _MenuPageState extends State<MenuPage> {
                       autofocus: true,
                       style: const TextStyle(color: Colors.white, fontSize: 16),
                       decoration: InputDecoration(
-                        hintText: 'e.g. Joshua M.',
+                        hintText: 'e.g. Joshua L.',
                         hintStyle: TextStyle(
                           color: Colors.white.withValues(alpha: 0.3),
                         ),
                         labelText: 'Nickname',
                         labelStyle: const TextStyle(
-                          color: Color.fromARGB(255, 235, 209, 16),
+                          color: Color.fromARGB(255, 255, 255, 255),
                         ),
                         filled: true,
                         fillColor: Colors.white.withValues(alpha: 0.05),
@@ -878,7 +996,7 @@ class _MenuPageState extends State<MenuPage> {
                         focusedBorder: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(12),
                           borderSide: const BorderSide(
-                            color: Color(0xFFC5A880),
+                            color: Color.fromARGB(255, 255, 255, 255),
                             width: 1.5,
                           ),
                         ),
@@ -942,7 +1060,7 @@ class _MenuPageState extends State<MenuPage> {
                             }
                           },
                           style: ElevatedButton.styleFrom(
-                            backgroundColor: Color.fromARGB(255, 235, 209, 16),
+                            backgroundColor: Color(0xffe62b28),
                             foregroundColor: Colors.black,
                             elevation: 0,
                             padding: const EdgeInsets.symmetric(
@@ -956,6 +1074,7 @@ class _MenuPageState extends State<MenuPage> {
                           child: const Text(
                             'Save Name',
                             style: TextStyle(
+                              color: Colors.white,
                               fontWeight: FontWeight.bold,
                               letterSpacing: 0.5,
                             ),

@@ -12,7 +12,7 @@ class MenuItemCard extends StatelessWidget {
       onTap: onTap,
       child: Container(
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: Colors.transparent,
           borderRadius: BorderRadius.circular(20),
           border: Border.all(color: Colors.grey.shade100),
           boxShadow: [
@@ -44,7 +44,8 @@ class MenuItemCard extends StatelessWidget {
                       ? Image.network(
                           item.displayImage!,
                           fit: BoxFit.cover,
-                          errorBuilder: (ctx, err, stack) => const _Placeholder(),
+                          errorBuilder: (ctx, err, stack) =>
+                              const _Placeholder(),
                         )
                       : const _Placeholder(),
                 ),
@@ -61,7 +62,7 @@ class MenuItemCard extends StatelessWidget {
                     style: const TextStyle(
                       fontSize: 14,
                       fontWeight: FontWeight.bold,
-                      color: Color(0xFF1A1A1A),
+                      color: Colors.white,
                     ),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
@@ -69,7 +70,7 @@ class MenuItemCard extends StatelessWidget {
                   const SizedBox(height: 4),
                   Text(
                     item.description ?? 'Handcrafted fresh daily',
-                    style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
+                    style: TextStyle(fontSize: 11, color: Colors.white),
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                   ),
@@ -82,13 +83,13 @@ class MenuItemCard extends StatelessWidget {
                         style: const TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.bold,
-                          color: Color(0xFF1A1A1A),
+                          color: Colors.white,
                         ),
                       ),
                       Container(
                         padding: const EdgeInsets.all(6),
                         decoration: const BoxDecoration(
-                          color: Color(0xFF1A1A1A),
+                          color: Color(0xFFe62b28),
                           shape: BoxShape.circle,
                         ),
                         child: const Icon(
