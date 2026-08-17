@@ -356,17 +356,34 @@ class _WaiterHeader extends StatelessWidget {
                       ],
                     ),
                   ),
-                  TextButton.icon(
-                    onPressed: () =>
-                        context.read<AuthBloc>().add(const AuthLogout()),
-                    icon: const Icon(Icons.logout, size: 18, color: Colors.white),
-                    label: const Text(
-                      'Log out',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.bold,
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      TextButton.icon(
+                        onPressed: () => context.go('/staff/menu'),
+                        icon: const Icon(Icons.restaurant_menu,
+                            size: 18, color: Colors.white),
+                        label: const Text(
+                          'Menu',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
                       ),
-                    ),
+                      TextButton.icon(
+                        onPressed: () =>
+                            context.read<AuthBloc>().add(const AuthLogout()),
+                        icon: const Icon(Icons.logout, size: 18, color: Colors.white),
+                        label: const Text(
+                          'Log out',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                 ],
               ),

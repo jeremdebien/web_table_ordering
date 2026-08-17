@@ -7,6 +7,11 @@ class ItemModel {
   final String name;
   final String? description;
   final bool isAvailable;
+
+  /// Whether the item is shown on the customer-facing web ordering menu.
+  /// Web-only (consolidator column `is_available_in_web_table`, migration 0046);
+  /// independent of `isAvailable`/`item_status`. Defaults to visible.
+  final bool isAvailableInWebTable;
   final String? printDesc;
   final int departmentId;
   final int categoryId;
@@ -37,6 +42,7 @@ class ItemModel {
     required this.name,
     this.description,
     this.isAvailable = false,
+    this.isAvailableInWebTable = true,
     this.printDesc,
     required this.departmentId,
     required this.categoryId,
@@ -64,6 +70,8 @@ class ItemModel {
       name: json['item_name'] as String,
       description: json['item_desc'] as String?,
       isAvailable: (json['item_status'] as int?) == 1,
+      // Missing/null => visible (default 1). Only an explicit 0 hides it.
+      isAvailableInWebTable: (json['is_available_in_web_table'] as int?) != 0,
       printDesc: json['print_desc'] as String?,
       departmentId: json['department_id'] as int,
       categoryId: json['category_id'] as int,
@@ -84,6 +92,38 @@ class ItemModel {
     );
   }
 
+  ItemModel copyWith({
+    bool? isAvailable,
+    bool? isAvailableInWebTable,
+  }) {
+    return ItemModel(
+      id: id,
+      barcode: barcode,
+      itemCode: itemCode,
+      name: name,
+      description: description,
+      isAvailable: isAvailable ?? this.isAvailable,
+      isAvailableInWebTable: isAvailableInWebTable ?? this.isAvailableInWebTable,
+      printDesc: printDesc,
+      departmentId: departmentId,
+      categoryId: categoryId,
+      costPrice: costPrice,
+      markUp: markUp,
+      price: price,
+      price1: price1,
+      price2: price2,
+      price3: price3,
+      price4: price4,
+      price5: price5,
+      assignedPrinter: assignedPrinter,
+      isDiscExempt: isDiscExempt,
+      isNonVat: isNonVat,
+      displayImage: _displayImage,
+      createdAt: createdAt,
+      updatedAt: updatedAt,
+    );
+  }
+
   Map<String, dynamic> toJson() {
     return {
       'id': id,
@@ -92,6 +132,7 @@ class ItemModel {
       'item_name': name,
       'item_desc': description,
       'item_status': isAvailable ? 1 : 0,
+      'is_available_in_web_table': isAvailableInWebTable ? 1 : 0,
       'print_desc': printDesc,
       'department_id': departmentId,
       'category_id': categoryId,

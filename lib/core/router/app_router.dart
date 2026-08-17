@@ -1,6 +1,10 @@
 import 'package:go_router/go_router.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:get_it/get_it.dart';
+import '../../features/auth/presentation/bloc/auth_bloc.dart';
 import '../../features/auth/presentation/pages/root_gate.dart';
+import '../../features/menu_admin/presentation/bloc/menu_admin_bloc.dart';
+import '../../features/menu_admin/presentation/pages/menu_admin_page.dart';
 import '../../features/home/presentation/pages/welcome_page.dart';
 // TableEvent is now part of TableBloc, so no separate import needed if TableBloc is imported.
 import '../../features/table/presentation/bloc/table_bloc.dart';
@@ -14,7 +18,26 @@ final appRouter = GoRouter(
   errorBuilder: (context, state) => const NotFoundPage(),
   routes: [
     GoRoute(path: '/', builder: (context, state) => const WelcomePage()),
-    GoRoute(path: '/staff', builder: (context, state) => const RootGate()),
+    GoRoute(
+      path: '/staff',
+      builder: (context, state) => const RootGate(),
+      routes: [
+        // Staff menu-visibility curation. Gated behind the same waiter session
+        // as `/staff`; unauthenticated hits fall back to the PIN login.
+        GoRoute(
+          path: 'menu',
+          builder: (context, state) => BlocBuilder<AuthBloc, AuthState>(
+            builder: (context, authState) {
+              if (authState is! AuthAuthenticated) return const RootGate();
+              return BlocProvider(
+                create: (_) => GetIt.instance<MenuAdminBloc>()..add(const LoadCuration()),
+                child: const MenuAdminPage(),
+              );
+            },
+          ),
+        ),
+      ],
+    ),
     GoRoute(
       path: '/table/:uuid',
       routes: [

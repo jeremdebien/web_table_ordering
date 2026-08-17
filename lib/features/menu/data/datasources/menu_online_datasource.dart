@@ -43,6 +43,11 @@ class OnlineMenuDataSource implements MenuDataSource {
   // Items
   @override
   Future<List<ItemModel>> getItems({int? categoryId}) async {
+    // Web-visibility flag `is_available_in_web_table` (migration 0046) is a
+    // consolidator/local-mode column; the hosted `items` schema may not have it
+    // yet, so we intentionally do NOT filter on it here to avoid breaking the
+    // hosted path. Add `.eq('is_available_in_web_table', 1)` once the column
+    // ships to the hosted schema.
     var query = _client.from('items').select().eq('item_status', 1).eq('branch_id', _branchId);
 
     if (categoryId != null) {
@@ -51,6 +56,22 @@ class OnlineMenuDataSource implements MenuDataSource {
 
     final response = await query.order('item_name');
     return (response as List).map((e) => ItemModel.fromJson(e)).toList();
+  }
+
+  @override
+  Future<List<ItemModel>> getAllItemsForCuration() async {
+    final response =
+        await _client.from('items').select().eq('item_status', 1).eq('branch_id', _branchId).order('item_name');
+    return (response as List).map((e) => ItemModel.fromJson(e)).toList();
+  }
+
+  @override
+  Future<void> setItemWebVisibility(String barcode, bool visible) async {
+    await _client
+        .from('items')
+        .update({'is_available_in_web_table': visible ? 1 : 0})
+        .eq('barcode', barcode)
+        .eq('branch_id', _branchId);
   }
 
   // Storage: Get item image

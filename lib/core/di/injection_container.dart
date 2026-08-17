@@ -7,6 +7,7 @@ import '../../features/menu/data/datasources/menu_data_source.dart';
 import '../../features/menu/data/datasources/menu_online_datasource.dart';
 import '../../features/menu/data/datasources/menu_local_datasource.dart';
 import '../../features/menu/presentation/bloc/menu_bloc.dart';
+import '../../features/menu_admin/presentation/bloc/menu_admin_bloc.dart';
 import '../../features/orders/data/datasources/orders_data_source.dart';
 import '../../features/orders/data/datasources/orders_online_datasource.dart';
 import '../../features/orders/data/datasources/orders_local_datasource.dart';
@@ -57,6 +58,7 @@ Future<void> init() async {
 
   // Bloct
   sl.registerFactory(() => TableBloc(sl()));
+  sl.registerFactory(() => MenuAdminBloc(sl()));
   sl.registerFactory(() => CartBloc(sl(), sl(), sl()));
   sl.registerLazySingleton(() => AuthBloc(sl(), sl()));
 

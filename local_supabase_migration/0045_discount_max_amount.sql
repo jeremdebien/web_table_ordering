@@ -1,0 +1,22 @@
+-- ═══════════════════════════════════════════════════════════════════
+-- 0045  Discount maximum-amount cap
+-- ═══════════════════════════════════════════════════════════════════
+-- Adds one per-discount setting to the "Discount" maintenance table:
+--
+--   * max_discount_amount — the maximum peso value this discount may give on
+--     the whole order. Caps the transaction-total discount amount for
+--     percentage discounts (fixed-amount discounts are already a fixed peso
+--     value and are left untouched). 0 = no cap. Companion to
+--     min_trigger_amount (migration 0039): min gates the discount behind a
+--     minimum subtotal, max caps the resulting discount value.
+--
+-- The cap is enforced CLIENT-SIDE on the POS / sales-order screens and in the
+-- receipt formatters; no server-side function or trigger recomputes discount,
+-- so no other objects change here. "Discount" already has REPLICA IDENTITY FULL
+-- and is in the supabase_realtime publication (migration 0009), so edits mirror
+-- down to every terminal through the existing MasterFile realtime channel — no
+-- new plumbing.
+--
+-- Applied MANUALLY against Supabase (see consolidator-migrations-manual).
+
+ALTER TABLE "Discount" ADD COLUMN IF NOT EXISTS max_discount_amount REAL DEFAULT 0;

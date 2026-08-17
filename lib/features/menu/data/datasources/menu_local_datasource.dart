@@ -66,45 +66,67 @@ class LocalMenuDataSource implements MenuDataSource {
 
   @override
   Future<List<ItemModel>> getItems({int? categoryId}) async {
-    var query = _client.from('item').select().eq('item_status', 1);
+    // Customer-facing menu: only orderable items that staff have kept visible on
+    // the web menu (`is_available_in_web_table`, migration 0046).
+    var query =
+        _client.from('item').select().eq('item_status', 1).eq('is_available_in_web_table', 1);
 
     if (categoryId != null) {
       query = query.eq('category', categoryId);
     }
 
     final response = await query.order('item_desc');
-    return (response as List).map((row) {
-      return ItemModel.fromJson({
-        'id': row['id'],
-        'barcode': row['barcode'] ?? '',
-        'item_code': row['item_code'] ?? '',
-        'item_name': row['item_desc'],
-        'item_desc': row['item_desc'],
-        'item_status': row['item_status'],
-        'print_desc': row['print_desc'],
-        'department_id': row['dept'] ?? 0,
-        'category_id': row['category'] ?? 0,
-        'cost_price': row['cost_price'],
-        'mark_up': row['mark_up'],
-        'price': row['price'] ?? 0,
-        'price_1': row['price_1'],
-        'price_2': row['price_2'],
-        'price_3': row['price_3'],
-        'price_4': row['price_4'],
-        'price_5': row['price_5'],
-        'assigned_printer': row['assigned_printer'],
-        'is_disc_exempt': _flag(row['disc_exempt']),
-        'is_non_vat': _flag(row['non_vat']),
-        // `disp_image` is a POS-terminal-local file path and means nothing to a
-        // browser; the shared, downloadable image is keyed by `image_object`
-        // inside the `master-file` bucket. ItemModel.displayImage prepends the
-        // storage `.../object/public/` base, so include the bucket name here.
-        'display_image':
-            row['image_object'] != null ? '$_imageBucket/${row['image_object']}' : null,
-        'created_at': row['d_tran_date'] ?? _now(),
-        'update_at': row['date_change'],
-      });
-    }).toList();
+    return (response as List).map((row) => _mapItemRow(row)).toList();
+  }
+
+  @override
+  Future<List<ItemModel>> getAllItemsForCuration() async {
+    // Staff curation: every orderable item, regardless of web visibility.
+    final response =
+        await _client.from('item').select().eq('item_status', 1).order('item_desc');
+    return (response as List).map((row) => _mapItemRow(row)).toList();
+  }
+
+  @override
+  Future<void> setItemWebVisibility(String barcode, bool visible) async {
+    await _client
+        .from('item')
+        .update({'is_available_in_web_table': visible ? 1 : 0}).eq('barcode', barcode);
+  }
+
+  /// Maps a consolidator `item` row into the JSON shape [ItemModel] expects.
+  ItemModel _mapItemRow(Map<String, dynamic> row) {
+    return ItemModel.fromJson({
+      'id': row['id'],
+      'barcode': row['barcode'] ?? '',
+      'item_code': row['item_code'] ?? '',
+      'item_name': row['item_desc'],
+      'item_desc': row['item_desc'],
+      'item_status': row['item_status'],
+      'is_available_in_web_table': row['is_available_in_web_table'],
+      'print_desc': row['print_desc'],
+      'department_id': row['dept'] ?? 0,
+      'category_id': row['category'] ?? 0,
+      'cost_price': row['cost_price'],
+      'mark_up': row['mark_up'],
+      'price': row['price'] ?? 0,
+      'price_1': row['price_1'],
+      'price_2': row['price_2'],
+      'price_3': row['price_3'],
+      'price_4': row['price_4'],
+      'price_5': row['price_5'],
+      'assigned_printer': row['assigned_printer'],
+      'is_disc_exempt': _flag(row['disc_exempt']),
+      'is_non_vat': _flag(row['non_vat']),
+      // `disp_image` is a POS-terminal-local file path and means nothing to a
+      // browser; the shared, downloadable image is keyed by `image_object`
+      // inside the `master-file` bucket. ItemModel.displayImage prepends the
+      // storage `.../object/public/` base, so include the bucket name here.
+      'display_image':
+          row['image_object'] != null ? '$_imageBucket/${row['image_object']}' : null,
+      'created_at': row['d_tran_date'] ?? _now(),
+      'update_at': row['date_change'],
+    });
   }
 
   @override
