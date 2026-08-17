@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:auto_size_text/auto_size_text.dart';
 import 'package:web_table_ordering/features/menu/presentation/bloc/menu_bloc.dart';
 import 'package:web_table_ordering/features/orders/presentation/bloc/cart_bloc.dart';
 import 'package:web_table_ordering/features/table/presentation/bloc/table_bloc.dart';
@@ -276,7 +277,7 @@ class _MenuPageState extends State<MenuPage> {
                                         const SizedBox(height: 20),
                                         // Categories Horizontal List
                                         SizedBox(
-                                          height: 85,
+                                          height: 92,
                                           child: ListView.builder(
                                             scrollDirection: Axis.horizontal,
                                             itemCount: state.categories.length,
@@ -298,6 +299,10 @@ class _MenuPageState extends State<MenuPage> {
                                                   width: 90,
                                                   margin: const EdgeInsets.only(
                                                     right: 12,
+                                                  ),
+                                                  padding: const EdgeInsets.symmetric(
+                                                    horizontal: 4,
+                                                    vertical: 4,
                                                   ),
                                                   decoration: BoxDecoration(
                                                     color: isSelected
@@ -345,19 +350,24 @@ class _MenuPageState extends State<MenuPage> {
                                                                 0xFFC5A880,
                                                               )
                                                             : Colors.grey.shade700,
-                                                        size: 24,
+                                                        size: 22,
                                                       ),
-                                                      const SizedBox(height: 6),
-                                                      Text(
-                                                        category.name,
-                                                        style: TextStyle(
-                                                          fontSize: 12,
-                                                          fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                                                          color: isSelected ? Colors.white : Colors.grey.shade800,
+                                                      const SizedBox(height: 3),
+                                                      Expanded(
+                                                        child: Center(
+                                                          child: _CategoryAdaptiveText(
+                                                            text: category.name,
+                                                            style: TextStyle(
+                                                              fontSize: 12,
+                                                              fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                                                              color: isSelected ? Colors.white : Colors.grey.shade800,
+                                                              height: 1.1,
+                                                            ),
+                                                            maxLines: 4,
+                                                            minFontSize: 8,
+                                                            maxFontSize: 12,
+                                                          ),
                                                         ),
-                                                        textAlign: TextAlign.center,
-                                                        maxLines: 1,
-                                                        overflow: TextOverflow.ellipsis,
                                                       ),
                                                     ],
                                                   ),
@@ -477,22 +487,27 @@ class _MenuPageState extends State<MenuPage> {
                                                     ),
                                                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                                     children: [
-                                                      Text(
-                                                        state.categories
-                                                            .firstWhere(
-                                                              (c) => c.categoryId == state.selectedCategoryId,
-                                                              orElse: () => state.categories.first,
-                                                            )
-                                                            .name,
-                                                        style: const TextStyle(
-                                                          fontSize: 20,
-                                                          fontWeight: FontWeight.bold,
-                                                          fontFamily: 'PTSerif',
-                                                          color: Color(
-                                                            0xFF1A1A1A,
+                                                      Expanded(
+                                                        child: Text(
+                                                          state.categories
+                                                              .firstWhere(
+                                                                (c) => c.categoryId == state.selectedCategoryId,
+                                                                orElse: () => state.categories.first,
+                                                              )
+                                                              .name,
+                                                          style: const TextStyle(
+                                                            fontSize: 20,
+                                                            fontWeight: FontWeight.bold,
+                                                            fontFamily: 'PTSerif',
+                                                            color: Color(
+                                                              0xFF1A1A1A,
+                                                            ),
                                                           ),
+                                                          maxLines: 2,
+                                                          overflow: TextOverflow.ellipsis,
                                                         ),
                                                       ),
+                                                      const SizedBox(width: 8),
                                                       GestureDetector(
                                                         onTap: () {
                                                           setState(() {
@@ -741,7 +756,7 @@ class _MenuPageState extends State<MenuPage> {
       backgroundColor: Colors.white,
       builder: (context) {
         return SizedBox(
-          height: MediaQuery.of(context).size.height * 0.8,
+          height: MediaQuery.of(context).size.height * 0.9,
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -971,5 +986,128 @@ class _MenuPageState extends State<MenuPage> {
         );
       },
     );
+  }
+}
+
+class _CategoryAdaptiveText extends StatelessWidget {
+  final String text;
+  final TextStyle style;
+  final int maxLines;
+  final double minFontSize;
+  final double maxFontSize;
+
+  const _CategoryAdaptiveText({
+    required this.text,
+    required this.style,
+    this.maxLines = 4,
+    this.minFontSize = 8.0,
+    this.maxFontSize = 12.0,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final maxWidth = constraints.maxWidth;
+        final maxHeight = constraints.maxHeight.isFinite ? constraints.maxHeight : null;
+
+        int chosenLines = maxLines;
+        double chosenFontSize = minFontSize;
+        bool found = false;
+
+        // Algorithm:
+        // 1. Check line 1 first, autosize from maxFontSize down to minFontSize.
+        // 2. If it does not fit on 1 line, check line 2 and autosize down to minFontSize.
+        // 3. Repeat up to maxLines (4).
+        for (int lines = 1; lines <= maxLines; lines++) {
+          for (double size = maxFontSize; size >= minFontSize; size -= 0.5) {
+            final testStyle = style.copyWith(fontSize: size);
+            if (_fits(context, text, testStyle, maxWidth, lines, maxHeight)) {
+              chosenLines = lines;
+              chosenFontSize = size;
+              found = true;
+              break;
+            }
+          }
+          if (found) break;
+        }
+
+        // If not found (e.g. extremely long title under bold styling),
+        // search down to 6.0sp on maxLines so the full name is never truncated.
+        if (!found) {
+          chosenLines = maxLines;
+          for (double size = minFontSize - 0.5; size >= 6.0; size -= 0.5) {
+            final testStyle = style.copyWith(fontSize: size);
+            if (_fits(context, text, testStyle, maxWidth, chosenLines, maxHeight)) {
+              chosenFontSize = size;
+              found = true;
+              break;
+            }
+          }
+        }
+
+        return AutoSizeText(
+          text,
+          style: style.copyWith(fontSize: chosenFontSize),
+          minFontSize: 6.0,
+          maxLines: chosenLines,
+          textAlign: TextAlign.center,
+          overflow: TextOverflow.ellipsis,
+          wrapWords: true,
+        );
+      },
+    );
+  }
+
+  bool _fits(
+    BuildContext context,
+    String text,
+    TextStyle style,
+    double maxWidth,
+    int lines,
+    double? maxHeight,
+  ) {
+    if (maxWidth <= 0) return false;
+
+    final textScaler = MediaQuery.textScalerOf(context);
+    final textDirection = Directionality.of(context);
+
+    if (lines == 1) {
+      final tp = TextPainter(
+        text: TextSpan(text: text, style: style),
+        textDirection: textDirection,
+        textScaler: textScaler,
+        maxLines: 1,
+      )..layout(maxWidth: double.infinity);
+
+      if (tp.width > maxWidth) return false;
+      if (maxHeight != null && tp.height > maxHeight) return false;
+      return true;
+    }
+
+    // For multi-line, verify that no individual unbroken word exceeds maxWidth
+    final words = text.split(RegExp(r'\s+'));
+    for (final word in words) {
+      if (word.isEmpty) continue;
+      final wordTp = TextPainter(
+        text: TextSpan(text: word, style: style),
+        textDirection: textDirection,
+        textScaler: textScaler,
+        maxLines: 1,
+      )..layout(maxWidth: double.infinity);
+      if (wordTp.width > maxWidth) return false;
+    }
+
+    final tp = TextPainter(
+      text: TextSpan(text: text, style: style),
+      textAlign: TextAlign.center,
+      textDirection: textDirection,
+      textScaler: textScaler,
+      maxLines: lines,
+    )..layout(maxWidth: maxWidth);
+
+    if (tp.didExceedMaxLines) return false;
+    if (maxHeight != null && tp.height > maxHeight) return false;
+    return true;
   }
 }

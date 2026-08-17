@@ -6,10 +6,18 @@ import '../../../menu/data/models/item_model.dart';
 import '../../../menu/presentation/bloc/menu_bloc.dart';
 import 'serving_status_badge.dart';
 
-class CartSummary extends StatelessWidget {
+class CartSummary extends StatefulWidget {
   const CartSummary({
     super.key,
   });
+
+  @override
+  State<CartSummary> createState() => _CartSummaryState();
+}
+
+class _CartSummaryState extends State<CartSummary> {
+  bool _isBreakdownExpanded = false;
+  bool _showServedItems = true;
 
   @override
   Widget build(BuildContext context) {
@@ -33,6 +41,10 @@ class CartSummary extends StatelessWidget {
       },
       builder: (context, state) {
         final cartItems = state.items;
+        final hasServedItems = cartItems.any((item) => item.isServed);
+        final displayedItems = _showServedItems
+            ? cartItems
+            : cartItems.where((item) => !item.isServed).toList();
         final subtotal =
             state.activeOrderTotalAmount +
             state.pendingOrderTotalAmount +
@@ -99,7 +111,7 @@ class CartSummary extends StatelessWidget {
                 ],
               ),
               const SizedBox(height: 8),
-              // Items count and Clear all
+              // Items count and served items toggle
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
@@ -110,6 +122,38 @@ class CartSummary extends StatelessWidget {
                       fontSize: 14,
                     ),
                   ),
+                  if (hasServedItems)
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          'Show Served',
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                            color: Colors.grey.shade800,
+                          ),
+                        ),
+                        const SizedBox(width: 4),
+                        Transform.scale(
+                          scale: 0.75,
+                          child: Switch.adaptive(
+                            value: _showServedItems,
+                            activeColor: const Color(0xFFC5A880),
+                            activeTrackColor: const Color(0xFF1A1A1A),
+                            inactiveThumbColor: Colors.grey.shade400,
+                            inactiveTrackColor: Colors.grey.shade200,
+                            materialTapTargetSize:
+                                MaterialTapTargetSize.shrinkWrap,
+                            onChanged: (value) {
+                              setState(() {
+                                _showServedItems = value;
+                              });
+                            },
+                          ),
+                        ),
+                      ],
+                    ),
                 ],
               ),
               const SizedBox(height: 12),
@@ -117,21 +161,26 @@ class CartSummary extends StatelessWidget {
               const SizedBox(height: 12),
               // Scrollable Order Items List
               Expanded(
-                child: cartItems.isEmpty
-                    ? const Center(
+                child: displayedItems.isEmpty
+                    ? Center(
                         child: Text(
-                          'Your cart is empty',
-                          style: TextStyle(color: Colors.black54, fontSize: 16),
+                          cartItems.isEmpty
+                              ? 'Your cart is empty'
+                              : 'All items have been served',
+                          style: const TextStyle(
+                            color: Colors.black54,
+                            fontSize: 16,
+                          ),
                         ),
                       )
                     : ListView.separated(
-                        itemCount: cartItems.length,
+                        itemCount: displayedItems.length,
                         separatorBuilder: (context, index) => const Padding(
                           padding: EdgeInsets.symmetric(vertical: 8.0),
                           child: Divider(color: Colors.black12, height: 1),
                         ),
                         itemBuilder: (context, index) {
-                          final item = cartItems[index];
+                          final item = displayedItems[index];
                           final displayImage = getDisplayImage(
                             item.itemBarcode,
                           );
@@ -440,40 +489,81 @@ class CartSummary extends StatelessWidget {
               const Divider(color: Colors.black12, height: 1),
               const SizedBox(height: 12),
               // Summary Calculation Section
-              Column(
-                children: [
-                  _buildSummaryRow(
-                    'Subtotal',
-                    '₱${subtotal.toStringAsFixed(2)}',
-                  ),
-                  const SizedBox(height: 8),
-                  _buildSummaryRow(
-                    'Service Charge (10%)',
-                    '₱${serviceCharge.toStringAsFixed(2)}',
-                  ),
-                  const SizedBox(height: 16),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              InkWell(
+                onTap: () {
+                  setState(() {
+                    _isBreakdownExpanded = !_isBreakdownExpanded;
+                  });
+                },
+                borderRadius: BorderRadius.circular(8),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 4.0),
+                  child: Column(
                     children: [
-                      const Text(
-                        'Total',
-                        style: TextStyle(
-                          color: Color(0xFF1A1A1A),
-                          fontSize: 22,
-                          fontWeight: FontWeight.bold,
-                        ),
+                      AnimatedSize(
+                        duration: const Duration(milliseconds: 250),
+                        curve: Curves.easeInOut,
+                        child: _isBreakdownExpanded
+                            ? Column(
+                                children: [
+                                  _buildSummaryRow(
+                                    'Subtotal',
+                                    '₱${subtotal.toStringAsFixed(2)}',
+                                  ),
+                                  const SizedBox(height: 8),
+                                  _buildSummaryRow(
+                                    'Service Charge (10%)',
+                                    '₱${serviceCharge.toStringAsFixed(2)}',
+                                  ),
+                                  const SizedBox(height: 12),
+                                  const Divider(
+                                    color: Colors.black12,
+                                    height: 1,
+                                  ),
+                                  const SizedBox(height: 12),
+                                ],
+                              )
+                            : const SizedBox.shrink(),
                       ),
-                      Text(
-                        '₱${total.toStringAsFixed(2)}',
-                        style: const TextStyle(
-                          color: Color(0xFF1A1A1A),
-                          fontSize: 22,
-                          fontWeight: FontWeight.bold,
-                        ),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Text(
+                                'Total',
+                                style: TextStyle(
+                                  color: Color(0xFF1A1A1A),
+                                  fontSize: 22,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                              const SizedBox(width: 4),
+                              AnimatedRotation(
+                                turns: _isBreakdownExpanded ? 0.5 : 0.0,
+                                duration: const Duration(milliseconds: 250),
+                                child: const Icon(
+                                  Icons.keyboard_arrow_up,
+                                  color: Color(0xFF1A1A1A),
+                                  size: 24,
+                                ),
+                              ),
+                            ],
+                          ),
+                          Text(
+                            '₱${total.toStringAsFixed(2)}',
+                            style: const TextStyle(
+                              color: Color(0xFF1A1A1A),
+                              fontSize: 22,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ],
                       ),
                     ],
                   ),
-                ],
+                ),
               ),
               const SizedBox(height: 20),
               // Checkout Button
