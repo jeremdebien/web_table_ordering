@@ -170,6 +170,11 @@ class OnlineOrdersDataSource implements OrdersDataSource {
     return orders.map((e) => SalesOrderModel.fromJson(e)).toList();
   }
 
+  @override
+  Future<List<SalesOrderModel>> getOpenOrders() {
+    throw UnimplementedError('Open-order listing is only available in local mode.');
+  }
+
   /// Get customer by device ID
   @override
   Future<String?> getNicknameByDeviceId(String deviceId) async {

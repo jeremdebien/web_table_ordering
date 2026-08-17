@@ -1,4 +1,5 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
+import '../../data/models/ground_model.dart';
 import '../../data/models/table_model.dart';
 import 'table_data_source.dart';
 
@@ -49,6 +50,63 @@ class LocalTableDataSource implements TableDataSource {
       });
     } catch (e) {
       throw Exception('Failed to fetch table by name: $e');
+    }
+  }
+
+  @override
+  Future<List<GroundModel>> getGrounds() async {
+    try {
+      final rows = await _client.from('ground').select();
+      return List<Map<String, dynamic>>.from(rows as List)
+          .where((row) => row['ground_status'] == true)
+          .map(
+            (row) => GroundModel.fromJson({
+              'id': (row['ground_id'] as num).toInt(),
+              'ground_id': (row['ground_id'] as num).toInt(),
+              'ground_desc': row['ground_desc'],
+              'ground_status': (row['ground_status'] == true) ? 1 : 0,
+              'is_custom_layout': (row['is_custom_layout'] == true) ? 1 : 0,
+              'table_size': row['table_size'],
+              'canvas_width': row['canvas_width'],
+              'canvas_height': row['canvas_height'],
+              'initial_zoom': row['initial_zoom'],
+              'created_at': row['created_at'] ?? DateTime.now().toIso8601String(),
+            }),
+          )
+          .toList();
+    } catch (e) {
+      throw Exception('Failed to fetch grounds: $e');
+    }
+  }
+
+  @override
+  Future<List<TableModel>> getTables() async {
+    try {
+      final rows = await _client.from('tables').select();
+      return List<Map<String, dynamic>>.from(rows as List)
+          .where((row) => row['table_status'] == true)
+          .map(
+            (row) => TableModel.fromJson({
+              'id': (row['table_id'] as num).toInt(),
+              'table_id': (row['table_id'] as num).toInt(),
+              'table_uuid': row['table_uuid'],
+              'table_desc': row['table_desc'],
+              'table_status': (row['table_status'] == true) ? 1 : 0,
+              'ground_id': row['ground'] ?? 0,
+              'x_loc': row['x_loc'],
+              'y_loc': row['y_loc'],
+              'rotation': row['rotation'],
+              'table_shape': row['table_shape'],
+              'capacity': row['capacity'],
+              'grid_width': row['grid_width'],
+              'grid_height': row['grid_height'],
+              'seat_layout': row['seat_layout'],
+              'created_at': row['created_at'] ?? DateTime.now().toIso8601String(),
+            }),
+          )
+          .toList();
+    } catch (e) {
+      throw Exception('Failed to fetch tables: $e');
     }
   }
 }

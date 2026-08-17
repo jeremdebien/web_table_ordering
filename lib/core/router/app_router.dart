@@ -5,6 +5,8 @@ import '../../features/auth/presentation/bloc/auth_bloc.dart';
 import '../../features/auth/presentation/pages/root_gate.dart';
 import '../../features/menu_admin/presentation/bloc/menu_admin_bloc.dart';
 import '../../features/menu_admin/presentation/pages/menu_admin_page.dart';
+import '../../features/clear_orders/presentation/bloc/clear_orders_bloc.dart';
+import '../../features/clear_orders/presentation/pages/clear_orders_page.dart';
 import '../../features/home/presentation/pages/welcome_page.dart';
 // TableEvent is now part of TableBloc, so no separate import needed if TableBloc is imported.
 import '../../features/table/presentation/bloc/table_bloc.dart';
@@ -32,6 +34,19 @@ final appRouter = GoRouter(
               return BlocProvider(
                 create: (_) => GetIt.instance<MenuAdminBloc>()..add(const LoadCuration()),
                 child: const MenuAdminPage(),
+              );
+            },
+          ),
+        ),
+        // Staff clear-orders floor plan. Same waiter-session gate as `/staff`.
+        GoRoute(
+          path: 'tables',
+          builder: (context, state) => BlocBuilder<AuthBloc, AuthState>(
+            builder: (context, authState) {
+              if (authState is! AuthAuthenticated) return const RootGate();
+              return BlocProvider(
+                create: (_) => GetIt.instance<ClearOrdersBloc>()..add(const LoadTables()),
+                child: const ClearOrdersPage(),
               );
             },
           ),

@@ -235,6 +235,18 @@ class LocalOrdersDataSource implements OrdersDataSource {
     return result;
   }
 
+  @override
+  Future<List<SalesOrderModel>> getOpenOrders() async {
+    final response = await _client
+        .from('sales_order_2')
+        .select()
+        .or('payment_status.eq.0,payment_status.eq.1');
+    final orders = List<Map<String, dynamic>>.from(response as List);
+    // Headers only — no line items fetched (coloring needs table_id +
+    // payment_status). The confirm dialog fetches items lazily via getActiveOrder.
+    return orders.map((row) => SalesOrderModel.fromJson(_mapHeader(row))).toList();
+  }
+
   /// Local schema has no customer table — nickname is an online-only concept.
   @override
   Future<String?> getNicknameByDeviceId(String deviceId) async => null;

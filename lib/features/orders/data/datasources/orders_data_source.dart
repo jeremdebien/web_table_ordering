@@ -29,6 +29,11 @@ abstract class OrdersDataSource {
 
   Future<List<SalesOrderModel>> getOrders({int? tableId});
 
+  /// All currently open orders (payment_status IN (0,1)), headers only (no line
+  /// items). Used by the staff clear-orders floor plan to color tables by state
+  /// without the per-order item fetch that `getOrders` does. Local-mode only.
+  Future<List<SalesOrderModel>> getOpenOrders();
+
   Future<String?> getNicknameByDeviceId(String deviceId);
 
   Future<void> upsertCustomer(String deviceId, String nickname);
