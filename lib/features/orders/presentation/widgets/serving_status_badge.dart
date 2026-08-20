@@ -20,35 +20,57 @@ class ServingStatusBadge extends StatelessWidget {
     if (!item.hasServingStatus) return const SizedBox.shrink();
 
     final served = item.isServed;
-    final label = served
-        ? 'Served'
-        : item.isPartiallyServed
-            ? 'Served ${_qty(item.servedQuantity)}/${item.quantity}'
-            : 'Preparing';
-    final color = served ? Colors.green : Colors.orange;
+    final partial = item.isPartiallyServed;
+
+    final String label;
+    final IconData icon;
+    final Color bgColor;
+    final Color textColor;
+    final Color borderColor;
+
+    if (served) {
+      label = 'Served';
+      icon = Icons.check_circle_rounded;
+      bgColor = const Color(0xFFE8F5E9);
+      textColor = const Color(0xFF2E7D32);
+      borderColor = const Color(0xFFA5D6A7);
+    } else if (partial) {
+      label = 'Served ${_qty(item.servedQuantity)}/${item.quantity}';
+      icon = Icons.pie_chart_rounded;
+      bgColor = const Color(0xFFFFF3E0);
+      textColor = const Color(0xFFE65100);
+      borderColor = const Color(0xFFFFCC80);
+    } else {
+      label = 'Preparing';
+      icon = Icons.access_time_rounded;
+      bgColor = const Color(0xFFFFF8E1);
+      textColor = const Color(0xFFF57F17);
+      borderColor = const Color(0xFFFFE082);
+    }
 
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
       decoration: BoxDecoration(
-        color: color.shade50,
+        color: bgColor,
         borderRadius: BorderRadius.circular(6),
-        border: Border.all(color: color.shade300),
+        border: Border.all(color: borderColor, width: 0.8),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
           Icon(
-            served ? Icons.check_circle : Icons.access_time,
+            icon,
             size: 11,
-            color: color.shade800,
+            color: textColor,
           ),
-          const SizedBox(width: 3),
+          const SizedBox(width: 3.5),
           Text(
             label,
             style: TextStyle(
-              fontSize: 10,
+              fontSize: 10.5,
               fontWeight: FontWeight.w700,
-              color: color.shade800,
+              color: textColor,
+              letterSpacing: 0.2,
             ),
           ),
         ],

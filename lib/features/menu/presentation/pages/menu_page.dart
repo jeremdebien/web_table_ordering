@@ -568,27 +568,33 @@ class _MenuPageState extends State<MenuPage> {
                     0,
                     (sum, item) => sum + item.quantity,
                   );
-                  final totalAmount = state.items.fold(
-                    0.0,
-                    (sum, item) => sum + (item.amount * item.quantity),
-                  );
+                  final subtotal = state.totalAmount;
+                  final totalAmountWithService = subtotal * 1.10;
+                  final hasNewDrafts = state.newOrders.isNotEmpty;
+
                   return GestureDetector(
                     onTap: () => _showOrderSummary(context),
                     child: Container(
-                      height: 70,
+                      height: 68,
                       margin: const EdgeInsets.symmetric(
                         horizontal: 16,
                         vertical: 10,
                       ),
-                      padding: const EdgeInsets.symmetric(horizontal: 20),
+                      padding: const EdgeInsets.symmetric(horizontal: 18),
                       decoration: BoxDecoration(
-                        color: const Color(0xFF0F0F0F),
-                        borderRadius: BorderRadius.circular(14),
+                        color: const Color(0xFF141414),
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(
+                          color: hasNewDrafts
+                              ? const Color(0xFFC5A880).withValues(alpha: 0.5)
+                              : Colors.white.withValues(alpha: 0.1),
+                          width: 1,
+                        ),
                         boxShadow: [
                           BoxShadow(
-                            color: Colors.black.withValues(alpha: 0.3),
-                            blurRadius: 15,
-                            offset: const Offset(0, 5),
+                            color: Colors.black.withValues(alpha: 0.35),
+                            blurRadius: 18,
+                            offset: const Offset(0, 6),
                           ),
                         ],
                       ),
@@ -597,30 +603,39 @@ class _MenuPageState extends State<MenuPage> {
                           Stack(
                             clipBehavior: Clip.none,
                             children: [
-                              const Icon(
-                                Icons.shopping_cart_outlined,
-                                color: Colors.white,
-                                size: 28,
+                              Container(
+                                width: 40,
+                                height: 40,
+                                decoration: BoxDecoration(
+                                  color: Colors.white.withValues(alpha: 0.1),
+                                  shape: BoxShape.circle,
+                                ),
+                                child: const Icon(
+                                  Icons.shopping_bag_outlined,
+                                  color: Colors.white,
+                                  size: 22,
+                                ),
                               ),
                               Positioned(
-                                top: -6,
-                                right: -6,
+                                top: -2,
+                                right: -2,
                                 child: Container(
-                                  padding: const EdgeInsets.all(4),
-                                  decoration: const BoxDecoration(
-                                    color: Color(0xFFC5A880),
-                                    shape: BoxShape.circle,
+                                  padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFFC5A880),
+                                    borderRadius: BorderRadius.circular(10),
+                                    border: Border.all(color: const Color(0xFF141414), width: 1.5),
                                   ),
                                   constraints: const BoxConstraints(
-                                    minWidth: 16,
-                                    minHeight: 16,
+                                    minWidth: 18,
+                                    minHeight: 18,
                                   ),
                                   child: Text(
                                     '$totalCount',
                                     style: const TextStyle(
                                       color: Colors.black,
-                                      fontSize: 9,
-                                      fontWeight: FontWeight.bold,
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.w800,
                                     ),
                                     textAlign: TextAlign.center,
                                   ),
@@ -628,24 +643,48 @@ class _MenuPageState extends State<MenuPage> {
                               ),
                             ],
                           ),
-                          const SizedBox(width: 16),
+                          const SizedBox(width: 14),
                           Column(
                             mainAxisAlignment: MainAxisAlignment.center,
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              const Text(
-                                'View Order',
-                                style: TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 15,
-                                  fontWeight: FontWeight.bold,
-                                ),
+                              Row(
+                                children: [
+                                  const Text(
+                                    'View Order',
+                                    style: TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 15,
+                                      fontWeight: FontWeight.bold,
+                                      letterSpacing: 0.2,
+                                    ),
+                                  ),
+                                  if (hasNewDrafts) ...[
+                                    const SizedBox(width: 6),
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1.5),
+                                      decoration: BoxDecoration(
+                                        color: const Color(0xFFC5A880),
+                                        borderRadius: BorderRadius.circular(4),
+                                      ),
+                                      child: const Text(
+                                        'Draft',
+                                        style: TextStyle(
+                                          color: Colors.black,
+                                          fontSize: 9.5,
+                                          fontWeight: FontWeight.w800,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ],
                               ),
+                              const SizedBox(height: 2),
                               Text(
-                                '$totalCount items',
-                                style: const TextStyle(
-                                  color: Colors.white54,
-                                  fontSize: 11,
+                                '$totalCount ${totalCount == 1 ? 'item' : 'items'} in order',
+                                style: TextStyle(
+                                  color: Colors.white.withValues(alpha: 0.6),
+                                  fontSize: 12,
                                 ),
                               ),
                             ],
@@ -655,34 +694,35 @@ class _MenuPageState extends State<MenuPage> {
                             mainAxisAlignment: MainAxisAlignment.center,
                             crossAxisAlignment: CrossAxisAlignment.end,
                             children: [
-                              const Text(
-                                'Total',
+                              Text(
+                                'Total (incl. tax)',
                                 style: TextStyle(
-                                  color: Colors.white54,
-                                  fontSize: 11,
+                                  color: Colors.white.withValues(alpha: 0.6),
+                                  fontSize: 10.5,
                                 ),
                               ),
                               Text(
-                                '₱${totalAmount.toStringAsFixed(2)}',
+                                '₱${totalAmountWithService.toStringAsFixed(2)}',
                                 style: const TextStyle(
                                   color: Colors.white,
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.bold,
+                                  fontSize: 16.5,
+                                  fontWeight: FontWeight.w800,
                                 ),
                               ),
                             ],
                           ),
-                          const SizedBox(width: 12),
+                          const SizedBox(width: 10),
                           Container(
-                            padding: const EdgeInsets.all(8),
+                            width: 32,
+                            height: 32,
                             decoration: const BoxDecoration(
                               color: Color(0xFFC5A880),
                               shape: BoxShape.circle,
                             ),
                             child: const Icon(
-                              Icons.chevron_right,
+                              Icons.arrow_forward_rounded,
                               color: Colors.black,
-                              size: 20,
+                              size: 18,
                             ),
                           ),
                         ],
@@ -703,26 +743,13 @@ class _MenuPageState extends State<MenuPage> {
       context: context,
       isScrollControlled: true,
       enableDrag: true,
-      backgroundColor: Colors.white,
+      backgroundColor: Colors.transparent,
+      barrierColor: Colors.black.withValues(alpha: 0.55),
+      constraints: const BoxConstraints(maxWidth: 540),
       builder: (context) {
         return SizedBox(
           height: MediaQuery.of(context).size.height * 0.9,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              // Drag indicator
-              Container(
-                margin: const EdgeInsets.symmetric(vertical: 8),
-                width: 40,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: Color.fromARGB(255, 0, 0, 0),
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
-              const Expanded(child: CartSummary()),
-            ],
-          ),
+          child: const CartSummary(),
         );
       },
     );
@@ -748,7 +775,7 @@ class _MenuPageState extends State<MenuPage> {
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      barrierColor: Colors.black.withOpacity(0.5),
+      barrierColor: Colors.black.withValues(alpha: 0.5),
       constraints: const BoxConstraints(maxWidth: 500),
       builder: (_) => AddItemBottomSheet(
         item: item,

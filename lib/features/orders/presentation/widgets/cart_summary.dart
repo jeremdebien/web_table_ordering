@@ -4,12 +4,17 @@ import '../bloc/cart_bloc.dart';
 import '../../../table/presentation/bloc/table_bloc.dart';
 import '../../../menu/data/models/item_model.dart';
 import '../../../menu/presentation/bloc/menu_bloc.dart';
-import 'serving_status_badge.dart';
+import 'cart_item_tile.dart';
+
+enum CartFilter {
+  all,
+  toOrder,
+  inKitchen,
+  served,
+}
 
 class CartSummary extends StatefulWidget {
-  const CartSummary({
-    super.key,
-  });
+  const CartSummary({super.key});
 
   @override
   State<CartSummary> createState() => _CartSummaryState();
@@ -17,7 +22,7 @@ class CartSummary extends StatefulWidget {
 
 class _CartSummaryState extends State<CartSummary> {
   bool _isBreakdownExpanded = false;
-  bool _showServedItems = true;
+  CartFilter _selectedFilter = CartFilter.all;
 
   @override
   Widget build(BuildContext context) {
@@ -26,33 +31,41 @@ class _CartSummaryState extends State<CartSummary> {
         if (state.status == CartStatus.submitted) {
           debugPrint('Order submitted successfully!');
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Order submitted successfully!')),
+            const SnackBar(
+              content: Text('Order submitted successfully!'),
+              backgroundColor: Color(0xFF2E7D32),
+              behavior: SnackBarBehavior.floating,
+            ),
           );
-          // Close the bottom sheet after successful submission
+          // Close bottom sheet after successful submission
           Navigator.of(context).pop();
         } else if (state.status == CartStatus.failure) {
           debugPrint('Failed to submit order: ${state.errorMessage}');
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text('Failed to submit order: ${state.errorMessage}'),
+              backgroundColor: Colors.red.shade700,
+              behavior: SnackBarBehavior.floating,
             ),
           );
         }
       },
       builder: (context, state) {
         final cartItems = state.items;
-        final hasServedItems = cartItems.any((item) => item.isServed);
-        final displayedItems = _showServedItems
-            ? cartItems
-            : cartItems.where((item) => !item.isServed).toList();
-        final subtotal =
-            state.activeOrderTotalAmount +
+
+        final draftItems = cartItems.where((i) => i.originalQuantity == 0).toList();
+        final kitchenItems = cartItems
+            .where((i) => i.originalQuantity > 0 && !i.isServed)
+            .toList();
+        final servedItems = cartItems.where((i) => i.isServed).toList();
+        final hasSubmittedItems = cartItems.any((i) => i.originalQuantity > 0);
+
+        final subtotal = state.activeOrderTotalAmount +
             state.pendingOrderTotalAmount +
             state.newOrderTotalAmount;
         final serviceCharge = subtotal * 0.10;
         final total = subtotal + serviceCharge;
-        final totalCount =
-            state.activeOrderCount +
+        final totalCount = state.activeOrderCount +
             state.pendingOrdersCount +
             state.newOrdersCount;
 
@@ -69,435 +82,144 @@ class _CartSummaryState extends State<CartSummary> {
               (element) => element.barcode == barcode,
             );
             return item.displayImage;
-          } catch (e) {
+          } catch (_) {
             return null;
           }
         }
 
         return Container(
           decoration: const BoxDecoration(
-            borderRadius: BorderRadius.only(
-              topLeft: Radius.circular(24),
-              topRight: Radius.circular(24),
-            ),
-            color: Colors.white, // Light beige background
+            borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+            color: Color(0xFFFAF7F2),
           ),
-          padding: const EdgeInsets.all(20.0),
+          clipBehavior: Clip.antiAlias,
+          padding: const EdgeInsets.fromLTRB(20, 10, 20, 20),
           child: Column(
             mainAxisSize: MainAxisSize.max,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Header
+              // Drag Handle Pill
+              Center(
+                child: Container(
+                  width: 42,
+                  height: 4.5,
+                  margin: const EdgeInsets.only(bottom: 14),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF1A1A1A).withValues(alpha: 0.2),
+                    borderRadius: BorderRadius.circular(3),
+                  ),
+                ),
+              ),
+
+              // Header Row
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  const Text(
-                    'Your Order',
-                    style: TextStyle(
-                      fontSize: 24,
-                      fontWeight: FontWeight.bold,
-                      color: Color(0xFF1A1A1A),
-                      fontFamily: 'PTSerif',
-                    ),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'Your Order',
+                        style: TextStyle(
+                          fontSize: 24,
+                          fontWeight: FontWeight.bold,
+                          color: Color(0xFF1A1A1A),
+                          fontFamily: 'PTSerif',
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        '$totalCount ${totalCount == 1 ? 'item' : 'items'} in total',
+                        style: TextStyle(
+                          color: Colors.grey.shade600,
+                          fontSize: 13,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ],
                   ),
-                  IconButton(
-                    icon: const Icon(
-                      Icons.close,
-                      color: Color(0xFF1A1A1A),
-                      size: 24,
+                  Material(
+                    color: Colors.black.withValues(alpha: 0.05),
+                    shape: const CircleBorder(),
+                    child: IconButton(
+                      icon: const Icon(
+                        Icons.close_rounded,
+                        color: Color(0xFF1A1A1A),
+                        size: 22,
+                      ),
+                      onPressed: () => Navigator.of(context).pop(),
                     ),
-                    onPressed: () => Navigator.of(context).pop(),
                   ),
                 ],
               ),
-              const SizedBox(height: 8),
-              // Items count and served items toggle
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text(
-                    '$totalCount items',
-                    style: TextStyle(
-                      color: Colors.grey.shade600,
-                      fontSize: 14,
-                    ),
-                  ),
-                  if (hasServedItems)
-                    Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(
-                          'Show Served',
-                          style: TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w600,
-                            color: Colors.grey.shade800,
-                          ),
-                        ),
-                        const SizedBox(width: 4),
-                        Transform.scale(
-                          scale: 0.75,
-                          child: Switch.adaptive(
-                            value: _showServedItems,
-                            activeColor: const Color(0xFFC5A880),
-                            activeTrackColor: const Color(0xFF1A1A1A),
-                            inactiveThumbColor: Colors.grey.shade400,
-                            inactiveTrackColor: Colors.grey.shade200,
-                            materialTapTargetSize:
-                                MaterialTapTargetSize.shrinkWrap,
-                            onChanged: (value) {
-                              setState(() {
-                                _showServedItems = value;
-                              });
-                            },
-                          ),
+
+              // Filter Chips (Show when table has both draft and submitted items)
+              if (hasSubmittedItems && cartItems.isNotEmpty) ...[
+                const SizedBox(height: 14),
+                SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: Row(
+                    children: [
+                      _buildFilterChip(
+                        label: 'All (${cartItems.length})',
+                        filter: CartFilter.all,
+                      ),
+                      if (draftItems.isNotEmpty) ...[
+                        const SizedBox(width: 8),
+                        _buildFilterChip(
+                          label: 'To Order (${draftItems.length})',
+                          filter: CartFilter.toOrder,
                         ),
                       ],
-                    ),
-                ],
-              ),
+                      if (kitchenItems.isNotEmpty) ...[
+                        const SizedBox(width: 8),
+                        _buildFilterChip(
+                          label: 'In Kitchen (${kitchenItems.length})',
+                          filter: CartFilter.inKitchen,
+                        ),
+                      ],
+                      if (servedItems.isNotEmpty) ...[
+                        const SizedBox(width: 8),
+                        _buildFilterChip(
+                          label: 'Served (${servedItems.length})',
+                          filter: CartFilter.served,
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+              ],
+
               const SizedBox(height: 12),
-              const Divider(color: Colors.black12, height: 1),
-              const SizedBox(height: 12),
+              const Divider(color: Color(0xFFE8E5DF), height: 1),
+              const SizedBox(height: 10),
+
               // Scrollable Order Items List
               Expanded(
-                child: displayedItems.isEmpty
-                    ? Center(
-                        child: Text(
-                          cartItems.isEmpty
-                              ? 'Your cart is empty'
-                              : 'All items have been served',
-                          style: const TextStyle(
-                            color: Colors.black54,
-                            fontSize: 16,
-                          ),
-                        ),
-                      )
-                    : ListView.separated(
-                        itemCount: displayedItems.length,
-                        separatorBuilder: (context, index) => const Padding(
-                          padding: EdgeInsets.symmetric(vertical: 8.0),
-                          child: Divider(color: Colors.black12, height: 1),
-                        ),
-                        itemBuilder: (context, index) {
-                          final item = displayedItems[index];
-                          final displayImage = getDisplayImage(
-                            item.itemBarcode,
-                          );
-
-                          return Row(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              // Food Image with Golden Border
-                              Container(
-                                width: 70,
-                                height: 70,
-                                decoration: BoxDecoration(
-                                  borderRadius: BorderRadius.circular(12),
-                                  border: Border.all(
-                                    color: const Color(
-                                      0xFFC5A880,
-                                    ).withValues(alpha: 0.4),
-                                    width: 1.5,
-                                  ),
-                                ),
-                                child: ClipRRect(
-                                  borderRadius: BorderRadius.circular(10),
-                                  child:
-                                      displayImage != null &&
-                                          displayImage.isNotEmpty
-                                      ? Image.network(
-                                          displayImage,
-                                          fit: BoxFit.cover,
-                                          errorBuilder:
-                                              (context, error, stackTrace) =>
-                                                  Container(
-                                                    color: Colors.grey.shade200,
-                                                    child: const Icon(
-                                                      Icons.restaurant,
-                                                      color: Colors.grey,
-                                                      size: 30,
-                                                    ),
-                                                  ),
-                                        )
-                                      : Container(
-                                          color: Colors.grey.shade200,
-                                          child: const Icon(
-                                            Icons.restaurant,
-                                            color: Colors.grey,
-                                            size: 30,
-                                          ),
-                                        ),
-                                ),
-                              ),
-                              const SizedBox(width: 16),
-                              // Item name, single price and quantity selector row
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Row(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      children: [
-                                        Expanded(
-                                          child: Column(
-                                            crossAxisAlignment:
-                                                CrossAxisAlignment.start,
-                                            children: [
-                                              Row(
-                                                children: [
-                                                  Expanded(
-                                                    child: Text(
-                                                      item.itemName.isEmpty
-                                                          ? 'Unknown Item'
-                                                          : item.itemName,
-                                                      style: const TextStyle(
-                                                        color: Color(
-                                                          0xFF1A1A1A,
-                                                        ),
-                                                        fontSize: 16,
-                                                        fontWeight:
-                                                            FontWeight.w600,
-                                                      ),
-                                                    ),
-                                                  ),
-                                                  if (item.originalQuantity ==
-                                                      0) ...[
-                                                    const SizedBox(width: 8),
-                                                    Container(
-                                                      padding:
-                                                          const EdgeInsets.symmetric(
-                                                            horizontal: 6,
-                                                            vertical: 2,
-                                                          ),
-                                                      decoration: BoxDecoration(
-                                                        color:
-                                                            const Color.fromARGB(
-                                                              255,
-                                                              235,
-                                                              209,
-                                                              16,
-                                                            ).withValues(
-                                                              alpha: 0.15,
-                                                            ),
-                                                        borderRadius:
-                                                            BorderRadius.circular(
-                                                              6,
-                                                            ),
-                                                        border: Border.all(
-                                                          color:
-                                                              const Color.fromARGB(
-                                                                255,
-                                                                235,
-                                                                209,
-                                                                16,
-                                                              ),
-                                                          width: 0.8,
-                                                        ),
-                                                      ),
-                                                      child: const Text(
-                                                        'Additional Order',
-                                                        style: TextStyle(
-                                                          fontSize: 9,
-                                                          fontWeight:
-                                                              FontWeight.bold,
-                                                          color: Colors.black87,
-                                                        ),
-                                                      ),
-                                                    ),
-                                                    const SizedBox(width: 8),
-                                                  ],
-                                                  // Kitchen serving state, live
-                                                  // as staff scan each ticket.
-                                                  // Renders nothing for lines
-                                                  // not yet submitted.
-                                                  if (item
-                                                      .hasServingStatus) ...[
-                                                    const SizedBox(width: 8),
-                                                    ServingStatusBadge(
-                                                      item: item,
-                                                    ),
-                                                  ],
-                                                ],
-                                              ),
-                                              const SizedBox(height: 4),
-                                              Text(
-                                                '₱${item.amount.toStringAsFixed(0)}',
-                                                style: TextStyle(
-                                                  color: Colors.grey.shade700,
-                                                  fontSize: 14,
-                                                ),
-                                              ),
-                                            ],
-                                          ),
-                                        ),
-                                        if (item.nickname.isNotEmpty)
-                                          Container(
-                                            padding: const EdgeInsets.symmetric(
-                                              horizontal: 8,
-                                              vertical: 4,
-                                            ),
-                                            decoration: BoxDecoration(
-                                              color: const Color(
-                                                0xFF8A6D4B,
-                                              ).withValues(alpha: 0.1),
-                                              borderRadius:
-                                                  BorderRadius.circular(20),
-                                              border: Border.all(
-                                                color: const Color(
-                                                  0xFF8A6D4B,
-                                                ).withValues(alpha: 0.3),
-                                                width: 1,
-                                              ),
-                                            ),
-                                            child: Row(
-                                              mainAxisSize: MainAxisSize.min,
-                                              children: [
-                                                const Icon(
-                                                  Icons.person_outline,
-                                                  size: 12,
-                                                  color: Color(0xFF8A6D4B),
-                                                ),
-                                                const SizedBox(width: 3),
-                                                Text(
-                                                  item.nickname,
-                                                  style: const TextStyle(
-                                                    fontSize: 11,
-                                                    color: Color(0xFF8A6D4B),
-                                                    fontWeight: FontWeight.w600,
-                                                  ),
-                                                ),
-                                              ],
-                                            ),
-                                          ),
-                                      ],
-                                    ),
-                                    const SizedBox(height: 12),
-
-                                    Row(
-                                      children: [
-                                        // Minus Button
-                                        GestureDetector(
-                                          onTap: item.originalQuantity > 0
-                                              ? null
-                                              : () {
-                                                  if (item.quantity > 1) {
-                                                    context
-                                                        .read<CartBloc>()
-                                                        .add(
-                                                          AddToCart(
-                                                            item.copyWith(
-                                                              quantity: -1,
-                                                            ),
-                                                          ),
-                                                        );
-                                                  }
-                                                },
-                                          child: Container(
-                                            width: 28,
-                                            height: 28,
-                                            decoration: const BoxDecoration(
-                                              color: Color(0xFF1A1A1A),
-                                              shape: BoxShape.circle,
-                                            ),
-                                            child: const Icon(
-                                              Icons.remove,
-                                              color: Colors.white,
-                                              size: 16,
-                                            ),
-                                          ),
-                                        ),
-                                        const SizedBox(width: 12),
-                                        Text(
-                                          '${item.quantity}',
-                                          style: const TextStyle(
-                                            color: Color(0xFF1A1A1A),
-                                            fontSize: 16,
-                                            fontWeight: FontWeight.bold,
-                                          ),
-                                        ),
-                                        const SizedBox(width: 12),
-                                        // Plus Button
-                                        GestureDetector(
-                                          onTap: item.originalQuantity > 0
-                                              ? null
-                                              : () {
-                                                  context.read<CartBloc>().add(
-                                                    AddToCart(
-                                                      item.copyWith(
-                                                        quantity: 1,
-                                                      ),
-                                                    ),
-                                                  );
-                                                },
-                                          child: Container(
-                                            width: 28,
-                                            height: 28,
-                                            decoration: BoxDecoration(
-                                              shape: BoxShape.circle,
-                                              border: Border.all(
-                                                color: Colors.grey.shade700,
-                                                width: 1,
-                                              ),
-                                            ),
-                                            child: const Icon(
-                                              Icons.add,
-                                              color: Color(0xFF1A1A1A),
-                                              size: 16,
-                                            ),
-                                          ),
-                                        ),
-                                        const Spacer(),
-                                        // Item total price
-                                        Text(
-                                          '₱${(item.amount * item.quantity).toStringAsFixed(0)}',
-                                          style: const TextStyle(
-                                            color: Color(0xFF1A1A1A),
-                                            fontSize: 16,
-                                            fontWeight: FontWeight.bold,
-                                          ),
-                                        ),
-                                        const SizedBox(width: 16),
-                                        // Trash button (delete)
-                                        if (item.originalQuantity == 0)
-                                          GestureDetector(
-                                            onTap: () {
-                                              context.read<CartBloc>().add(
-                                                RemoveFromCart(item),
-                                              );
-                                            },
-                                            child: Icon(
-                                              Icons.delete_outline,
-                                              color: Colors.grey.shade700,
-                                              size: 20,
-                                            ),
-                                          )
-                                        else
-                                          const SizedBox(width: 20),
-                                      ],
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ],
-                          );
-                        },
+                child: cartItems.isEmpty
+                    ? _buildEmptyCartView(context)
+                    : _buildFilteredList(
+                        draftItems: draftItems,
+                        kitchenItems: kitchenItems,
+                        servedItems: servedItems,
+                        getDisplayImage: getDisplayImage,
                       ),
               ),
+
               const SizedBox(height: 8),
-              const Divider(color: Colors.black12, height: 1),
-              const SizedBox(height: 12),
-              // Summary Calculation Section
+              const Divider(color: Color(0xFFE8E5DF), height: 1),
+              const SizedBox(height: 10),
+
+              // Summary Calculation Accordion
               InkWell(
                 onTap: () {
                   setState(() {
                     _isBreakdownExpanded = !_isBreakdownExpanded;
                   });
                 },
-                borderRadius: BorderRadius.circular(8),
+                borderRadius: BorderRadius.circular(12),
                 child: Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 4.0),
+                  padding: const EdgeInsets.symmetric(vertical: 4.0, horizontal: 4.0),
                   child: Column(
                     children: [
                       AnimatedSize(
@@ -510,17 +232,17 @@ class _CartSummaryState extends State<CartSummary> {
                                     'Subtotal',
                                     '₱${subtotal.toStringAsFixed(2)}',
                                   ),
-                                  const SizedBox(height: 8),
+                                  const SizedBox(height: 6),
                                   _buildSummaryRow(
                                     'Service Charge (10%)',
                                     '₱${serviceCharge.toStringAsFixed(2)}',
                                   ),
-                                  const SizedBox(height: 12),
+                                  const SizedBox(height: 10),
                                   const Divider(
-                                    color: Colors.black12,
+                                    color: Color(0xFFE8E5DF),
                                     height: 1,
                                   ),
-                                  const SizedBox(height: 12),
+                                  const SizedBox(height: 10),
                                 ],
                               )
                             : const SizedBox.shrink(),
@@ -535,8 +257,9 @@ class _CartSummaryState extends State<CartSummary> {
                                 'Total',
                                 style: TextStyle(
                                   color: Color(0xFF1A1A1A),
-                                  fontSize: 22,
+                                  fontSize: 20,
                                   fontWeight: FontWeight.bold,
+                                  fontFamily: 'PTSerif',
                                 ),
                               ),
                               const SizedBox(width: 4),
@@ -544,9 +267,9 @@ class _CartSummaryState extends State<CartSummary> {
                                 turns: _isBreakdownExpanded ? 0.5 : 0.0,
                                 duration: const Duration(milliseconds: 250),
                                 child: const Icon(
-                                  Icons.keyboard_arrow_up,
+                                  Icons.keyboard_arrow_up_rounded,
                                   color: Color(0xFF1A1A1A),
-                                  size: 24,
+                                  size: 22,
                                 ),
                               ),
                             ],
@@ -555,8 +278,8 @@ class _CartSummaryState extends State<CartSummary> {
                             '₱${total.toStringAsFixed(2)}',
                             style: const TextStyle(
                               color: Color(0xFF1A1A1A),
-                              fontSize: 22,
-                              fontWeight: FontWeight.bold,
+                              fontSize: 20,
+                              fontWeight: FontWeight.w800,
                             ),
                           ),
                         ],
@@ -565,124 +288,407 @@ class _CartSummaryState extends State<CartSummary> {
                   ),
                 ),
               ),
-              const SizedBox(height: 20),
-              // Checkout Button
-              SizedBox(
-                width: double.infinity,
-                height: 56,
-                child: ElevatedButton(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.black,
-                    foregroundColor: Colors.white,
-                    disabledBackgroundColor: Colors.black12,
-                    disabledForegroundColor: Colors.black26,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(28),
-                    ),
-                  ),
-                  onPressed: state.newOrders.isEmpty
-                      ? null
-                      : () {
-                          final tableState = context.read<TableBloc>().state;
-                          if (tableState is TableLoaded) {
-                            showDialog(
-                              context: context,
-                              builder: (BuildContext dialogContext) {
-                                return AlertDialog(
-                                  backgroundColor: const Color(0xFFFAF7F2),
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(16),
-                                  ),
-                                  title: const Text(
-                                    'Confirm Order',
-                                    style: TextStyle(color: Color(0xFF1A1A1A)),
-                                  ),
-                                  content: const Text(
-                                    'Are you sure you want to place this order?',
-                                    style: TextStyle(color: Colors.black54),
-                                  ),
-                                  actions: <Widget>[
-                                    TextButton(
-                                      child: const Text(
-                                        'Cancel',
-                                        style: TextStyle(color: Colors.grey),
-                                      ),
-                                      onPressed: () {
-                                        Navigator.of(dialogContext).pop();
-                                      },
-                                    ),
-                                    TextButton(
-                                      style: TextButton.styleFrom(
-                                        backgroundColor: const Color(
-                                          0xFF8A6D4B,
-                                        ),
-                                        shape: RoundedRectangleBorder(
-                                          borderRadius: BorderRadius.circular(
-                                            8,
-                                          ),
-                                        ),
-                                      ),
-                                      child: const Text(
-                                        'Confirm',
-                                        style: TextStyle(
-                                          color: Colors.white,
-                                          fontWeight: FontWeight.bold,
-                                        ),
-                                      ),
-                                      onPressed: () {
-                                        Navigator.of(dialogContext).pop();
-                                        context.read<CartBloc>().add(
-                                          SubmitOrder(
-                                            tableId: tableState.table.tableId,
-                                            guestCount: 1,
-                                          ),
-                                        );
-                                      },
-                                    ),
-                                  ],
-                                );
-                              },
-                            );
-                          } else {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content: Text('Table info not available'),
-                              ),
-                            );
-                          }
-                        },
-                  child: state.status == CartStatus.loading
-                      ? const SizedBox(
-                          height: 20,
-                          width: 20,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            color: Colors.white,
-                          ),
-                        )
-                      : Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Text(
-                              state.newOrders.isEmpty
-                                  ? 'No Orders'
-                                  : 'Proceed to Checkout',
-                              style: const TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            const Icon(Icons.arrow_forward, size: 20),
-                          ],
-                        ),
-                ),
-              ),
+
+              const SizedBox(height: 16),
+
+              // Bottom Action Button
+              _buildBottomActionButton(context, state),
             ],
           ),
         );
       },
     );
+  }
+
+  Widget _buildFilterChip({
+    required String label,
+    required CartFilter filter,
+  }) {
+    final isSelected = _selectedFilter == filter;
+    return GestureDetector(
+      onTap: () {
+        setState(() {
+          _selectedFilter = filter;
+        });
+      },
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        decoration: BoxDecoration(
+          color: isSelected ? const Color(0xFF1A1A1A) : Colors.white,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(
+            color: isSelected ? const Color(0xFF1A1A1A) : const Color(0xFFDED9D2),
+            width: 1,
+          ),
+          boxShadow: isSelected
+              ? [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.1),
+                    blurRadius: 4,
+                    offset: const Offset(0, 2),
+                  )
+                ]
+              : null,
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            fontSize: 12,
+            fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+            color: isSelected ? Colors.white : const Color(0xFF5A554E),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildEmptyCartView(BuildContext context) {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Container(
+            width: 72,
+            height: 72,
+            decoration: BoxDecoration(
+              color: const Color(0xFFC5A880).withValues(alpha: 0.12),
+              shape: BoxShape.circle,
+            ),
+            child: const Icon(
+              Icons.shopping_bag_outlined,
+              size: 36,
+              color: Color(0xFF8A6D4B),
+            ),
+          ),
+          const SizedBox(height: 16),
+          const Text(
+            'Your cart is empty',
+            style: TextStyle(
+              fontSize: 17,
+              fontWeight: FontWeight.bold,
+              color: Color(0xFF1A1A1A),
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            'Explore the menu to add delicious dishes to your order.',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: 13,
+              color: Colors.grey.shade600,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildFilteredList({
+    required List<dynamic> draftItems,
+    required List<dynamic> kitchenItems,
+    required List<dynamic> servedItems,
+    required String? Function(String) getDisplayImage,
+  }) {
+    if (_selectedFilter == CartFilter.toOrder) {
+      if (draftItems.isEmpty) return _buildFilterEmptyState('No items to order');
+      return ListView.builder(
+        itemCount: draftItems.length,
+        itemBuilder: (context, index) {
+          final item = draftItems[index];
+          return CartItemTile(
+            item: item,
+            displayImage: getDisplayImage(item.itemBarcode),
+          );
+        },
+      );
+    }
+
+    if (_selectedFilter == CartFilter.inKitchen) {
+      if (kitchenItems.isEmpty) return _buildFilterEmptyState('No items cooking right now');
+      return ListView.builder(
+        itemCount: kitchenItems.length,
+        itemBuilder: (context, index) {
+          final item = kitchenItems[index];
+          return CartItemTile(
+            item: item,
+            displayImage: getDisplayImage(item.itemBarcode),
+          );
+        },
+      );
+    }
+
+    if (_selectedFilter == CartFilter.served) {
+      if (servedItems.isEmpty) return _buildFilterEmptyState('No items served yet');
+      return ListView.builder(
+        itemCount: servedItems.length,
+        itemBuilder: (context, index) {
+          final item = servedItems[index];
+          return CartItemTile(
+            item: item,
+            displayImage: getDisplayImage(item.itemBarcode),
+          );
+        },
+      );
+    }
+
+    // Default "All" view with section grouping if multiple sections exist
+    final hasDraft = draftItems.isNotEmpty;
+    final hasKitchenOrServed = kitchenItems.isNotEmpty || servedItems.isNotEmpty;
+
+    if (hasDraft && hasKitchenOrServed) {
+      final combinedSubmitted = [...kitchenItems, ...servedItems];
+      return ListView(
+        children: [
+          // Section 1: Draft Items
+          _buildSectionHeader(
+            title: 'Items to Order',
+            count: draftItems.length,
+            badgeColor: const Color(0xFFFFF9E6),
+            badgeTextColor: const Color(0xFFB78103),
+          ),
+          const SizedBox(height: 6),
+          ...draftItems.map((item) => CartItemTile(
+                item: item,
+                displayImage: getDisplayImage(item.itemBarcode),
+              )),
+          const SizedBox(height: 16),
+
+          // Section 2: Current Table Orders
+          _buildSectionHeader(
+            title: 'Current Table Orders',
+            count: combinedSubmitted.length,
+            badgeColor: const Color(0xFFE8F5E9),
+            badgeTextColor: const Color(0xFF2E7D32),
+          ),
+          const SizedBox(height: 6),
+          ...combinedSubmitted.map((item) => CartItemTile(
+                item: item,
+                displayImage: getDisplayImage(item.itemBarcode),
+              )),
+        ],
+      );
+    }
+
+    // Flat list if only one category exists
+    final allItems = [...draftItems, ...kitchenItems, ...servedItems];
+    return ListView.builder(
+      itemCount: allItems.length,
+      itemBuilder: (context, index) {
+        final item = allItems[index];
+        return CartItemTile(
+          item: item,
+          displayImage: getDisplayImage(item.itemBarcode),
+        );
+      },
+    );
+  }
+
+  Widget _buildSectionHeader({
+    required String title,
+    required int count,
+    required Color badgeColor,
+    required Color badgeTextColor,
+  }) {
+    return Row(
+      children: [
+        Text(
+          title,
+          style: const TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.w700,
+            color: Color(0xFF2C2824),
+          ),
+        ),
+        const SizedBox(width: 8),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+          decoration: BoxDecoration(
+            color: badgeColor,
+            borderRadius: BorderRadius.circular(10),
+          ),
+          child: Text(
+            '$count',
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.bold,
+              color: badgeTextColor,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildFilterEmptyState(String message) {
+    return Center(
+      child: Text(
+        message,
+        style: TextStyle(
+          color: Colors.grey.shade600,
+          fontSize: 14,
+          fontWeight: FontWeight.w500,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildBottomActionButton(BuildContext context, CartState state) {
+    final hasNewOrders = state.newOrders.isNotEmpty;
+
+    if (hasNewOrders) {
+      return SizedBox(
+        width: double.infinity,
+        height: 54,
+        child: ElevatedButton(
+          style: ElevatedButton.styleFrom(
+            backgroundColor: const Color(0xFF1A1A1A),
+            foregroundColor: Colors.white,
+            elevation: 2,
+            shadowColor: Colors.black.withValues(alpha: 0.25),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(27),
+            ),
+          ),
+          onPressed: state.status == CartStatus.loading
+              ? null
+              : () => _confirmAndSubmitOrder(context),
+          child: state.status == CartStatus.loading
+              ? const SizedBox(
+                  height: 20,
+                  width: 20,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: Colors.white,
+                  ),
+                )
+              : Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Text(
+                      'Place Order (${state.newOrdersCount} ${state.newOrdersCount == 1 ? 'item' : 'items'})',
+                      style: const TextStyle(
+                        fontSize: 15.5,
+                        fontWeight: FontWeight.bold,
+                        letterSpacing: 0.3,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    const Icon(Icons.arrow_forward_rounded, size: 19),
+                  ],
+                ),
+        ),
+      );
+    }
+
+    // When cart only contains already-submitted orders
+    return SizedBox(
+      width: double.infinity,
+      height: 54,
+      child: OutlinedButton(
+        style: OutlinedButton.styleFrom(
+          foregroundColor: const Color(0xFF1A1A1A),
+          side: const BorderSide(color: Color(0xFF1A1A1A), width: 1.5),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(27),
+          ),
+        ),
+        onPressed: () => Navigator.of(context).pop(),
+        child: const Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.add_rounded, size: 20),
+            SizedBox(width: 6),
+            Text(
+              'Add More Items',
+              style: TextStyle(
+                fontSize: 15,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _confirmAndSubmitOrder(BuildContext context) {
+    final tableState = context.read<TableBloc>().state;
+    if (tableState is TableLoaded) {
+      showDialog(
+        context: context,
+        builder: (BuildContext dialogContext) {
+          return AlertDialog(
+            backgroundColor: const Color(0xFFFAF7F2),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(20),
+            ),
+            title: const Text(
+              'Confirm Order',
+              style: TextStyle(
+                color: Color(0xFF1A1A1A),
+                fontFamily: 'PTSerif',
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            content: const Text(
+              'Are you ready to send your selected items to the kitchen?',
+              style: TextStyle(
+                color: Color(0xFF4A4A4A),
+                fontSize: 14.5,
+                height: 1.35,
+              ),
+            ),
+            actionsPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+            actions: <Widget>[
+              TextButton(
+                child: Text(
+                  'Cancel',
+                  style: TextStyle(
+                    color: Colors.grey.shade700,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                onPressed: () {
+                  Navigator.of(dialogContext).pop();
+                },
+              ),
+              ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF1A1A1A),
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                ),
+                child: const Text(
+                  'Confirm & Send',
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                onPressed: () {
+                  Navigator.of(dialogContext).pop();
+                  context.read<CartBloc>().add(
+                    SubmitOrder(
+                      tableId: tableState.table.tableId,
+                      guestCount: 1,
+                    ),
+                  );
+                },
+              ),
+            ],
+          );
+        },
+      );
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Table info not available'),
+        ),
+      );
+    }
   }
 
   Widget _buildSummaryRow(String label, String value) {
@@ -693,15 +699,15 @@ class _CartSummaryState extends State<CartSummary> {
           label,
           style: TextStyle(
             color: Colors.grey.shade700,
-            fontSize: 14,
+            fontSize: 13.5,
           ),
         ),
         Text(
           value,
           style: TextStyle(
             color: Colors.grey.shade800,
-            fontSize: 14,
-            fontWeight: FontWeight.w500,
+            fontSize: 13.5,
+            fontWeight: FontWeight.w600,
           ),
         ),
       ],
