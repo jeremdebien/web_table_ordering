@@ -82,7 +82,8 @@ class LocalOrdersDataSource implements OrdersDataSource {
               (existing['customer_name'] ?? '') == item.nickname &&
               (existing['web_device_id'] as String?) == item.webDeviceId &&
               _normalizeInstructions(existing['special_instructions'] as String?) ==
-                  _normalizeInstructions(item.specialInstructions));
+                  _normalizeInstructions(item.specialInstructions) &&
+              ((existing['note'] as String?)?.trim() ?? '') == (item.note?.trim() ?? ''));
 
           if (matchIndex > -1) {
             final validMatch = existingItems[matchIndex];
@@ -118,6 +119,7 @@ class LocalOrdersDataSource implements OrdersDataSource {
               'customer_name': item.nickname,
               'web_device_id': item.webDeviceId,
               'special_instructions': item.specialInstructions,
+              'note': item.note,
               'kds_batch_id': batchId,
             });
           }

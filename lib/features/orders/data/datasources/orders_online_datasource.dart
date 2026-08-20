@@ -38,6 +38,8 @@ class OnlineOrdersDataSource implements OrdersDataSource {
                 'is_disc_exempt': e.isDiscExempt,
                 'item_discount': e.itemDiscount,
                 'nickname': e.nickname,
+                'special_instructions': e.specialInstructions,
+                'note': e.note,
               },
             )
             .toList(),

@@ -133,28 +133,57 @@ class OrderListItem extends StatelessWidget {
       subtitle: Builder(
         builder: (context) {
           final instructions = formatSpecialInstructions(item.specialInstructions);
+          final hasNote = item.note != null && item.note!.trim().isNotEmpty;
           final priceLine = isCancelled
               ? Text(
                   'Quantity: ${item.quantity}',
                   style: const TextStyle(color: Colors.grey),
                 )
               : Text('₱${item.amount.toStringAsFixed(2)}');
-          if (instructions == null) return priceLine;
+
+          if (instructions == null && !hasNote) return priceLine;
+
           return Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               priceLine,
-              Padding(
-                padding: const EdgeInsets.only(top: 2),
-                child: Text(
-                  instructions,
-                  style: TextStyle(
-                    fontSize: 11,
-                    color: isCancelled ? Colors.grey : Colors.grey.shade700,
-                    fontStyle: FontStyle.italic,
+              if (instructions != null)
+                Padding(
+                  padding: const EdgeInsets.only(top: 2),
+                  child: Text(
+                    instructions,
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: isCancelled ? Colors.grey : Colors.grey.shade700,
+                      fontStyle: FontStyle.italic,
+                    ),
                   ),
                 ),
-              ),
+              if (hasNote)
+                Padding(
+                  padding: const EdgeInsets.only(top: 3),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Icon(
+                        Icons.edit_note_rounded,
+                        size: 14,
+                        color: isCancelled ? Colors.grey : const Color(0xFFC5A880),
+                      ),
+                      const SizedBox(width: 3),
+                      Expanded(
+                        child: Text(
+                          item.note!.trim(),
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w500,
+                            color: isCancelled ? Colors.grey : const Color(0xFF8C6D46),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
             ],
           );
         },
