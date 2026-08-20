@@ -20,5 +20,6 @@ abstract class MenuDataSource {
   Future<void> setItemWebVisibility(String barcode, bool visible);
 
   /// User-defined special-instruction questions for an item (empty if none).
-  Future<List<InstructionGroup>> getItemInstructions(String barcode);
+  /// Fetches Global + Category + Item level questions sorted by priority.
+  Future<List<InstructionGroup>> getItemInstructions(String barcode, {int? categoryId});
 }

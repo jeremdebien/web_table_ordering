@@ -135,35 +135,58 @@ class LocalMenuDataSource implements MenuDataSource {
   }
 
   @override
-  Future<List<InstructionGroup>> getItemInstructions(String barcode) async {
-    final groupRows = await _client
-        .from('item_instruction_group')
-        .select()
-        .eq('item_barcode', barcode)
-        .eq('group_status', 1)
-        .order('display_order');
+  Future<List<InstructionGroup>> getItemInstructions(String barcode, {int? categoryId}) async {
+    try {
+      final List<String> orClauses = [
+        'scope_type.eq.global',
+        'and(scope_type.eq.item,item_barcode.eq.$barcode)',
+        'item_barcode.eq.$barcode', // backward compatibility for legacy unmigrated rows
+      ];
+      if (categoryId != null) {
+        orClauses.add('and(scope_type.eq.category,category_id.eq.$categoryId)');
+      }
 
-    final groups = List<Map<String, dynamic>>.from(groupRows as List);
-    if (groups.isEmpty) return [];
+      final groupRows = await _client
+          .from('item_instruction_group')
+          .select()
+          .or(orClauses.join(','))
+          .eq('group_status', 1)
+          .order('display_order');
 
-    final groupIds = groups.map((g) => (g['id'] as num).toInt()).toList();
-    final choiceRows = await _client
-        .from('item_instruction_choice')
-        .select()
-        .inFilter('group_id', groupIds)
-        .eq('choice_status', 1)
-        .order('display_order');
+      final rawGroups = List<Map<String, dynamic>>.from(groupRows as List);
+      if (rawGroups.isEmpty) return [];
 
-    // Bucket choices by their group.
-    final choicesByGroup = <int, List<InstructionChoice>>{};
-    for (final row in (choiceRows as List)) {
-      final choice = InstructionChoice.fromJson(Map<String, dynamic>.from(row));
-      choicesByGroup.putIfAbsent(choice.groupId, () => []).add(choice);
+      final groupIds = rawGroups.map((g) => (g['id'] as num).toInt()).toList();
+      final choiceRows = await _client
+          .from('item_instruction_choice')
+          .select()
+          .inFilter('group_id', groupIds)
+          .eq('choice_status', 1)
+          .order('display_order');
+
+      // Bucket choices by their group.
+      final choicesByGroup = <int, List<InstructionChoice>>{};
+      for (final row in (choiceRows as List)) {
+        final choice = InstructionChoice.fromJson(Map<String, dynamic>.from(row));
+        choicesByGroup.putIfAbsent(choice.groupId, () => []).add(choice);
+      }
+
+      final groups = rawGroups.map((g) {
+        final id = (g['id'] as num).toInt();
+        return InstructionGroup.fromJson(g, choices: choicesByGroup[id] ?? const []);
+      }).where((g) => !g.isExcludedFor(barcode)).toList();
+
+      // Sort by display_order ascending, then id
+      groups.sort((a, b) {
+        if (a.displayOrder != b.displayOrder) {
+          return a.displayOrder.compareTo(b.displayOrder);
+        }
+        return a.id.compareTo(b.id);
+      });
+
+      return groups;
+    } catch (_) {
+      return [];
     }
-
-    return groups.map((g) {
-      final id = (g['id'] as num).toInt();
-      return InstructionGroup.fromJson(g, choices: choicesByGroup[id] ?? const []);
-    }).toList();
   }
 }

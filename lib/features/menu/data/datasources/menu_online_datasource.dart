@@ -82,5 +82,5 @@ class OnlineMenuDataSource implements MenuDataSource {
 
   // Special instructions are a local-mode feature; online path is unchanged.
   @override
-  Future<List<InstructionGroup>> getItemInstructions(String barcode) async => [];
+  Future<List<InstructionGroup>> getItemInstructions(String barcode, {int? categoryId}) async => [];
 }

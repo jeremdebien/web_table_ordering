@@ -7,6 +7,7 @@ import 'package:web_table_ordering/features/table/presentation/bloc/table_bloc.d
 import '../../../../core/di/injection_container.dart';
 import '../../data/datasources/menu_data_source.dart';
 import '../../data/models/instruction_group_model.dart';
+import '../../data/models/item_model.dart';
 import '../../../../features/orders/presentation/widgets/cart_summary.dart';
 import '../widgets/menu_item_card.dart';
 import '../widgets/add_item_bottom_sheet.dart';
@@ -535,25 +536,6 @@ class _MenuPageState extends State<MenuPage> {
                                                 itemCount: displayItems.length,
                                                 itemBuilder: (context, index) {
                                                   final item = displayItems[index];
-                                                  String? badgeText;
-                                                  Color? badgeColor;
-                                                  Color badgeTextColor = Colors.white;
-                                                  if (index % 4 == 0) {
-                                                    badgeText = '★ BESTSELLER';
-                                                    badgeColor = const Color(
-                                                      0xFFC5A880,
-                                                    );
-                                                    badgeTextColor = Colors.black;
-                                                  } else if (index % 4 == 1) {
-                                                    badgeText = '🔥 POPULAR';
-                                                    badgeColor = const Color(
-                                                      0xFFE25822,
-                                                    );
-                                                  } else if (index % 4 == 2) {
-                                                    badgeText = 'NEW';
-                                                    badgeColor = Colors.black;
-                                                  }
-
                                                   return MenuItemCard(
                                                     item: item,
                                                     onTap: () => _showAddItemConfirmation(
@@ -752,8 +734,10 @@ class _MenuPageState extends State<MenuPage> {
   ) async {
     List<InstructionGroup> instructionGroups = [];
     try {
+      final int? categoryId = item is ItemModel ? item.categoryId : (item.categoryId as int?);
       instructionGroups = await sl<MenuDataSource>().getItemInstructions(
         item.barcode,
+        categoryId: categoryId,
       );
     } catch (_) {
       instructionGroups = [];
