@@ -1,5 +1,5 @@
--- ═══════════════════════════════════════════════════════════════════
--- 0046  Per-item web-menu visibility flag
+﻿-- ═══════════════════════════════════════════════════════════════════
+-- 0047  Per-item web-menu visibility flag
 -- ═══════════════════════════════════════════════════════════════════
 -- Adds item.is_available_in_web_table so staff can curate exactly which items
 -- appear on the customer-facing web table-ordering menu, independently of the
