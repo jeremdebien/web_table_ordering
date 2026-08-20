@@ -6,6 +6,7 @@ class DepartmentModel {
   final DateTime createdAt;
   final DateTime? updatedAt;
   final int? deptId;
+  final int? orderingIndex;
 
   DepartmentModel({
     required this.id,
@@ -15,6 +16,7 @@ class DepartmentModel {
     required this.createdAt,
     this.updatedAt,
     this.deptId,
+    this.orderingIndex,
   });
 
   factory DepartmentModel.fromJson(Map<String, dynamic> json) {
@@ -26,6 +28,7 @@ class DepartmentModel {
       createdAt: DateTime.parse(json['created_at'] as String),
       updatedAt: json['updated_at'] != null ? DateTime.parse(json['updated_at'] as String) : null,
       deptId: json['dept_id'] as int?,
+      orderingIndex: json['ordering_index'] as int?,
     );
   }
 
@@ -38,6 +41,7 @@ class DepartmentModel {
       'created_at': createdAt.toIso8601String(),
       'updated_at': updatedAt?.toIso8601String(),
       'dept_id': deptId,
+      'ordering_index': orderingIndex,
     };
   }
 }

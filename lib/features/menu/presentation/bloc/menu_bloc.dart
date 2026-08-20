@@ -26,36 +26,86 @@ class MenuBloc extends Bloc<MenuEvent, MenuState> {
         _menuDataSource.getItems(),
       ]);
 
+      final departments = results[0] as List<DepartmentModel>;
       var categories = results[1] as List<CategoryModel>;
+      final items = results[2] as List<ItemModel>;
 
       // Filter by isAvailableInWebTable
       categories = categories.where((c) => c.isAvailableInWebTable == true).toList();
 
-      // Sort by orderingIndex with nulls last, then by name
-      categories.sort((a, b) {
-        if (a.orderingIndex == null && b.orderingIndex == null) {
-          return a.name.compareTo(b.name);
+      // Build department lookup map for hierarchical sorting
+      final Map<int, DepartmentModel> deptById = {
+        for (final d in departments) ...{
+          d.id: d,
+          if (d.deptId != null) d.deptId!: d,
         }
-        if (a.orderingIndex == null) return 1;
-        if (b.orderingIndex == null) return -1;
+      };
 
-        final result = a.orderingIndex!.compareTo(b.orderingIndex!);
-        if (result == 0) {
-          return a.name.compareTo(b.name);
+      int compareDepartments(DepartmentModel? a, DepartmentModel? b) {
+        if (identical(a, b)) return 0;
+        if (a == null && b == null) return 0;
+        if (a == null) return 1; // unset/missing department sorts last
+        if (b == null) return -1;
+
+        final ai = a.orderingIndex;
+        final bi = b.orderingIndex;
+        if (ai != null && bi != null && ai != bi) return ai.compareTo(bi);
+        if (ai == null && bi != null) return 1; // unset ordering_index sorts last
+        if (ai != null && bi == null) return -1;
+
+        final aid = a.deptId ?? a.id;
+        final bid = b.deptId ?? b.id;
+        if (aid != bid) return aid.compareTo(bid);
+        return a.name.compareTo(b.name);
+      }
+
+      int compareCategoriesWithinDept(CategoryModel a, CategoryModel b) {
+        final ai = a.orderingIndex;
+        final bi = b.orderingIndex;
+        if (ai != null && bi != null && ai != bi) return ai.compareTo(bi);
+        if (ai == null && bi != null) return 1; // unset ordering_index sorts last
+        if (ai != null && bi == null) return -1;
+
+        final aid = a.categoryId ?? a.id;
+        final bid = b.categoryId ?? b.id;
+        if (aid != bid) return aid.compareTo(bid);
+        return a.name.compareTo(b.name);
+      }
+
+      // Sort categories hierarchically: by parent Department order, then by Category order
+      categories.sort((a, b) {
+        if (a.departmentId != b.departmentId) {
+          final deptA = deptById[a.departmentId];
+          final deptB = deptById[b.departmentId];
+          final deptComp = compareDepartments(deptA, deptB);
+          if (deptComp != 0) return deptComp;
         }
-        return result;
+        return compareCategoriesWithinDept(a, b);
       });
+
+      int compareItemsByButtonIndex(ItemModel a, ItemModel b) {
+        final ai = a.buttonIndex;
+        final bi = b.buttonIndex;
+        if (ai != null && bi != null && ai != bi) return ai.compareTo(bi);
+        if (ai == null && bi != null) return 1; // unset positions sort last
+        if (ai != null && bi == null) return -1;
+        final idComp = a.id.compareTo(b.id);
+        if (idComp != 0) return idComp;
+        return a.name.compareTo(b.name);
+      }
+
+      final sortedItems = List<ItemModel>.from(items)..sort(compareItemsByButtonIndex);
 
       int? defaultCatId;
       if (categories.isNotEmpty) {
-        defaultCatId = categories.first.categoryId;
+        defaultCatId = categories.first.categoryId ?? categories.first.id;
       }
 
       emit(
         MenuLoaded(
-          departments: results[0] as List<DepartmentModel>,
+          departments: departments,
           categories: categories,
-          items: results[2] as List<ItemModel>,
+          items: sortedItems,
           selectedCategoryId: defaultCatId,
         ),
       );

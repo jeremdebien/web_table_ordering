@@ -36,6 +36,7 @@ class LocalMenuDataSource implements MenuDataSource {
         'status': _flag(row['dept_status']),
         'created_at': row['d_tran_date'] ?? _now(),
         'dept_id': row['dept_id'],
+        'ordering_index': row['ordering_index'],
       });
     }).toList();
   }
@@ -124,6 +125,7 @@ class LocalMenuDataSource implements MenuDataSource {
       // storage `.../object/public/` base, so include the bucket name here.
       'display_image':
           row['image_object'] != null ? '$_imageBucket/${row['image_object']}' : null,
+      'button_index': row['button_index'],
       'created_at': row['d_tran_date'] ?? _now(),
       'update_at': row['date_change'],
     });

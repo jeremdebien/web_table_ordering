@@ -27,6 +27,7 @@ class ItemModel {
   final bool isDiscExempt;
   final bool isNonVat;
   final String? _displayImage;
+  final int? buttonIndex;
   final DateTime createdAt;
   final DateTime? updatedAt;
 
@@ -58,6 +59,7 @@ class ItemModel {
     this.isDiscExempt = false,
     this.isNonVat = false,
     String? displayImage,
+    this.buttonIndex,
     required this.createdAt,
     this.updatedAt,
   }) : _displayImage = displayImage;
@@ -87,6 +89,7 @@ class ItemModel {
       isDiscExempt: json['is_disc_exempt'] as bool? ?? false,
       isNonVat: json['is_non_vat'] as bool? ?? false,
       displayImage: json['display_image'] as String?,
+      buttonIndex: json['button_index'] as int?,
       createdAt: DateTime.parse(json['created_at'] as String),
       updatedAt: json['update_at'] != null ? DateTime.parse(json['update_at'] as String) : null,
     );
@@ -95,6 +98,7 @@ class ItemModel {
   ItemModel copyWith({
     bool? isAvailable,
     bool? isAvailableInWebTable,
+    int? buttonIndex,
   }) {
     return ItemModel(
       id: id,
@@ -119,6 +123,7 @@ class ItemModel {
       isDiscExempt: isDiscExempt,
       isNonVat: isNonVat,
       displayImage: _displayImage,
+      buttonIndex: buttonIndex ?? this.buttonIndex,
       createdAt: createdAt,
       updatedAt: updatedAt,
     );
@@ -148,6 +153,7 @@ class ItemModel {
       'is_disc_exempt': isDiscExempt,
       'is_non_vat': isNonVat,
       'display_image': _displayImage,
+      'button_index': buttonIndex,
       'created_at': createdAt.toIso8601String(),
       'update_at': updatedAt?.toIso8601String(),
     };
