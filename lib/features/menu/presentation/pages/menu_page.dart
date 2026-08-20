@@ -1,6 +1,6 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:auto_size_text/auto_size_text.dart';
 import 'package:web_table_ordering/features/menu/presentation/bloc/menu_bloc.dart';
 import 'package:web_table_ordering/features/orders/presentation/bloc/cart_bloc.dart';
 import 'package:web_table_ordering/features/table/presentation/bloc/table_bloc.dart';
@@ -17,20 +17,16 @@ class MenuPage extends StatefulWidget {
   @override
   State<MenuPage> createState() => _MenuPageState();
 }
-// ... (rest of file)
-// This replacement is tricky because imports are at top. I should use multi_replace.
-// Cancelling this tool call and switching to multi_replace.
-// Actually I can do two replaces or just one view_file to be sure of line numbers again.
-// I will start with Import change.
 
 class _MenuPageState extends State<MenuPage> {
   // When true, a guest can only start ordering once the table already has a
   // sales order open (created by staff). Hardcoded for now.
   static const bool _requireSalesOrder = false;
 
-  bool _isSearching = false;
   String _searchQuery = '';
+  int? _selectedSearchCategoryId;
   final TextEditingController _searchController = TextEditingController();
+  Timer? _debounceTimer;
 
   @override
   void initState() {
@@ -46,12 +42,35 @@ class _MenuPageState extends State<MenuPage> {
     });
   }
 
+  void _onSearchChanged(String value) {
+    _debounceTimer?.cancel();
+    _debounceTimer = Timer(const Duration(milliseconds: 250), () {
+      if (!mounted) return;
+      setState(() {
+        _searchQuery = value.trim();
+        if (_searchQuery.isEmpty) {
+          _selectedSearchCategoryId = null;
+        }
+      });
+    });
+  }
+
+  void _clearSearch() {
+    _debounceTimer?.cancel();
+    setState(() {
+      _searchQuery = '';
+      _selectedSearchCategoryId = null;
+      _searchController.clear();
+    });
+  }
+
   void _loadNickname() {
     context.read<CartBloc>().add(LoadNickname());
   }
 
   @override
   void dispose() {
+    _debounceTimer?.cancel();
     _searchController.dispose();
     super.dispose();
   }
@@ -61,18 +80,6 @@ class _MenuPageState extends State<MenuPage> {
     if (tableState is TableLoaded) {
       context.read<CartBloc>().add(LoadActiveOrder(tableState.table.tableId));
     }
-  }
-
-  IconData _getCategoryIcon(String name) {
-    final lower = name.toLowerCase();
-    if (lower.contains('all')) return Icons.grid_view_rounded;
-    if (lower.contains('carte')) return Icons.restaurant;
-    if (lower.contains('pasta')) return Icons.soup_kitchen;
-    if (lower.contains('main')) return Icons.flatware;
-    if (lower.contains('drink') || lower.contains('beverage')) {
-      return Icons.local_drink;
-    }
-    return Icons.dining;
   }
 
   @override
@@ -187,30 +194,62 @@ class _MenuPageState extends State<MenuPage> {
                           return Center(child: Text(state.message));
                         }
                         if (state is MenuLoaded) {
-                          final displayItems = _isSearching && _searchQuery.isNotEmpty
-                              ? state.items
-                                    .where(
-                                      (item) => item.name.toLowerCase().contains(
-                                        _searchQuery.toLowerCase(),
-                                      ),
-                                    )
-                                    .toList()
-                              : state.items
-                                    .where(
-                                      (item) => item.categoryId == state.selectedCategoryId,
-                                    )
-                                    .toList();
+                          final isSearching = _searchQuery.isNotEmpty;
+                          final query = _searchQuery.toLowerCase();
+
+                          // Single O(N) pass over items to pre-compute search matches and category counts
+                          final List<dynamic> allMatchedItems = [];
+                          final Map<int, List<dynamic>> matchedItemsByCat = {};
+
+                          if (isSearching) {
+                            for (final item in state.items) {
+                              if (item.name.toLowerCase().contains(query)) {
+                                allMatchedItems.add(item);
+                                (matchedItemsByCat[item.categoryId] ??= [])
+                                    .add(item);
+                              }
+                            }
+                          }
+
+                          // Filter categories that have matching items when searching
+                          final matchingCategories = isSearching
+                              ? state.categories
+                                  .where((cat) =>
+                                      matchedItemsByCat.containsKey(cat.categoryId))
+                                  .toList()
+                              : state.categories;
+
+                          // In search mode, if selected category no longer matches, fallback to null (All)
+                          final effectiveSearchCatId = (_selectedSearchCategoryId != null &&
+                                  matchedItemsByCat.containsKey(_selectedSearchCategoryId))
+                              ? _selectedSearchCategoryId
+                              : null;
+
+                          final List<dynamic> displayItems;
+                          if (isSearching) {
+                            if (effectiveSearchCatId == null) {
+                              displayItems = allMatchedItems;
+                            } else {
+                              displayItems =
+                                  matchedItemsByCat[effectiveSearchCatId] ?? const [];
+                            }
+                          } else {
+                            displayItems = state.items
+                                .where((item) =>
+                                    item.categoryId == state.selectedCategoryId)
+                                .toList();
+                          }
 
                           return CustomScrollView(
                             slivers: [
                               // Food Background Header
                               SliverToBoxAdapter(
                                 child: Container(
-                                  height: 340,
+                                  height: 310,
                                   alignment: Alignment.topRight,
-                                  decoration: BoxDecoration(
+                                  decoration: const BoxDecoration(
                                     image: DecorationImage(
-                                      image: const AssetImage(
+                                      image: AssetImage(
                                         "assets/images/menubg.png",
                                       ),
                                       fit: BoxFit.cover,
@@ -225,7 +264,8 @@ class _MenuPageState extends State<MenuPage> {
                                         right: 20.0,
                                       ),
                                       child: Row(
-                                        mainAxisAlignment: MainAxisAlignment.end,
+                                        mainAxisAlignment:
+                                            MainAxisAlignment.end,
                                         children: [
                                           GestureDetector(
                                             onTap: () => _showNicknamePrompt(
@@ -263,7 +303,7 @@ class _MenuPageState extends State<MenuPage> {
                                 child: Transform.translate(
                                   offset: const Offset(0, -20),
                                   child: Container(
-                                    padding: const EdgeInsets.only(top: 20),
+                                    padding: const EdgeInsets.only(top: 26),
                                     decoration: const BoxDecoration(
                                       color: Color(0xFFFAF7F2),
                                       borderRadius: BorderRadius.only(
@@ -274,278 +314,206 @@ class _MenuPageState extends State<MenuPage> {
                                     child: Column(
                                       crossAxisAlignment: CrossAxisAlignment.start,
                                       children: [
-                                        const SizedBox(height: 20),
-                                        // Categories Horizontal List
-                                        SizedBox(
-                                          height: 92,
-                                          child: ListView.builder(
-                                            scrollDirection: Axis.horizontal,
-                                            itemCount: state.categories.length,
-                                            padding: const EdgeInsets.symmetric(
-                                              horizontal: 16,
-                                            ),
-                                            itemBuilder: (context, index) {
-                                              final category = state.categories[index];
-                                              final isSelected = category.categoryId == state.selectedCategoryId;
-                                              return GestureDetector(
-                                                onTap: () {
-                                                  context.read<MenuBloc>().add(
-                                                    SelectCategory(
-                                                      category.categoryId ?? 0,
-                                                    ),
-                                                  );
-                                                },
-                                                child: Container(
-                                                  width: 90,
-                                                  margin: const EdgeInsets.only(
-                                                    right: 12,
-                                                  ),
-                                                  padding: const EdgeInsets.symmetric(
-                                                    horizontal: 4,
-                                                    vertical: 4,
-                                                  ),
-                                                  decoration: BoxDecoration(
-                                                    color: isSelected
-                                                        ? const Color(
-                                                            0xFF1A1A1A,
-                                                          )
-                                                        : Colors.white,
-                                                    borderRadius: BorderRadius.circular(
-                                                      16,
-                                                    ),
-                                                    border: isSelected
-                                                        ? Border.all(
-                                                            color: const Color(
-                                                              0xFFC5A880,
-                                                            ),
-                                                            width: 1.5,
-                                                          )
-                                                        : Border.all(
-                                                            color: Colors.grey.shade200,
-                                                            width: 1,
-                                                          ),
-                                                    boxShadow: [
-                                                      if (!isSelected)
-                                                        BoxShadow(
-                                                          color: Colors.black.withValues(
-                                                            alpha: 0.03,
-                                                          ),
-                                                          blurRadius: 8,
-                                                          offset: const Offset(
-                                                            0,
-                                                            2,
-                                                          ),
-                                                        ),
-                                                    ],
-                                                  ),
-                                                  child: Column(
-                                                    mainAxisAlignment: MainAxisAlignment.center,
-                                                    children: [
-                                                      Icon(
-                                                        _getCategoryIcon(
-                                                          category.name,
-                                                        ),
-                                                        color: isSelected
-                                                            ? const Color(
-                                                                0xFFC5A880,
-                                                              )
-                                                            : Colors.grey.shade700,
-                                                        size: 22,
-                                                      ),
-                                                      const SizedBox(height: 3),
-                                                      Expanded(
-                                                        child: Center(
-                                                          child: _CategoryAdaptiveText(
-                                                            text: category.name,
-                                                            style: TextStyle(
-                                                              fontSize: 12,
-                                                              fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                                                              color: isSelected ? Colors.white : Colors.grey.shade800,
-                                                              height: 1.1,
-                                                            ),
-                                                            maxLines: 4,
-                                                            minFontSize: 8,
-                                                            maxFontSize: 12,
-                                                          ),
-                                                        ),
-                                                      ),
-                                                    ],
-                                                  ),
+                                        // Search Bar with debounced input and instant clear
+                                        Padding(
+                                          padding: const EdgeInsets.symmetric(
+                                            horizontal: 16,
+                                          ),
+                                          child: Container(
+                                            height: 48,
+                                            decoration: BoxDecoration(
+                                              color: Colors.white,
+                                              borderRadius: BorderRadius.circular(
+                                                24,
+                                              ),
+                                              border: Border.all(
+                                                color: const Color(
+                                                  0xFFC5A880,
                                                 ),
-                                              );
-                                            },
+                                                width: 1.5,
+                                              ),
+                                              boxShadow: [
+                                                BoxShadow(
+                                                  color: Colors.black.withValues(
+                                                    alpha: 0.06,
+                                                  ),
+                                                  blurRadius: 10,
+                                                  offset: const Offset(0, 3),
+                                                ),
+                                              ],
+                                            ),
+                                            child: TextField(
+                                              controller: _searchController,
+                                              style: const TextStyle(
+                                                fontSize: 14.5,
+                                                fontWeight: FontWeight.w500,
+                                                color: Color(
+                                                  0xFF1A1A1A,
+                                                ),
+                                              ),
+                                              decoration: InputDecoration(
+                                                hintText: 'Search menu dishes, drinks…',
+                                                hintStyle: TextStyle(
+                                                  color: Colors.grey.shade400,
+                                                  fontSize: 14,
+                                                ),
+                                                prefixIcon: const Icon(
+                                                  Icons.search_rounded,
+                                                  color: Color(
+                                                    0xFFC5A880,
+                                                  ),
+                                                  size: 22,
+                                                ),
+                                                suffixIcon: _searchController.text.isNotEmpty
+                                                    ? GestureDetector(
+                                                        onTap: _clearSearch,
+                                                        child: const Icon(
+                                                          Icons.cancel_rounded,
+                                                          color: Colors.black45,
+                                                          size: 20,
+                                                        ),
+                                                      )
+                                                    : null,
+                                                border: InputBorder.none,
+                                                contentPadding: const EdgeInsets.symmetric(
+                                                  vertical: 12,
+                                                ),
+                                              ),
+                                              onChanged: _onSearchChanged,
+                                            ),
                                           ),
                                         ),
-                                        // Category title header
+                                        const SizedBox(height: 16),
+                                        // Category Pills with smooth AnimatedSize transition
+                                        AnimatedSize(
+                                          duration: const Duration(
+                                            milliseconds: 280,
+                                          ),
+                                          curve: Curves.easeInOutCubic,
+                                          child: matchingCategories.isEmpty && isSearching
+                                              ? const SizedBox.shrink()
+                                              : SizedBox(
+                                                  height: 42,
+                                                  child: ListView.builder(
+                                                    scrollDirection: Axis.horizontal,
+                                                    itemCount: isSearching
+                                                        ? matchingCategories.length + 1
+                                                        : state.categories.length,
+                                                    padding: const EdgeInsets.symmetric(
+                                                      horizontal: 16,
+                                                    ),
+                                                    itemBuilder: (context, index) {
+                                                      // In search mode, index 0 is "All (N)"
+                                                      if (isSearching && index == 0) {
+                                                        final isSelected = effectiveSearchCatId == null;
+                                                        return GestureDetector(
+                                                          onTap: () {
+                                                            setState(() {
+                                                              _selectedSearchCategoryId = null;
+                                                            });
+                                                          },
+                                                          child: _buildCategoryChip(
+                                                            label: 'All (${allMatchedItems.length})',
+                                                            isSelected: isSelected,
+                                                          ),
+                                                        );
+                                                      }
+
+                                                      final category = isSearching
+                                                          ? matchingCategories[index - 1]
+                                                          : state.categories[index];
+
+                                                      final int categoryMatchCount = isSearching
+                                                          ? (matchedItemsByCat[category.categoryId]?.length ?? 0)
+                                                          : 0;
+
+                                                      final isSelected = isSearching
+                                                          ? effectiveSearchCatId == category.categoryId
+                                                          : category.categoryId == state.selectedCategoryId;
+
+                                                      final label = isSearching
+                                                          ? '${category.name} ($categoryMatchCount)'
+                                                          : category.name;
+
+                                                      return GestureDetector(
+                                                        onTap: () {
+                                                          if (isSearching) {
+                                                            setState(() {
+                                                              _selectedSearchCategoryId = category.categoryId;
+                                                            });
+                                                          } else {
+                                                            context.read<MenuBloc>().add(
+                                                              SelectCategory(
+                                                                category.categoryId ?? 0,
+                                                              ),
+                                                            );
+                                                          }
+                                                        },
+                                                        child: _buildCategoryChip(
+                                                          label: label,
+                                                          isSelected: isSelected,
+                                                        ),
+                                                      );
+                                                    },
+                                                  ),
+                                                ),
+                                        ),
+                                        // Category title header with smooth animated text switcher
                                         Padding(
                                           padding: const EdgeInsets.symmetric(
                                             horizontal: 20,
-                                            vertical: 16,
+                                            vertical: 14,
                                           ),
                                           child: AnimatedSwitcher(
                                             duration: const Duration(
                                               milliseconds: 250,
                                             ),
-                                            child: _isSearching
-                                                ? Row(
-                                                    key: const ValueKey(
-                                                      'search_field',
-                                                    ),
-                                                    children: [
-                                                      Expanded(
-                                                        child: Container(
-                                                          height: 44,
-                                                          decoration: BoxDecoration(
-                                                            color: Colors.white,
-                                                            borderRadius: BorderRadius.circular(
-                                                              12,
-                                                            ),
-                                                            border: Border.all(
-                                                              color: const Color(
-                                                                0xFFC5A880,
-                                                              ),
-                                                              width: 1.5,
-                                                            ),
-                                                            boxShadow: [
-                                                              BoxShadow(
-                                                                color: Colors.black.withValues(
-                                                                  alpha: 0.06,
-                                                                ),
-                                                                blurRadius: 8,
-                                                                offset: const Offset(
-                                                                  0,
-                                                                  2,
-                                                                ),
-                                                              ),
-                                                            ],
-                                                          ),
-                                                          child: TextField(
-                                                            controller: _searchController,
-                                                            autofocus: true,
-                                                            style: const TextStyle(
-                                                              fontSize: 15,
-                                                              color: Color(
-                                                                0xFF1A1A1A,
-                                                              ),
-                                                            ),
-                                                            decoration: InputDecoration(
-                                                              hintText: 'Search menu…',
-                                                              hintStyle: TextStyle(
-                                                                color: Colors.grey.shade400,
-                                                                fontSize: 15,
-                                                              ),
-                                                              prefixIcon: const Icon(
-                                                                Icons.search,
-                                                                color: Color(
-                                                                  0xFFC5A880,
-                                                                ),
-                                                                size: 20,
-                                                              ),
-                                                              border: InputBorder.none,
-                                                              contentPadding: const EdgeInsets.symmetric(
-                                                                vertical: 12,
-                                                              ),
-                                                            ),
-                                                            onChanged: (value) {
-                                                              setState(() {
-                                                                _searchQuery = value;
-                                                              });
-                                                            },
-                                                          ),
-                                                        ),
-                                                      ),
-                                                      const SizedBox(width: 8),
-                                                      GestureDetector(
-                                                        onTap: () {
-                                                          setState(() {
-                                                            _isSearching = false;
-                                                            _searchQuery = '';
-                                                            _searchController.clear();
-                                                          });
-                                                        },
-                                                        child: Container(
-                                                          width: 44,
-                                                          height: 44,
-                                                          decoration: const BoxDecoration(
-                                                            color: Color(
-                                                              0xFF1A1A1A,
-                                                            ),
-                                                            shape: BoxShape.circle,
-                                                          ),
-                                                          child: const Icon(
-                                                            Icons.close,
-                                                            color: Colors.white,
-                                                            size: 20,
-                                                          ),
-                                                        ),
-                                                      ),
-                                                    ],
-                                                  )
-                                                : Row(
-                                                    key: const ValueKey(
-                                                      'category_title',
-                                                    ),
-                                                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                                    children: [
-                                                      Expanded(
-                                                        child: Text(
-                                                          state.categories
-                                                              .firstWhere(
-                                                                (c) => c.categoryId == state.selectedCategoryId,
-                                                                orElse: () => state.categories.first,
-                                                              )
-                                                              .name,
-                                                          style: const TextStyle(
-                                                            fontSize: 20,
-                                                            fontWeight: FontWeight.bold,
-                                                            fontFamily: 'PTSerif',
-                                                            color: Color(
-                                                              0xFF1A1A1A,
-                                                            ),
-                                                          ),
-                                                          maxLines: 2,
-                                                          overflow: TextOverflow.ellipsis,
-                                                        ),
-                                                      ),
-                                                      const SizedBox(width: 8),
-                                                      GestureDetector(
-                                                        onTap: () {
-                                                          setState(() {
-                                                            _isSearching = true;
-                                                            _searchQuery = '';
-                                                            _searchController.clear();
-                                                          });
-                                                        },
-                                                        child: Container(
-                                                          width: 38,
-                                                          height: 38,
-                                                          decoration: const BoxDecoration(
-                                                            color: Color(
-                                                              0xFF1A1A1A,
-                                                            ),
-                                                            shape: BoxShape.circle,
-                                                          ),
-                                                          child: const Icon(
-                                                            Icons.search,
-                                                            color: Colors.white,
-                                                            size: 20,
-                                                          ),
-                                                        ),
-                                                      ),
-                                                    ],
+                                            child: Align(
+                                              alignment: Alignment.centerLeft,
+                                              key: ValueKey(
+                                                isSearching
+                                                    ? 'search_${effectiveSearchCatId ?? "all"}_${displayItems.length}'
+                                                    : 'cat_${state.selectedCategoryId}',
+                                              ),
+                                              child: Text(
+                                                isSearching
+                                                    ? (allMatchedItems.isEmpty
+                                                        ? 'No Results'
+                                                        : (effectiveSearchCatId == null
+                                                            ? 'All Results (${allMatchedItems.length})'
+                                                            : '${matchingCategories.firstWhere((c) => c.categoryId == effectiveSearchCatId, orElse: () => matchingCategories.first).name} (${displayItems.length})'))
+                                                    : (state.categories
+                                                        .firstWhere(
+                                                          (c) => c.categoryId == state.selectedCategoryId,
+                                                          orElse: () => state.categories.first,
+                                                        )
+                                                        .name),
+                                                style: const TextStyle(
+                                                  fontSize: 20,
+                                                  fontWeight: FontWeight.bold,
+                                                  fontFamily: 'PTSerif',
+                                                  color: Color(
+                                                    0xFF1A1A1A,
                                                   ),
+                                                ),
+                                                maxLines: 2,
+                                                overflow: TextOverflow.ellipsis,
+                                              ),
+                                            ),
                                           ),
                                         ),
                                         // GridView for items
                                         displayItems.isEmpty
-                                            ? const Center(
+                                            ? Center(
                                                 child: Padding(
-                                                  padding: EdgeInsets.symmetric(
+                                                  padding: const EdgeInsets.symmetric(
                                                     vertical: 40.0,
                                                   ),
                                                   child: Text(
-                                                    'No items found',
-                                                    style: TextStyle(
+                                                    isSearching
+                                                        ? 'No items found for "$_searchQuery"'
+                                                        : 'No items found',
+                                                    style: const TextStyle(
                                                       fontSize: 16,
                                                       color: Colors.grey,
                                                     ),
@@ -987,127 +955,50 @@ class _MenuPageState extends State<MenuPage> {
       },
     );
   }
-}
 
-class _CategoryAdaptiveText extends StatelessWidget {
-  final String text;
-  final TextStyle style;
-  final int maxLines;
-  final double minFontSize;
-  final double maxFontSize;
-
-  const _CategoryAdaptiveText({
-    required this.text,
-    required this.style,
-    this.maxLines = 4,
-    this.minFontSize = 8.0,
-    this.maxFontSize = 12.0,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final maxWidth = constraints.maxWidth;
-        final maxHeight = constraints.maxHeight.isFinite ? constraints.maxHeight : null;
-
-        int chosenLines = maxLines;
-        double chosenFontSize = minFontSize;
-        bool found = false;
-
-        // Algorithm:
-        // 1. Check line 1 first, autosize from maxFontSize down to minFontSize.
-        // 2. If it does not fit on 1 line, check line 2 and autosize down to minFontSize.
-        // 3. Repeat up to maxLines (4).
-        for (int lines = 1; lines <= maxLines; lines++) {
-          for (double size = maxFontSize; size >= minFontSize; size -= 0.5) {
-            final testStyle = style.copyWith(fontSize: size);
-            if (_fits(context, text, testStyle, maxWidth, lines, maxHeight)) {
-              chosenLines = lines;
-              chosenFontSize = size;
-              found = true;
-              break;
-            }
-          }
-          if (found) break;
-        }
-
-        // If not found (e.g. extremely long title under bold styling),
-        // search down to 6.0sp on maxLines so the full name is never truncated.
-        if (!found) {
-          chosenLines = maxLines;
-          for (double size = minFontSize - 0.5; size >= 6.0; size -= 0.5) {
-            final testStyle = style.copyWith(fontSize: size);
-            if (_fits(context, text, testStyle, maxWidth, chosenLines, maxHeight)) {
-              chosenFontSize = size;
-              found = true;
-              break;
-            }
-          }
-        }
-
-        return AutoSizeText(
-          text,
-          style: style.copyWith(fontSize: chosenFontSize),
-          minFontSize: 6.0,
-          maxLines: chosenLines,
-          textAlign: TextAlign.center,
-          overflow: TextOverflow.ellipsis,
-          wrapWords: true,
-        );
-      },
+  Widget _buildCategoryChip({
+    required String label,
+    required bool isSelected,
+  }) {
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 200),
+      margin: const EdgeInsets.only(right: 10),
+      padding: const EdgeInsets.symmetric(
+        horizontal: 18,
+        vertical: 10,
+      ),
+      decoration: BoxDecoration(
+        color: isSelected ? const Color(0xFF1A1A1A) : const Color(0xFF3A3A3A),
+        borderRadius: BorderRadius.circular(22),
+        border: isSelected
+            ? Border.all(
+                color: const Color(0xFFC5A880),
+                width: 1.5,
+              )
+            : Border.all(
+                color: Colors.transparent,
+                width: 1.5,
+              ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(
+              alpha: isSelected ? 0.15 : 0.06,
+            ),
+            blurRadius: 6,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      alignment: Alignment.center,
+      child: Text(
+        label,
+        style: TextStyle(
+          fontSize: 13,
+          fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+          color: isSelected ? Colors.white : Colors.white70,
+          letterSpacing: 0.2,
+        ),
+      ),
     );
-  }
-
-  bool _fits(
-    BuildContext context,
-    String text,
-    TextStyle style,
-    double maxWidth,
-    int lines,
-    double? maxHeight,
-  ) {
-    if (maxWidth <= 0) return false;
-
-    final textScaler = MediaQuery.textScalerOf(context);
-    final textDirection = Directionality.of(context);
-
-    if (lines == 1) {
-      final tp = TextPainter(
-        text: TextSpan(text: text, style: style),
-        textDirection: textDirection,
-        textScaler: textScaler,
-        maxLines: 1,
-      )..layout(maxWidth: double.infinity);
-
-      if (tp.width > maxWidth) return false;
-      if (maxHeight != null && tp.height > maxHeight) return false;
-      return true;
-    }
-
-    // For multi-line, verify that no individual unbroken word exceeds maxWidth
-    final words = text.split(RegExp(r'\s+'));
-    for (final word in words) {
-      if (word.isEmpty) continue;
-      final wordTp = TextPainter(
-        text: TextSpan(text: word, style: style),
-        textDirection: textDirection,
-        textScaler: textScaler,
-        maxLines: 1,
-      )..layout(maxWidth: double.infinity);
-      if (wordTp.width > maxWidth) return false;
-    }
-
-    final tp = TextPainter(
-      text: TextSpan(text: text, style: style),
-      textAlign: TextAlign.center,
-      textDirection: textDirection,
-      textScaler: textScaler,
-      maxLines: lines,
-    )..layout(maxWidth: maxWidth);
-
-    if (tp.didExceedMaxLines) return false;
-    if (maxHeight != null && tp.height > maxHeight) return false;
-    return true;
   }
 }
