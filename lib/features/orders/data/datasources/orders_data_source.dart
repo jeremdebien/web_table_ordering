@@ -1,6 +1,21 @@
 import '../models/sales_order_model.dart';
 import '../models/sales_order_item_model.dart';
 
+/// Thrown when a guest tries to order at a table the POS has split into multiple
+/// bills. The web app has no UI to pick which bill new items join, so it stops
+/// here rather than guessing (or crashing on the multi-row header read). The
+/// message is guest-facing verbatim.
+class SplitTableException implements Exception {
+  static const friendlyMessage =
+      'This table is being split into separate bills. Please ask a staff member to add your order.';
+
+  final String message;
+  const SplitTableException([this.message = friendlyMessage]);
+
+  @override
+  String toString() => message;
+}
+
 /// Read/write contract for orders, implemented per app mode
 /// (online: Edge Functions + pending stage, local: direct writes).
 abstract class OrdersDataSource {

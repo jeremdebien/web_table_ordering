@@ -5,6 +5,7 @@ import '../../../table/presentation/bloc/table_bloc.dart';
 import '../../../menu/data/models/item_model.dart';
 import '../../../menu/presentation/bloc/menu_bloc.dart';
 import 'cart_item_tile.dart';
+import '../../data/datasources/orders_data_source.dart';
 
 enum CartFilter {
   all,
@@ -41,10 +42,17 @@ class _CartSummaryState extends State<CartSummary> {
           Navigator.of(context).pop();
         } else if (state.status == CartStatus.failure) {
           debugPrint('Failed to submit order: ${state.errorMessage}');
+          // A split-table block is an expected, guest-facing condition — show its
+          // message verbatim rather than dressing it as a generic failure.
+          final isSplitTable =
+              state.errorMessage == SplitTableException.friendlyMessage;
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text('Failed to submit order: ${state.errorMessage}'),
-              backgroundColor: Colors.red.shade700,
+              content: Text(isSplitTable
+                  ? state.errorMessage!
+                  : 'Failed to submit order: ${state.errorMessage}'),
+              backgroundColor:
+                  isSplitTable ? Colors.orange.shade800 : Colors.red.shade700,
               behavior: SnackBarBehavior.floating,
             ),
           );
