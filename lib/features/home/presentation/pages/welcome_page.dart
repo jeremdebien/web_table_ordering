@@ -1,6 +1,7 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import '../../../../core/utils/splash_dismisser.dart';
 
 /// Generic branded landing shown at `/`. Purely informational — customers reach
 /// their menu by scanning the physical table QR (`/table/:uuid`); staff reach
@@ -10,7 +11,9 @@ class WelcomePage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
+    return SplashDismisser(
+      precache: const AssetImage('assets/images/nyx.jpg'),
+      child: Scaffold(
       body: Stack(
         children: [
           Container(
@@ -184,6 +187,7 @@ class WelcomePage extends StatelessWidget {
             ),
           ),
         ],
+      ),
       ),
     );
   }

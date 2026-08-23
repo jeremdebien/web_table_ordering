@@ -23,12 +23,18 @@ class MyApp extends StatelessWidget {
           create: (context) => di.sl<AuthBloc>()..add(const AuthCheckSession()),
         ),
       ],
+      // The HTML loading splash (web/index.html) is dismissed by each cold-entry
+      // page via SplashDismisser, once that page's background image has decoded,
+      // so there is no blank gap between the splash and the first painted frame.
       child: MaterialApp.router(
         debugShowCheckedModeBanner: false,
         title: 'Web Table Ordering',
         routerConfig: appRouter,
         theme: ThemeData(
-          scaffoldBackgroundColor: Colors.white,
+          // Dark default so the brief gap between the HTML splash and the first
+          // painted page (background images / bloc data still loading) is
+          // seamless with the splash instead of flashing white.
+          scaffoldBackgroundColor: const Color(0xFF121212),
           fontFamily: 'Roboto',
         ),
       ),

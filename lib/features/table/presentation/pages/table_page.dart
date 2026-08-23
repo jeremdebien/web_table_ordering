@@ -4,13 +4,16 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import '../bloc/table_bloc.dart';
 import '../../../orders/presentation/bloc/cart_bloc.dart';
+import '../../../../core/utils/splash_dismisser.dart';
 
 class TablePage extends StatelessWidget {
   const TablePage({super.key});
 
   @override
   Widget build(BuildContext context) {
-    return AnnotatedRegion<SystemUiOverlayStyle>(
+    return SplashDismisser(
+      precache: const AssetImage('assets/images/nyx.jpg'),
+      child: AnnotatedRegion<SystemUiOverlayStyle>(
       value: SystemUiOverlayStyle.light.copyWith(
         statusBarColor: Colors.transparent,
         statusBarIconBrightness: Brightness.light,
@@ -451,6 +454,7 @@ class TablePage extends StatelessWidget {
             ],
           ),
         ),
+      ),
       ),
     );
   }

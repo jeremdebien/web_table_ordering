@@ -31,8 +31,153 @@
 
   <title>web_table_ordering</title>
   <link rel="manifest" href="manifest.json">
+
+  <!-- Loading splash: painted instantly by the browser while the Flutter
+       runtime downloads/initializes and main() runs its async startup. All
+       styles are inlined (no external requests) so it appears with no delay
+       and honors the offline / no-CDN build requirement. -->
+  <style>
+    /* Dark base so there is never a white flash behind Flutter's host,
+       before the splash paints, or after it is removed. */
+    html, body { margin: 0; padding: 0; background: #121212; }
+    #splash {
+      position: fixed;
+      inset: 0;
+      z-index: 2147483647;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 28px;
+      background: #121212;
+      color: #C5A880;
+      font-family: 'Roboto', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      transition: opacity .4s ease;
+    }
+    #splash.splash--hidden {
+      opacity: 0;
+      pointer-events: none;
+    }
+    /* Circular logo with a light shimmer sweep clipped to the circle. */
+    #splash .splash-logo-wrap {
+      position: relative;
+      width: 140px;
+      height: 140px;
+      max-width: 55vw;
+      border-radius: 50%;
+      overflow: hidden;
+      border: 3px solid rgba(255, 255, 255, 0.8);
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+      animation: splash-pulse 2.4s ease-in-out infinite;
+    }
+    #splash .splash-logo {
+      display: block;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+    #splash .splash-logo-wrap::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(
+        115deg,
+        transparent 30%,
+        rgba(255, 255, 255, 0.38) 48%,
+        rgba(255, 255, 255, 0.38) 52%,
+        transparent 70%
+      );
+      transform: translateX(-120%);
+      animation: splash-shimmer 2.8s ease-in-out infinite;
+    }
+    #splash .splash-spinner {
+      width: 40px;
+      height: 40px;
+      border: 3px solid rgba(197, 168, 128, 0.25);
+      border-top-color: #C5A880;
+      border-radius: 50%;
+      animation: splash-spin 0.9s linear infinite;
+    }
+    #splash .splash-text {
+      font-size: 15px;
+      letter-spacing: 0.6px;
+      min-height: 1.2em;
+      opacity: 0.85;
+      transition: opacity .35s ease;
+    }
+    @keyframes splash-spin {
+      to { transform: rotate(360deg); }
+    }
+    @keyframes splash-pulse {
+      0%, 100% { opacity: 0.7; transform: scale(0.98); }
+      50%      { opacity: 1;   transform: scale(1); }
+    }
+    @keyframes splash-shimmer {
+      0%       { transform: translateX(-120%); }
+      55%,100% { transform: translateX(120%); }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      #splash .splash-logo-wrap { animation: none; opacity: 1; }
+      #splash .splash-logo-wrap::after { animation: none; opacity: 0; }
+      #splash .splash-spinner { animation-duration: 1.6s; }
+    }
+  </style>
 </head>
 <body>
+  <div id="splash" role="status" aria-live="polite" aria-label="Loading">
+    <div class="splash-logo-wrap">
+      <img class="splash-logo" src="assets/assets/images/nyx_logo.jpg" alt="" />
+    </div>
+    <div class="splash-spinner"></div>
+    <div class="splash-text" id="splash-text">Preparing your experience&hellip;</div>
+  </div>
+
+  <script>
+    // Rotating, elegant status messages so the wait always feels like progress.
+    // Cross-fades every ~2.2s and settles on the final "Almost ready" line.
+    (function () {
+      var messages = [
+        'Preparing your experience…',
+        'Curating the menu…',
+        'Setting the table…',
+        'Almost ready…'
+      ];
+      var el = document.getElementById('splash-text');
+      var idx = 0;
+      window.__splashMsgTimer = window.setInterval(function () {
+        if (!el || !el.isConnected) { window.clearInterval(window.__splashMsgTimer); return; }
+        idx += 1;
+        el.style.opacity = '0';
+        window.setTimeout(function () {
+          if (!el) return;
+          el.textContent = messages[idx];
+          el.style.opacity = '0.85';
+        }, 350);
+        // Stop on the last message so it doesn't loop back to the start.
+        if (idx >= messages.length - 1) window.clearInterval(window.__splashMsgTimer);
+      }, 2200);
+    })();
+
+    // Called from Dart (post first frame) to fade out and remove the splash.
+    // Also exposed as a fallback timeout below so the splash can never get
+    // stuck if the Dart callback never fires (e.g. an early init error).
+    window.removeSplash = function () {
+      if (window.__splashMsgTimer) window.clearInterval(window.__splashMsgTimer);
+      var s = document.getElementById('splash');
+      if (!s) return;
+      s.classList.add('splash--hidden');
+      s.addEventListener('transitionend', function () {
+        if (s && s.parentNode) s.parentNode.removeChild(s);
+      }, { once: true });
+    };
+    // Safety fallback: never leave the splash up longer than 30s. This is a
+    // last resort for a genuine hang only — the normal path is the Dart side
+    // dismissing the splash once the entry page is painted. Kept high so it
+    // does not fire early on slow mobile networks (CanvasKit + app can take a
+    // while to download over a poor connection).
+    window.setTimeout(function () { window.removeSplash(); }, 30000);
+  </script>
+
   <script src="flutter_bootstrap.js" async></script>
 </body>
 </html>
