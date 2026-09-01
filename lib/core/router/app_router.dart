@@ -12,14 +12,33 @@ import '../../features/home/presentation/pages/welcome_page.dart';
 import '../../features/table/presentation/bloc/table_bloc.dart';
 import '../../features/menu/presentation/pages/menu_page.dart';
 import '../../features/table/presentation/pages/table_page.dart';
+import '../../features/table/presentation/pages/qr_resolver_page.dart';
 import '../../features/orders/presentation/pages/order_summary_page.dart';
 import '../pages/not_found_page.dart';
 
 final appRouter = GoRouter(
   initialLocation: '/',
   errorBuilder: (context, state) => const NotFoundPage(),
+  // Legacy QR codes point at the old POS URL shape
+  // (`/app/NYX/index.php?...&table=c6&...`). Those printed codes can't be
+  // regenerated, so we intercept any entry carrying a `table` query param and
+  // hand it to the resolver, which turns the table name into its UUID and
+  // forwards to `/table/:uuid`. See QrResolverPage.
+  redirect: (context, state) {
+    final tableName = state.uri.queryParameters['table'];
+    if (tableName != null && tableName.trim().isNotEmpty && state.uri.path != '/qr') {
+      return '/qr?table=${Uri.encodeQueryComponent(tableName)}';
+    }
+    return null;
+  },
   routes: [
     GoRoute(path: '/', builder: (context, state) => const WelcomePage()),
+    GoRoute(
+      path: '/qr',
+      builder: (context, state) => QrResolverPage(
+        tableName: state.uri.queryParameters['table'] ?? '',
+      ),
+    ),
     GoRoute(
       path: '/staff',
       builder: (context, state) => const RootGate(),
