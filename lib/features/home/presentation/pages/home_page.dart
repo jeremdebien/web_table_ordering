@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 import '../../../table/presentation/bloc/table_bloc.dart';
 import '../../../auth/presentation/bloc/auth_bloc.dart';
+import '../../../auth/presentation/access_guard.dart';
 
 class HomePage extends StatefulWidget {
   final String? tableUuid;
@@ -360,7 +361,12 @@ class _WaiterHeader extends StatelessWidget {
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       TextButton.icon(
-                        onPressed: () => context.go('/staff/menu'),
+                        onPressed: () => guardWebAction(
+                          context,
+                          accessKey: 'web_menu_curation',
+                          actionName: 'Menu Curation',
+                          onGranted: () => context.go('/staff/menu'),
+                        ),
                         icon: const Icon(Icons.restaurant_menu,
                             size: 18, color: Colors.white),
                         label: const Text(
@@ -372,7 +378,12 @@ class _WaiterHeader extends StatelessWidget {
                         ),
                       ),
                       TextButton.icon(
-                        onPressed: () => context.go('/staff/tables'),
+                        onPressed: () => guardWebAction(
+                          context,
+                          accessKey: 'web_clear_table',
+                          actionName: 'Clear / Settle Table',
+                          onGranted: () => context.go('/staff/tables'),
+                        ),
                         icon: const Icon(Icons.table_restaurant,
                             size: 18, color: Colors.white),
                         label: const Text(
