@@ -29,6 +29,11 @@ class _MenuPageState extends State<MenuPage> {
   final TextEditingController _searchController = TextEditingController();
   Timer? _debounceTimer;
 
+  // Guards against opening more than one "Add Item" sheet from rapid taps.
+  bool _isAddItemSheetOpen = false;
+  // Per-item cache of special-instruction groups (page lifetime).
+  final Map<String, List<InstructionGroup>> _instructionCache = {};
+
   @override
   void initState() {
     super.initState();
@@ -105,6 +110,15 @@ class _MenuPageState extends State<MenuPage> {
             children: [
               Expanded(
                 child: BlocBuilder<CartBloc, CartState>(
+                  // Only these fields drive this subtree. Cart item changes are
+                  // handled by the separate builder in the bottom "View Order"
+                  // bar, so adding items no longer rebuilds the whole menu grid
+                  // or re-runs the search filter.
+                  buildWhen: (prev, curr) =>
+                      prev.paymentStatus != curr.paymentStatus ||
+                      prev.salesOrderId != curr.salesOrderId ||
+                      prev.status != curr.status ||
+                      prev.nickname != curr.nickname,
                   builder: (context, cartState) {
                     if (cartState.paymentStatus == 1) {
                       return Center(
@@ -755,22 +769,33 @@ class _MenuPageState extends State<MenuPage> {
     );
   }
 
-  Future<void> _showAddItemConfirmation(
+  /// Loads an item's special-instruction groups, caching per item so re-opening
+  /// the same item is instant and skips the extra Supabase round-trips.
+  /// Errors resolve to an empty list and are not cached (transient failures can
+  /// be retried on the next open).
+  Future<List<InstructionGroup>> _loadInstructions(dynamic item) {
+    final int? categoryId =
+        item is ItemModel ? item.categoryId : (item.categoryId as int?);
+    final key = '${item.barcode}_${categoryId ?? ''}';
+    final cached = _instructionCache[key];
+    if (cached != null) return Future.value(cached);
+    return sl<MenuDataSource>()
+        .getItemInstructions(item.barcode, categoryId: categoryId)
+        .then((groups) {
+      _instructionCache[key] = groups;
+      return groups;
+    }).catchError((_) => <InstructionGroup>[]);
+  }
+
+  void _showAddItemConfirmation(
     BuildContext context,
     dynamic item,
-  ) async {
-    List<InstructionGroup> instructionGroups = [];
-    try {
-      final int? categoryId = item is ItemModel ? item.categoryId : (item.categoryId as int?);
-      instructionGroups = await sl<MenuDataSource>().getItemInstructions(
-        item.barcode,
-        categoryId: categoryId,
-      );
-    } catch (_) {
-      instructionGroups = [];
-    }
-    if (!context.mounted) return;
+  ) {
+    // Cheap insurance against stacking duplicate sheets from rapid taps.
+    if (_isAddItemSheetOpen) return;
+    _isAddItemSheetOpen = true;
 
+    // Open the sheet immediately; instructions load inside it.
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -779,9 +804,9 @@ class _MenuPageState extends State<MenuPage> {
       constraints: const BoxConstraints(maxWidth: 500),
       builder: (_) => AddItemBottomSheet(
         item: item,
-        instructionGroups: instructionGroups,
+        instructionsFuture: _loadInstructions(item),
       ),
-    );
+    ).whenComplete(() => _isAddItemSheetOpen = false);
   }
 
   void _showNicknamePrompt(BuildContext context, {String initialValue = ''}) {

@@ -11,12 +11,12 @@ import 'special_instructions_form.dart';
 /// Features adaptive hero height, hold-to-peek image preview, quick note chips, and collapsible sections.
 class AddItemBottomSheet extends StatefulWidget {
   final dynamic item;
-  final List<InstructionGroup> instructionGroups;
+  final Future<List<InstructionGroup>> instructionsFuture;
 
   const AddItemBottomSheet({
     super.key,
     required this.item,
-    required this.instructionGroups,
+    required this.instructionsFuture,
   });
 
   @override
@@ -31,15 +31,32 @@ class _AddItemBottomSheetState extends State<AddItemBottomSheet> {
   bool _isNoteExpanded = true;
   OverlayEntry? _peekOverlayEntry;
 
+  // Instruction groups are loaded inside the sheet so it can open instantly.
+  List<InstructionGroup> _groups = const [];
+  bool _loadingInstructions = true;
+
   @override
   void initState() {
     super.initState();
-    // If there are no instruction groups, the form is always valid.
-    _isValid = widget.instructionGroups.isEmpty;
-    // For items with many instruction groups, default note section to collapsed to keep view clean
-    _isNoteExpanded = widget.instructionGroups.length <= 2;
+    // Can't submit until instructions have loaded (a required group may exist).
+    _isValid = false;
     _noteController.addListener(() {
       setState(() {});
+    });
+    _loadInstructions();
+  }
+
+  Future<void> _loadInstructions() async {
+    final groups = await widget.instructionsFuture;
+    if (!mounted) return;
+    setState(() {
+      _groups = groups;
+      _loadingInstructions = false;
+      // If there are no instruction groups, the form is always valid.
+      _isValid = groups.isEmpty;
+      // For items with many instruction groups, default note section to
+      // collapsed to keep view clean.
+      _isNoteExpanded = groups.length <= 2;
     });
   }
 
@@ -158,12 +175,15 @@ class _AddItemBottomSheetState extends State<AddItemBottomSheet> {
     final item = widget.item;
     final totalPrice = item.price * _quantity;
     final hasImage = item.displayImage != null && item.displayImage!.toString().isNotEmpty;
-    final hasSpecialInstructions = widget.instructionGroups.isNotEmpty;
+    // While loading, reserve the compact hero so layout doesn't jump once the
+    // instructions area appears; treat "loading" like "has instructions".
+    final hasSpecialInstructions = _groups.isNotEmpty;
+    final showInstructionsSection = _loadingInstructions || hasSpecialInstructions;
 
     // Adaptive hero image height:
     // When there are no special instructions, expand image to 350px for an appealing visual spotlight.
     // When there are special instructions, use a 250px hero height to keep options visible above the fold.
-    final double heroImageHeight = hasSpecialInstructions ? 250.0 : 350.0;
+    final double heroImageHeight = showInstructionsSection ? 250.0 : 350.0;
 
     return Container(
       decoration: const BoxDecoration(
@@ -380,7 +400,7 @@ class _AddItemBottomSheetState extends State<AddItemBottomSheet> {
                             const SizedBox(height: 20),
 
                             // 1. Predefined Special Instructions (rendered first)
-                            if (hasSpecialInstructions) ...[
+                            if (showInstructionsSection) ...[
                               Row(
                                 children: [
                                   const Icon(
@@ -400,10 +420,13 @@ class _AddItemBottomSheetState extends State<AddItemBottomSheet> {
                                 ],
                               ),
                               const SizedBox(height: 12),
-                              SpecialInstructionsForm(
-                                groups: widget.instructionGroups,
-                                onChanged: _onInstructionsChanged,
-                              ),
+                              if (_loadingInstructions)
+                                const _InstructionsLoadingPlaceholder()
+                              else
+                                SpecialInstructionsForm(
+                                  groups: _groups,
+                                  onChanged: _onInstructionsChanged,
+                                ),
                               const SizedBox(height: 16),
                             ],
 
@@ -745,7 +768,7 @@ class _AddItemBottomSheetState extends State<AddItemBottomSheet> {
                     borderRadius: BorderRadius.circular(16),
                   ),
                 ),
-                onPressed: _isValid ? _addToCart : null,
+                onPressed: (!_loadingInstructions && _isValid) ? _addToCart : null,
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
@@ -779,6 +802,50 @@ class _AddItemBottomSheetState extends State<AddItemBottomSheet> {
           ),
         ],
       ),
+    );
+  }
+}
+
+/// Lightweight placeholder shown in the Special Instructions area while the
+/// instruction groups are being fetched, so the sheet can open instantly.
+class _InstructionsLoadingPlaceholder extends StatelessWidget {
+  const _InstructionsLoadingPlaceholder();
+
+  @override
+  Widget build(BuildContext context) {
+    Widget bar(double width) => Container(
+          height: 16,
+          width: width,
+          margin: const EdgeInsets.only(bottom: 10),
+          decoration: BoxDecoration(
+            color: Colors.grey.shade200,
+            borderRadius: BorderRadius.circular(8),
+          ),
+        );
+
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              bar(140),
+              bar(double.infinity),
+              bar(200),
+            ],
+          ),
+        ),
+        const SizedBox(width: 12),
+        const SizedBox(
+          width: 18,
+          height: 18,
+          child: CircularProgressIndicator(
+            strokeWidth: 2,
+            color: Color(0xFFCEB38C),
+          ),
+        ),
+      ],
     );
   }
 }
