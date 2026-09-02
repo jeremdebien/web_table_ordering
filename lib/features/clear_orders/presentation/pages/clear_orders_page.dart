@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:get_it/get_it.dart';
 import 'package:go_router/go_router.dart';
+import '../../../auth/presentation/access_guard.dart';
 import '../../../orders/data/datasources/orders_data_source.dart';
 import '../../../table/data/models/ground_model.dart';
 import '../../../table/data/models/table_model.dart';
@@ -269,8 +270,14 @@ class _ClearOrdersPageState extends State<ClearOrdersPage> {
       context: context,
       builder: (dialogContext) => _ClearConfirmDialog(table: table),
     );
-    if (confirmed == true) {
-      bloc.add(ClearTable(tableId: table.id, salesOrderId: order.salesOrderId));
+    if (confirmed == true && context.mounted) {
+      await guardWebAction(
+        context,
+        accessKey: 'web_clear_table',
+        actionName: 'Clear / Settle Table',
+        onGranted: () =>
+            bloc.add(ClearTable(tableId: table.id, salesOrderId: order.salesOrderId)),
+      );
     }
   }
 }

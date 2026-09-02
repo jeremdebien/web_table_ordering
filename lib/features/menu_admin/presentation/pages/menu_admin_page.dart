@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
+import '../../../auth/presentation/access_guard.dart';
 import '../../../menu/data/models/category_model.dart';
 import '../../../menu/data/models/department_model.dart';
 import '../../../menu/data/models/item_model.dart';
@@ -189,7 +190,14 @@ class _SaveFab extends StatelessWidget {
     return FloatingActionButton.extended(
       backgroundColor: const Color(0xfff25125),
       foregroundColor: Colors.white,
-      onPressed: isSaving ? null : () => context.read<MenuAdminBloc>().add(const SaveChanges()),
+      onPressed: isSaving
+          ? null
+          : () => guardWebAction(
+                context,
+                accessKey: 'web_menu_curation',
+                actionName: 'Menu Curation',
+                onGranted: () => context.read<MenuAdminBloc>().add(const SaveChanges()),
+              ),
       icon: isSaving
           ? const SizedBox(
               width: 18,
