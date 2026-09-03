@@ -81,6 +81,14 @@ class ClearOrdersBloc extends Bloc<ClearOrdersEvent, ClearOrdersState> {
         status: 2, // paid / closed
         salesOrderId: event.salesOrderId,
       );
+      // Also complete this order's still-open KDS cards so the kitchen board
+      // clears with the table. Best-effort: a KDS hiccup must not leave the
+      // table stuck open (payment_status is already settled above).
+      if (event.salesOrderId != null) {
+        try {
+          await _ordersDataSource.completeKdsForSalesOrder(event.salesOrderId!);
+        } catch (_) {}
+      }
       // Refresh open orders so the cleared table flips to available.
       final openOrders = await _ordersDataSource.getOpenOrders();
       emit(

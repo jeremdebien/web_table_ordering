@@ -2489,6 +2489,7 @@ DECLARE
   v_to_table_desc   TEXT;
   v_to_guest_count  INTEGER;
   v_to_order_type   INTEGER;
+  v_to_so_number    BIGINT;
   v_to_client_id    TEXT;
   v_to_kds_order_id BIGINT;
   

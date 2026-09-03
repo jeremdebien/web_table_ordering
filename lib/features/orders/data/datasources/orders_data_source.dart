@@ -31,6 +31,12 @@ abstract class OrdersDataSource {
     int? salesOrderId,
   });
 
+  /// Marks every still-open KDS order (and its non-cancelled items) for this
+  /// sales order as completed, so clearing a table also clears its kitchen
+  /// cards. Server-side via the `kds_complete_sales_order` RPC (migration 0053);
+  /// cancelled/already-completed rows are left untouched.
+  Future<void> completeKdsForSalesOrder(int salesOrderId);
+
   Stream<List<Map<String, dynamic>>> subscribeToOrderUpdates({int? tableId});
 
   Stream<void> subscribeToActiveOrderChanges(

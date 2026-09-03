@@ -1,5 +1,5 @@
 -- ═══════════════════════════════════════════════════════════════════
--- 0052  Menu groups (batch item-availability presets)
+-- 0053  Menu groups (batch item-availability presets)
 -- ═══════════════════════════════════════════════════════════════════
 -- Lets staff save reusable named menu configurations -- e.g. "Weekday Dinner",
 -- "Weekend Lunch" -- each holding its own per-item enabled/disabled config, and
