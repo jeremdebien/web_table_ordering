@@ -4,6 +4,7 @@ import '../../data/datasources/menu_data_source.dart';
 import '../../data/models/department_model.dart';
 import '../../data/models/category_model.dart';
 import '../../data/models/item_model.dart';
+import '../../domain/menu_ordering.dart';
 
 part 'menu_event.dart';
 part 'menu_state.dart';
@@ -41,60 +42,13 @@ class MenuBloc extends Bloc<MenuEvent, MenuState> {
         }
       };
 
-      int compareDepartments(DepartmentModel? a, DepartmentModel? b) {
-        if (identical(a, b)) return 0;
-        if (a == null && b == null) return 0;
-        if (a == null) return 1; // unset/missing department sorts last
-        if (b == null) return -1;
+      // Sort categories hierarchically: by parent Department order, then by Category order.
+      categories.sort(
+        (a, b) => MenuOrdering.compareCategoriesHierarchically(a, b, deptById),
+      );
 
-        final ai = a.orderingIndex;
-        final bi = b.orderingIndex;
-        if (ai != null && bi != null && ai != bi) return ai.compareTo(bi);
-        if (ai == null && bi != null) return 1; // unset ordering_index sorts last
-        if (ai != null && bi == null) return -1;
-
-        final aid = a.deptId ?? a.id;
-        final bid = b.deptId ?? b.id;
-        if (aid != bid) return aid.compareTo(bid);
-        return a.name.compareTo(b.name);
-      }
-
-      int compareCategoriesWithinDept(CategoryModel a, CategoryModel b) {
-        final ai = a.orderingIndex;
-        final bi = b.orderingIndex;
-        if (ai != null && bi != null && ai != bi) return ai.compareTo(bi);
-        if (ai == null && bi != null) return 1; // unset ordering_index sorts last
-        if (ai != null && bi == null) return -1;
-
-        final aid = a.categoryId ?? a.id;
-        final bid = b.categoryId ?? b.id;
-        if (aid != bid) return aid.compareTo(bid);
-        return a.name.compareTo(b.name);
-      }
-
-      // Sort categories hierarchically: by parent Department order, then by Category order
-      categories.sort((a, b) {
-        if (a.departmentId != b.departmentId) {
-          final deptA = deptById[a.departmentId];
-          final deptB = deptById[b.departmentId];
-          final deptComp = compareDepartments(deptA, deptB);
-          if (deptComp != 0) return deptComp;
-        }
-        return compareCategoriesWithinDept(a, b);
-      });
-
-      int compareItemsByButtonIndex(ItemModel a, ItemModel b) {
-        final ai = a.buttonIndex;
-        final bi = b.buttonIndex;
-        if (ai != null && bi != null && ai != bi) return ai.compareTo(bi);
-        if (ai == null && bi != null) return 1; // unset positions sort last
-        if (ai != null && bi == null) return -1;
-        final idComp = a.id.compareTo(b.id);
-        if (idComp != 0) return idComp;
-        return a.name.compareTo(b.name);
-      }
-
-      final sortedItems = List<ItemModel>.from(items)..sort(compareItemsByButtonIndex);
+      final sortedItems =
+          List<ItemModel>.from(items)..sort(MenuOrdering.compareItems);
 
       // Hide categories that have no available items (e.g. every item disabled by
       // the active menu group), so empty category pills never render.

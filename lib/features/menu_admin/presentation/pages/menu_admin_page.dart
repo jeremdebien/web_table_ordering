@@ -5,6 +5,7 @@ import '../../../menu/data/models/category_model.dart';
 import '../../../menu/data/models/department_model.dart';
 import '../../../menu/data/models/item_model.dart';
 import '../../../menu/data/models/menu_group_model.dart';
+import '../../../menu/domain/menu_ordering.dart';
 import '../bloc/menu_admin_bloc.dart';
 
 /// Staff-only screen (under `/staff/menu`) to curate which items appear on the
@@ -325,30 +326,20 @@ class _LoadedViewState extends State<_LoadedView> {
       }
     }
 
-    int catOrder(CategoryModel a, CategoryModel b) {
-      final ai = a.orderingIndex, bi = b.orderingIndex;
-      if (ai == null && bi == null) return a.name.compareTo(b.name);
-      if (ai == null) return 1;
-      if (bi == null) return -1;
-      final r = ai.compareTo(bi);
-      return r != 0 ? r : a.name.compareTo(b.name);
-    }
-
+    // Departments ordered by their defined position (orderingIndex, nulls last),
+    // matching the customer menu.
     final deptIds = catsByDept.keys.toList()
-      ..sort((a, b) {
-        final da = deptById[a]?.name ?? '';
-        final db = deptById[b]?.name ?? '';
-        return da.compareTo(db);
-      });
+      ..sort((a, b) =>
+          MenuOrdering.compareDepartments(deptById[a], deptById[b]));
 
     final groups = <_DeptGroup>[];
     for (final deptId in deptIds) {
-      final cats = catsByDept[deptId]!..sort(catOrder);
+      final cats = catsByDept[deptId]!..sort(MenuOrdering.compareCategories);
       final catGroups = <_CatGroup>[];
       for (final cat in cats) {
         final catId = cat.categoryId ?? cat.id;
         final items = byCategory[catId] ?? [];
-        items.sort((a, b) => a.name.compareTo(b.name));
+        items.sort(MenuOrdering.compareItems);
         if (items.isEmpty) continue;
         catGroups.add(_CatGroup(category: cat, items: items));
       }
@@ -365,7 +356,7 @@ class _LoadedViewState extends State<_LoadedView> {
         }
       });
       if (orphanItems.isNotEmpty) {
-        orphanItems.sort((a, b) => a.name.compareTo(b.name));
+        orphanItems.sort(MenuOrdering.compareItems);
         catGroups.add(_CatGroup(category: null, items: orphanItems));
       }
       if (catGroups.isEmpty) continue;
