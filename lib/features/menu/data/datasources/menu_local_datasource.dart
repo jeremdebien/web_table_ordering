@@ -4,6 +4,7 @@ import '../models/category_model.dart';
 import '../models/item_model.dart';
 import '../models/instruction_group_model.dart';
 import '../models/instruction_choice_model.dart';
+import '../models/menu_group_model.dart';
 import 'menu_data_source.dart';
 
 /// Local (self-hosted) menu catalog targeting the local_supabase_migration
@@ -67,10 +68,26 @@ class LocalMenuDataSource implements MenuDataSource {
 
   @override
   Future<List<ItemModel>> getItems({int? categoryId}) async {
-    // Customer-facing menu: only orderable items that staff have kept visible on
-    // the web menu (`is_available_in_web_table`, migration 0046).
-    var query =
-        _client.from('item').select().eq('item_status', 1).eq('is_available_in_web_table', 1);
+    // Live-override resolution (migration 0052): if a menu group is active, it is
+    // the source of truth -- show only its enabled barcodes. With NO active
+    // group, fall back to the per-item `is_available_in_web_table` flag
+    // (migration 0047) so the menu keeps working before any group is created.
+    final activeId = await _activeMenuGroupId();
+
+    var query = _client.from('item').select().eq('item_status', 1);
+
+    if (activeId != null) {
+      final config = await getMenuGroupItems(activeId);
+      final enabled = [
+        for (final e in config.entries)
+          if (e.value) e.key,
+      ];
+      // An active group with nothing enabled means an empty menu.
+      if (enabled.isEmpty) return [];
+      query = query.inFilter('barcode', enabled);
+    } else {
+      query = query.eq('is_available_in_web_table', 1);
+    }
 
     if (categoryId != null) {
       query = query.eq('category', categoryId);
@@ -190,5 +207,76 @@ class LocalMenuDataSource implements MenuDataSource {
     } catch (_) {
       return [];
     }
+  }
+
+  // ── Menu groups (migration 0052) ───────────────────────────────────────────
+
+  /// Id of the single active group, or null if none is active.
+  Future<int?> _activeMenuGroupId() async {
+    final row = await _client
+        .from('menu_group')
+        .select('id')
+        .eq('is_active', 1)
+        .limit(1)
+        .maybeSingle();
+    return row == null ? null : (row['id'] as num).toInt();
+  }
+
+  @override
+  Future<List<MenuGroupModel>> getMenuGroups() async {
+    final response =
+        await _client.from('menu_group').select().order('sort_order').order('name');
+    return (response as List)
+        .map((row) => MenuGroupModel.fromJson(Map<String, dynamic>.from(row)))
+        .toList();
+  }
+
+  @override
+  Future<MenuGroupModel> createMenuGroup(String name) async {
+    final row = await _client
+        .from('menu_group')
+        .insert({'name': name})
+        .select()
+        .single();
+    return MenuGroupModel.fromJson(Map<String, dynamic>.from(row));
+  }
+
+  @override
+  Future<void> renameMenuGroup(int id, String name) async {
+    await _client.from('menu_group').update({'name': name}).eq('id', id);
+  }
+
+  @override
+  Future<void> deleteMenuGroup(int id) async {
+    // menu_group_item rows cascade via the FK (migration 0052).
+    await _client.from('menu_group').delete().eq('id', id);
+  }
+
+  @override
+  Future<void> setActiveMenuGroup(int id) async {
+    // Two writes (no transaction API here): clear the current active row first so
+    // the partial unique index `uq_menu_group_active` never sees two actives.
+    await _client.from('menu_group').update({'is_active': 0}).eq('is_active', 1);
+    await _client.from('menu_group').update({'is_active': 1}).eq('id', id);
+  }
+
+  @override
+  Future<Map<String, bool>> getMenuGroupItems(int id) async {
+    final response =
+        await _client.from('menu_group_item').select('barcode, enabled').eq('group_id', id);
+    return {
+      for (final row in (response as List))
+        (row['barcode'] as String): ((row['enabled'] as num?)?.toInt() ?? 0) == 1,
+    };
+  }
+
+  @override
+  Future<void> setMenuGroupItems(int id, Map<String, bool> updates) async {
+    if (updates.isEmpty) return;
+    final rows = [
+      for (final e in updates.entries)
+        {'group_id': id, 'barcode': e.key, 'enabled': e.value ? 1 : 0},
+    ];
+    await _client.from('menu_group_item').upsert(rows, onConflict: 'group_id,barcode');
   }
 }

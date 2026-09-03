@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import '../../../menu/data/models/category_model.dart';
 import '../../../menu/data/models/department_model.dart';
 import '../../../menu/data/models/item_model.dart';
+import '../../../menu/data/models/menu_group_model.dart';
 import '../bloc/menu_admin_bloc.dart';
 
 /// Staff-only screen (under `/staff/menu`) to curate which items appear on the
@@ -34,30 +35,7 @@ class _MenuAdminPageState extends State<MenuAdminPage> {
 
   /// Shared "you have unsaved changes" prompt. Returns true if the user chose to
   /// discard (proceed), false to keep editing.
-  Future<bool> _confirmDiscardPrompt(BuildContext context) async {
-    final ok = await showDialog<bool>(
-      context: context,
-      builder: (dialogContext) => AlertDialog(
-        backgroundColor: _bg,
-        title: const Text('Discard changes?', style: TextStyle(color: Colors.white)),
-        content: const Text(
-          'Your unsaved menu changes will be lost.',
-          style: TextStyle(color: Colors.white70),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(dialogContext, false),
-            child: const Text('Keep editing'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(dialogContext, true),
-            child: const Text('Discard', style: TextStyle(color: Colors.redAccent)),
-          ),
-        ],
-      ),
-    );
-    return ok == true;
-  }
+  Future<bool> _confirmDiscardPrompt(BuildContext context) => _promptDiscardChanges(context);
 
   /// Discard action in the app bar: clears staged edits but stays on the page.
   Future<void> _confirmDiscard(BuildContext context) async {
@@ -247,6 +225,7 @@ class _LoadedViewState extends State<_LoadedView> {
 
     return Column(
       children: [
+        const _GroupBar(),
         Padding(
           padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
           child: TextField(
@@ -660,6 +639,298 @@ class _Thumbnail extends StatelessWidget {
         color: Colors.white.withValues(alpha: 0.06),
         child: const Icon(Icons.fastfood, color: Colors.white24, size: 20),
       );
+}
+
+// ── Shared dialogs ───────────────────────────────────────────────────────────
+
+const _bgColor = Color(0xff121212);
+const _accentColor = Color(0xfff25125);
+
+/// "Discard unsaved changes?" prompt. Returns true to proceed (discard).
+Future<bool> _promptDiscardChanges(BuildContext context) async {
+  final ok = await showDialog<bool>(
+    context: context,
+    builder: (dialogContext) => AlertDialog(
+      backgroundColor: _bgColor,
+      title: const Text('Discard changes?', style: TextStyle(color: Colors.white)),
+      content: const Text(
+        'Your unsaved menu changes will be lost.',
+        style: TextStyle(color: Colors.white70),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(dialogContext, false),
+          child: const Text('Keep editing'),
+        ),
+        TextButton(
+          onPressed: () => Navigator.pop(dialogContext, true),
+          child: const Text('Discard', style: TextStyle(color: Colors.redAccent)),
+        ),
+      ],
+    ),
+  );
+  return ok == true;
+}
+
+/// Prompts for a menu-group name. Returns the trimmed name, or null if cancelled
+/// or empty. [initial] pre-fills the field (for rename).
+Future<String?> _promptGroupName(
+  BuildContext context, {
+  required String title,
+  required String actionLabel,
+  String initial = '',
+}) async {
+  final controller = TextEditingController(text: initial);
+  final name = await showDialog<String>(
+    context: context,
+    builder: (dialogContext) => AlertDialog(
+      backgroundColor: _bgColor,
+      title: Text(title, style: const TextStyle(color: Colors.white)),
+      content: TextField(
+        controller: controller,
+        autofocus: true,
+        style: const TextStyle(color: Colors.white),
+        textCapitalization: TextCapitalization.words,
+        onSubmitted: (v) => Navigator.pop(dialogContext, v.trim()),
+        decoration: InputDecoration(
+          hintText: 'e.g. Weekday Dinner',
+          hintStyle: TextStyle(color: Colors.white.withValues(alpha: 0.4)),
+          enabledBorder: const UnderlineInputBorder(
+            borderSide: BorderSide(color: Colors.white24),
+          ),
+          focusedBorder: const UnderlineInputBorder(
+            borderSide: BorderSide(color: _accentColor),
+          ),
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(dialogContext, null),
+          child: const Text('Cancel'),
+        ),
+        TextButton(
+          onPressed: () => Navigator.pop(dialogContext, controller.text.trim()),
+          child: Text(actionLabel, style: const TextStyle(color: _accentColor)),
+        ),
+      ],
+    ),
+  );
+  controller.dispose();
+  final trimmed = name?.trim() ?? '';
+  return trimmed.isEmpty ? null : trimmed;
+}
+
+/// Confirmation dialog for deleting a group. Returns true to proceed.
+Future<bool> _promptDeleteGroup(BuildContext context, String name) async {
+  final ok = await showDialog<bool>(
+    context: context,
+    builder: (dialogContext) => AlertDialog(
+      backgroundColor: _bgColor,
+      title: const Text('Delete menu group?', style: TextStyle(color: Colors.white)),
+      content: Text(
+        'Delete "$name"? Its saved item configuration will be removed. This cannot be undone.',
+        style: const TextStyle(color: Colors.white70),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(dialogContext, false),
+          child: const Text('Cancel'),
+        ),
+        TextButton(
+          onPressed: () => Navigator.pop(dialogContext, true),
+          child: const Text('Delete', style: TextStyle(color: Colors.redAccent)),
+        ),
+      ],
+    ),
+  );
+  return ok == true;
+}
+
+/// Controls above the item list: pick which menu group's config the checkboxes
+/// edit, create/rename/delete groups, and set the active group (which drives the
+/// customer web menu). Self-subscribes via `context.select` so per-item toggles
+/// don't rebuild it.
+class _GroupBar extends StatelessWidget {
+  const _GroupBar();
+
+  @override
+  Widget build(BuildContext context) {
+    final info = context.select<MenuAdminBloc,
+        ({
+          List<MenuGroupModel> groups,
+          int? editingId,
+          int? activeId,
+          bool saving,
+          bool dirty,
+        })>((bloc) {
+      final s = bloc.state;
+      if (s is! MenuAdminLoaded) {
+        return (groups: const [], editingId: null, activeId: null, saving: false, dirty: false);
+      }
+      return (
+        groups: s.groups,
+        editingId: s.editingGroupId,
+        activeId: s.activeGroup?.id,
+        saving: s.isSaving,
+        dirty: s.isDirty,
+      );
+    });
+
+    final bloc = context.read<MenuAdminBloc>();
+
+    Future<void> switchEditing(int? id) async {
+      if (info.saving) return;
+      if (id == info.editingId) return;
+      if (info.dirty && !await _promptDiscardChanges(context)) return;
+      bloc.add(EditGroup(id));
+    }
+
+    MenuGroupModel? findGroup(int? id) {
+      if (id == null) return null;
+      for (final g in info.groups) {
+        if (g.id == id) return g;
+      }
+      return null;
+    }
+
+    final editingGroup = findGroup(info.editingId);
+    final activeGroup = findGroup(info.activeId);
+    final editingIsActive = editingGroup != null && editingGroup.id == info.activeId;
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+      decoration: BoxDecoration(
+        border: Border(bottom: BorderSide(color: Colors.white.withValues(alpha: 0.08))),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Text('Active menu:',
+                  style: TextStyle(color: Colors.white54, fontSize: 12)),
+              const SizedBox(width: 6),
+              Expanded(
+                child: Text(
+                  activeGroup?.name ?? 'None (per-item flags)',
+                  style: TextStyle(
+                    color: activeGroup != null ? _accentColor : Colors.white70,
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold,
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              const Text('Editing:',
+                  style: TextStyle(color: Colors.white54, fontSize: 12)),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.05),
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: Colors.white.withValues(alpha: 0.15)),
+                  ),
+                  child: DropdownButtonHideUnderline(
+                    child: DropdownButton<int?>(
+                      value: info.editingId,
+                      isExpanded: true,
+                      dropdownColor: _bgColor,
+                      iconEnabledColor: Colors.white54,
+                      style: const TextStyle(color: Colors.white, fontSize: 14),
+                      onChanged: info.saving ? null : (v) => switchEditing(v),
+                      items: [
+                        const DropdownMenuItem<int?>(
+                          value: null,
+                          child: Text('Default (per-item flags)'),
+                        ),
+                        for (final g in info.groups)
+                          DropdownMenuItem<int?>(
+                            value: g.id,
+                            child: Text(g.isActive ? '${g.name}  • ACTIVE' : g.name),
+                          ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+              IconButton(
+                tooltip: 'New menu group',
+                icon: const Icon(Icons.add, color: Colors.white70),
+                onPressed: info.saving
+                    ? null
+                    : () async {
+                        if (info.dirty && !await _promptDiscardChanges(context)) return;
+                        if (!context.mounted) return;
+                        final name = await _promptGroupName(
+                          context,
+                          title: 'New menu group',
+                          actionLabel: 'Create',
+                        );
+                        if (name != null) bloc.add(CreateGroup(name));
+                      },
+              ),
+            ],
+          ),
+          if (editingGroup != null) ...[
+            const SizedBox(height: 4),
+            Row(
+              children: [
+                if (!editingIsActive)
+                  TextButton.icon(
+                    onPressed: info.saving
+                        ? null
+                        : () => bloc.add(SelectActiveGroup(editingGroup.id)),
+                    icon: const Icon(Icons.check_circle_outline, size: 18, color: _accentColor),
+                    label: const Text('Set active', style: TextStyle(color: _accentColor)),
+                  )
+                else
+                  const Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 8),
+                    child: Text('This group is active',
+                        style: TextStyle(color: Colors.white38, fontSize: 12)),
+                  ),
+                const Spacer(),
+                IconButton(
+                  tooltip: 'Rename group',
+                  icon: const Icon(Icons.edit_outlined, color: Colors.white54, size: 20),
+                  onPressed: info.saving
+                      ? null
+                      : () async {
+                          final name = await _promptGroupName(
+                            context,
+                            title: 'Rename group',
+                            actionLabel: 'Rename',
+                            initial: editingGroup.name,
+                          );
+                          if (name != null) bloc.add(RenameGroup(editingGroup.id, name));
+                        },
+                ),
+                IconButton(
+                  tooltip: 'Delete group',
+                  icon: const Icon(Icons.delete_outline, color: Colors.redAccent, size: 20),
+                  onPressed: info.saving
+                      ? null
+                      : () async {
+                          if (await _promptDeleteGroup(context, editingGroup.name)) {
+                            bloc.add(DeleteGroup(editingGroup.id));
+                          }
+                        },
+                ),
+              ],
+            ),
+          ],
+        ],
+      ),
+    );
+  }
 }
 
 class _ErrorView extends StatelessWidget {

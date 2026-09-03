@@ -96,6 +96,13 @@ class MenuBloc extends Bloc<MenuEvent, MenuState> {
 
       final sortedItems = List<ItemModel>.from(items)..sort(compareItemsByButtonIndex);
 
+      // Hide categories that have no available items (e.g. every item disabled by
+      // the active menu group), so empty category pills never render.
+      final categoryIdsWithItems = sortedItems.map((i) => i.categoryId).toSet();
+      categories = categories
+          .where((c) => categoryIdsWithItems.contains(c.categoryId ?? c.id))
+          .toList();
+
       int? defaultCatId;
       if (categories.isNotEmpty) {
         defaultCatId = categories.first.categoryId ?? categories.first.id;

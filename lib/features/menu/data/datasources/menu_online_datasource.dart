@@ -4,6 +4,7 @@ import '../models/department_model.dart';
 import '../models/category_model.dart';
 import '../models/item_model.dart';
 import '../models/instruction_group_model.dart';
+import '../models/menu_group_model.dart';
 import 'menu_data_source.dart';
 
 /// Online (hosted) menu catalog: plural, branch-scoped tables.
@@ -83,4 +84,35 @@ class OnlineMenuDataSource implements MenuDataSource {
   // Special instructions are a local-mode feature; online path is unchanged.
   @override
   Future<List<InstructionGroup>> getItemInstructions(String barcode, {int? categoryId}) async => [];
+
+  // ── Menu groups ────────────────────────────────────────────────────────────
+  // TODO(online): menu groups are a local-mode feature for now (migration 0052).
+  // The hosted `items` schema is plural + branch-scoped and has no menu_group
+  // tables yet; implement once they ship to the hosted schema.
+  static const _unsupported =
+      'Menu groups are not yet supported in online (hosted) mode.';
+
+  @override
+  Future<List<MenuGroupModel>> getMenuGroups() async => [];
+
+  @override
+  Future<MenuGroupModel> createMenuGroup(String name) async =>
+      throw UnimplementedError(_unsupported);
+
+  @override
+  Future<void> renameMenuGroup(int id, String name) async =>
+      throw UnimplementedError(_unsupported);
+
+  @override
+  Future<void> deleteMenuGroup(int id) async => throw UnimplementedError(_unsupported);
+
+  @override
+  Future<void> setActiveMenuGroup(int id) async => throw UnimplementedError(_unsupported);
+
+  @override
+  Future<Map<String, bool>> getMenuGroupItems(int id) async => {};
+
+  @override
+  Future<void> setMenuGroupItems(int id, Map<String, bool> updates) async =>
+      throw UnimplementedError(_unsupported);
 }

@@ -53,3 +53,57 @@ class SaveChanges extends MenuAdminEvent {
 class DiscardChanges extends MenuAdminEvent {
   const DiscardChanges();
 }
+
+// ── Menu groups (batch item-availability presets) ────────────────────────────
+
+/// Create a new (inactive) menu group with the given name.
+class CreateGroup extends MenuAdminEvent {
+  final String name;
+
+  const CreateGroup(this.name);
+
+  @override
+  List<Object?> get props => [name];
+}
+
+/// Rename an existing menu group.
+class RenameGroup extends MenuAdminEvent {
+  final int id;
+  final String name;
+
+  const RenameGroup(this.id, this.name);
+
+  @override
+  List<Object?> get props => [id, name];
+}
+
+/// Delete a menu group (its item config cascades away).
+class DeleteGroup extends MenuAdminEvent {
+  final int id;
+
+  const DeleteGroup(this.id);
+
+  @override
+  List<Object?> get props => [id];
+}
+
+/// Make a group the single active one (drives the customer web menu).
+class SelectActiveGroup extends MenuAdminEvent {
+  final int id;
+
+  const SelectActiveGroup(this.id);
+
+  @override
+  List<Object?> get props => [id];
+}
+
+/// Load a group's config into the editing surface so the checkboxes represent
+/// that group. Passing null returns to editing the legacy per-item flags.
+class EditGroup extends MenuAdminEvent {
+  final int? id;
+
+  const EditGroup(this.id);
+
+  @override
+  List<Object?> get props => [id];
+}
