@@ -1,6 +1,7 @@
 import 'package:get_it/get_it.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../utils/device_id_service.dart';
+import '../services/reload_signal_service.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../config/app_config.dart';
 import '../../features/menu/data/datasources/menu_data_source.dart';
@@ -33,6 +34,7 @@ Future<void> init() async {
 
   // Core
   sl.registerLazySingleton(() => DeviceIdService(sl()));
+  sl.registerLazySingleton(() => ReloadSignalService(sl()));
   // Features - Home
   sl.registerLazySingleton(() => MenuBloc(sl()));
 

@@ -6,9 +6,23 @@ import 'features/table/presentation/bloc/table_bloc.dart';
 import 'features/orders/presentation/bloc/cart_bloc.dart';
 import 'features/auth/presentation/bloc/auth_bloc.dart';
 import 'core/di/injection_container.dart' as di;
+import 'core/services/reload_signal_service.dart';
 
-class MyApp extends StatelessWidget {
+class MyApp extends StatefulWidget {
   const MyApp({super.key});
+
+  @override
+  State<MyApp> createState() => _MyAppState();
+}
+
+class _MyAppState extends State<MyApp> {
+  @override
+  void initState() {
+    super.initState();
+    // Always-on listener so a staff "Reload all" signal reaches this client
+    // instantly (web only; a no-op elsewhere).
+    di.sl<ReloadSignalService>().start();
+  }
 
   @override
   Widget build(BuildContext context) {

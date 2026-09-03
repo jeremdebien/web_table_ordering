@@ -3,7 +3,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
+import 'package:get_it/get_it.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
+import '../../../../core/services/reload_signal_service.dart';
 import '../../../table/presentation/bloc/table_bloc.dart';
 import '../../../auth/presentation/bloc/auth_bloc.dart';
 import '../../../auth/presentation/access_guard.dart';
@@ -324,6 +326,50 @@ class _HomePageState extends State<HomePage> {
 class _WaiterHeader extends StatelessWidget {
   const _WaiterHeader();
 
+  /// Confirms, then broadcasts a reload signal that forces every connected
+  /// client (all customer devices + this one) to reload onto the latest build.
+  Future<void> _confirmAndReloadAll(BuildContext context) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        backgroundColor: const Color(0xff121212),
+        title: const Text('Reload all devices?',
+            style: TextStyle(color: Colors.white)),
+        content: Text(
+          'Every open device — including customer tablets — will reload '
+          'immediately onto the latest version. Continue?',
+          style: TextStyle(color: Colors.white.withValues(alpha: 0.7)),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel', style: TextStyle(color: Colors.white70)),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Reload all',
+                style: TextStyle(
+                    color: Color(0xfff25125), fontWeight: FontWeight.bold)),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true || !context.mounted) return;
+
+    final messenger = ScaffoldMessenger.maybeOf(context);
+    try {
+      await GetIt.instance<ReloadSignalService>().trigger();
+      messenger?.showSnackBar(
+        const SnackBar(content: Text('Reload signal sent to all devices.')),
+      );
+    } catch (e) {
+      messenger?.showSnackBar(
+        SnackBar(content: Text('Could not send reload signal: $e')),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return BlocBuilder<AuthBloc, AuthState>(
@@ -388,6 +434,23 @@ class _WaiterHeader extends StatelessWidget {
                             size: 18, color: Colors.white),
                         label: const Text(
                           'Tables',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                      TextButton.icon(
+                        onPressed: () => guardWebAction(
+                          context,
+                          accessKey: 'web_force_reload',
+                          actionName: 'Reload all devices',
+                          onGranted: () => _confirmAndReloadAll(context),
+                        ),
+                        icon: const Icon(Icons.refresh,
+                            size: 18, color: Colors.white),
+                        label: const Text(
+                          'Reload all',
                           style: TextStyle(
                             color: Colors.white,
                             fontWeight: FontWeight.bold,
