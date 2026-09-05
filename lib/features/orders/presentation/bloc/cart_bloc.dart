@@ -18,6 +18,9 @@ class CartBloc extends Bloc<CartEvent, CartState> {
   StreamSubscription? _menuSubscription;
   StreamSubscription? _realtimeSubscription;
   int? _subscribedSalesOrderId;
+  // Idempotency guard: true while a SubmitOrder is in flight, so rapid
+  // double-taps of "Place Order"/"Confirm & Send" only place the order once.
+  bool _isSubmitting = false;
 
   CartBloc(this._ordersDataSource, this._menuBloc, this._deviceIdService) : super(const CartState()) {
     on<AddToCart>(_onAddToCart);
@@ -142,6 +145,11 @@ class CartBloc extends Bloc<CartEvent, CartState> {
   }
 
   Future<void> _onSubmitOrder(SubmitOrder event, Emitter<CartState> emit) async {
+    // Idempotency guard: drop repeat submits while one is already in flight.
+    // BLoC handlers run concurrently by default, so without this a double-tap
+    // would fire two submitSalesOrder calls and place the order twice.
+    if (_isSubmitting) return;
+    _isSubmitting = true;
     emit(state.copyWith(status: CartStatus.loading));
     try {
       // Filter only NEW items (originalQuantity == 0)
@@ -167,6 +175,8 @@ class CartBloc extends Bloc<CartEvent, CartState> {
       add(LoadActiveOrder(event.tableId));
     } catch (e) {
       emit(state.copyWith(status: CartStatus.failure, errorMessage: e.toString()));
+    } finally {
+      _isSubmitting = false;
     }
   }
 

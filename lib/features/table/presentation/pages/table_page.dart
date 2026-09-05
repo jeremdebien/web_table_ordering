@@ -69,7 +69,7 @@ class TablePage extends StatelessWidget {
                                     children: [
                                       // Stroke Layer
                                       Text(
-                                        "Welcome to NYX Vikings",
+                                        "Welcome to Nyx",
                                         style: TextStyle(
                                           fontSize: 14,
                                           fontWeight: FontWeight.bold,
@@ -82,7 +82,7 @@ class TablePage extends StatelessWidget {
                                       ),
                                       // Solid Text Layer
                                       Text(
-                                        "Welcome to NYX Vikings",
+                                        "Welcome to Nyx",
                                         style: TextStyle(
                                           fontSize: 14,
                                           fontWeight: FontWeight.bold,

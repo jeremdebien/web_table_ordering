@@ -134,7 +134,7 @@ class _HomePageState extends State<HomePage> {
                           Stack(
                             children: [
                               Text(
-                                "Welcome to NYX Vikings",
+                                "Welcome to Nyx",
                                 textAlign: TextAlign.center,
                                 style: TextStyle(
                                   fontSize: 24,
@@ -146,7 +146,7 @@ class _HomePageState extends State<HomePage> {
                                 ),
                               ),
                               const Text(
-                                "Welcome to NYX Vikings",
+                                "Welcome to Nyx",
                                 textAlign: TextAlign.center,
                                 style: TextStyle(
                                   fontSize: 24,
@@ -333,8 +333,7 @@ class _WaiterHeader extends StatelessWidget {
       context: context,
       builder: (_) => AlertDialog(
         backgroundColor: const Color(0xff121212),
-        title: const Text('Reload all devices?',
-            style: TextStyle(color: Colors.white)),
+        title: const Text('Reload all devices?', style: TextStyle(color: Colors.white)),
         content: Text(
           'Every open device — including customer tablets — will reload '
           'immediately onto the latest version. Continue?',
@@ -347,9 +346,10 @@ class _WaiterHeader extends StatelessWidget {
           ),
           TextButton(
             onPressed: () => Navigator.pop(context, true),
-            child: const Text('Reload all',
-                style: TextStyle(
-                    color: Color(0xfff25125), fontWeight: FontWeight.bold)),
+            child: const Text(
+              'Reload all',
+              style: TextStyle(color: Color(0xfff25125), fontWeight: FontWeight.bold),
+            ),
           ),
         ],
       ),
@@ -387,8 +387,7 @@ class _WaiterHeader extends StatelessWidget {
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        const Icon(Icons.badge_outlined,
-                            color: Colors.white, size: 18),
+                        const Icon(Icons.badge_outlined, color: Colors.white, size: 18),
                         const SizedBox(width: 8),
                         Flexible(
                           child: Text(
@@ -413,8 +412,7 @@ class _WaiterHeader extends StatelessWidget {
                           actionName: 'Menu Curation',
                           onGranted: () => context.go('/staff/menu'),
                         ),
-                        icon: const Icon(Icons.restaurant_menu,
-                            size: 18, color: Colors.white),
+                        icon: const Icon(Icons.restaurant_menu, size: 18, color: Colors.white),
                         label: const Text(
                           'Menu',
                           style: TextStyle(
@@ -430,8 +428,7 @@ class _WaiterHeader extends StatelessWidget {
                           actionName: 'Clear / Settle Table',
                           onGranted: () => context.go('/staff/tables'),
                         ),
-                        icon: const Icon(Icons.table_restaurant,
-                            size: 18, color: Colors.white),
+                        icon: const Icon(Icons.table_restaurant, size: 18, color: Colors.white),
                         label: const Text(
                           'Tables',
                           style: TextStyle(
@@ -447,8 +444,7 @@ class _WaiterHeader extends StatelessWidget {
                           actionName: 'Reload all devices',
                           onGranted: () => _confirmAndReloadAll(context),
                         ),
-                        icon: const Icon(Icons.refresh,
-                            size: 18, color: Colors.white),
+                        icon: const Icon(Icons.refresh, size: 18, color: Colors.white),
                         label: const Text(
                           'Reload all',
                           style: TextStyle(
@@ -458,8 +454,7 @@ class _WaiterHeader extends StatelessWidget {
                         ),
                       ),
                       TextButton.icon(
-                        onPressed: () =>
-                            context.read<AuthBloc>().add(const AuthLogout()),
+                        onPressed: () => context.read<AuthBloc>().add(const AuthLogout()),
                         icon: const Icon(Icons.logout, size: 18, color: Colors.white),
                         label: const Text(
                           'Log out',
@@ -489,8 +484,7 @@ class QrScannerDialog extends StatefulWidget {
   State<QrScannerDialog> createState() => _QrScannerDialogState();
 }
 
-class _QrScannerDialogState extends State<QrScannerDialog>
-    with SingleTickerProviderStateMixin {
+class _QrScannerDialogState extends State<QrScannerDialog> with SingleTickerProviderStateMixin {
   final MobileScannerController _scannerController = MobileScannerController(
     detectionSpeed: DetectionSpeed.normal,
     facing: CameraFacing.back,
@@ -646,9 +640,7 @@ class _QrScannerDialogState extends State<QrScannerDialog>
                                   if (mounted && !_hasError) {
                                     setState(() {
                                       _hasError = true;
-                                      if (error.errorCode ==
-                                          MobileScannerErrorCode
-                                              .permissionDenied) {
+                                      if (error.errorCode == MobileScannerErrorCode.permissionDenied) {
                                         _isPermissionDenied = true;
                                       }
                                     });
@@ -888,9 +880,7 @@ class _TableNameDialogState extends State<TableNameDialog> {
                             color: Colors.white54,
                             size: 20,
                           ),
-                          onPressed: isLoading
-                              ? null
-                              : () => Navigator.pop(context),
+                          onPressed: isLoading ? null : () => Navigator.pop(context),
                         ),
                       ],
                     ),
@@ -989,10 +979,7 @@ class _TableNameDialogState extends State<TableNameDialog> {
                             Expanded(
                               child: Text(
                                 state.message.contains('Exception:')
-                                    ? state.message
-                                          .split('Exception:')
-                                          .last
-                                          .trim()
+                                    ? state.message.split('Exception:').last.trim()
                                     : 'Table not found. Check the name and try again.',
                                 style: const TextStyle(
                                   color: Colors.redAccent,
@@ -1010,15 +997,11 @@ class _TableNameDialogState extends State<TableNameDialog> {
                       mainAxisAlignment: MainAxisAlignment.end,
                       children: [
                         TextButton(
-                          onPressed: isLoading
-                              ? null
-                              : () => Navigator.pop(context),
+                          onPressed: isLoading ? null : () => Navigator.pop(context),
                           child: Text(
                             'Cancel',
                             style: TextStyle(
-                              color: isLoading
-                                  ? Colors.white30
-                                  : Colors.white70,
+                              color: isLoading ? Colors.white30 : Colors.white70,
                               fontWeight: FontWeight.bold,
                             ),
                           ),

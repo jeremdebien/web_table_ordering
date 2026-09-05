@@ -255,70 +255,89 @@ class _MenuPageState extends State<MenuPage> {
                                 .toList();
                           }
 
+                          // Hero image height derived from the asset's exact
+                          // aspect ratio (1513x1039) so the full image is shown
+                          // at screen width with no cropping when expanded.
+                          final double heroHeight =
+                              MediaQuery.of(context).size.width * (1039 / 1513);
+
                           return CustomScrollView(
                             slivers: [
-                              // Food Background Header
-                              SliverToBoxAdapter(
-                                child: Container(
-                                  height: 310,
-                                  alignment: Alignment.topRight,
-                                  decoration: const BoxDecoration(
-                                    image: DecorationImage(
-                                      image: AssetImage(
-                                        "assets/images/menubg.png",
+                              // Collapsing header: hero image scrolls away while
+                              // the account icon (toolbar) and the search +
+                              // category pills (bottom) stay pinned to the top.
+                              SliverAppBar(
+                                pinned: true,
+                                backgroundColor: const Color(0xFFFAF7F2),
+                                surfaceTintColor: Colors.transparent,
+                                elevation: 2,
+                                automaticallyImplyLeading: false,
+                                toolbarHeight: 0,
+                                expandedHeight: heroHeight + 134,
+                                flexibleSpace: FlexibleSpaceBar(
+                                  collapseMode: CollapseMode.parallax,
+                                  background: Stack(
+                                    children: [
+                                      const Image(
+                                        image: AssetImage(
+                                          "assets/images/menubg_v3.jpeg",
+                                        ),
+                                        width: double.infinity,
+                                        fit: BoxFit.fitWidth,
+                                        alignment: Alignment.topCenter,
                                       ),
-                                      fit: BoxFit.cover,
-                                    ),
-                                  ),
-                                  child: SafeArea(
-                                    bottom: false,
-                                    child: Padding(
-                                      padding: const EdgeInsets.only(
-                                        top: 10.0,
-                                        left: 20.0,
-                                        right: 20.0,
-                                      ),
-                                      child: Row(
-                                        mainAxisAlignment:
-                                            MainAxisAlignment.end,
-                                        children: [
-                                          GestureDetector(
-                                            onTap: () => _showNicknamePrompt(
-                                              context,
-                                              initialValue: cartState.nickname,
+                                      Positioned(
+                                        top: 0,
+                                        left: 0,
+                                        right: 0,
+                                        child: SafeArea(
+                                          bottom: false,
+                                          child: Padding(
+                                            padding: const EdgeInsets.only(
+                                              top: 10.0,
+                                              left: 20.0,
+                                              right: 20.0,
                                             ),
-                                            child: Column(
-                                              mainAxisSize: MainAxisSize.min,
+                                            child: Row(
+                                              mainAxisAlignment:
+                                                  MainAxisAlignment.end,
                                               children: [
-                                                const Icon(
-                                                  Icons.account_circle,
-                                                  color: Colors.white,
-                                                  size: 24,
-                                                ),
-                                                if (cartState.nickname.isNotEmpty)
-                                                  Text(
-                                                    cartState.nickname.toLowerCase(),
-                                                    style: const TextStyle(
-                                                      color: Colors.white70,
-                                                      fontSize: 10,
-                                                    ),
-                                                    overflow: TextOverflow.ellipsis,
+                                                GestureDetector(
+                                                  onTap: () => _showNicknamePrompt(
+                                                    context,
+                                                    initialValue: cartState.nickname,
                                                   ),
+                                                  child: Column(
+                                                    mainAxisSize: MainAxisSize.min,
+                                                    children: [
+                                                      const Icon(
+                                                        Icons.account_circle,
+                                                        color: Colors.white,
+                                                        size: 24,
+                                                      ),
+                                                      if (cartState.nickname.isNotEmpty)
+                                                        Text(
+                                                          cartState.nickname.toLowerCase(),
+                                                          style: const TextStyle(
+                                                            color: Colors.white70,
+                                                            fontSize: 10,
+                                                          ),
+                                                          overflow: TextOverflow.ellipsis,
+                                                        ),
+                                                    ],
+                                                  ),
+                                                ),
                                               ],
                                             ),
                                           ),
-                                        ],
+                                        ),
                                       ),
-                                    ),
+                                    ],
                                   ),
                                 ),
-                              ),
-                              // Beige Content Box
-                              SliverToBoxAdapter(
-                                child: Transform.translate(
-                                  offset: const Offset(0, -20),
+                                bottom: PreferredSize(
+                                  preferredSize: const Size.fromHeight(134),
                                   child: Container(
-                                    padding: const EdgeInsets.only(top: 26),
                                     decoration: const BoxDecoration(
                                       color: Color(0xFFFAF7F2),
                                       borderRadius: BorderRadius.only(
@@ -327,8 +346,9 @@ class _MenuPageState extends State<MenuPage> {
                                       ),
                                     ),
                                     child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      mainAxisSize: MainAxisSize.min,
                                       children: [
+                                        const SizedBox(height: 14),
                                         // Search Bar with debounced input and instant clear
                                         Padding(
                                           padding: const EdgeInsets.symmetric(
@@ -473,6 +493,19 @@ class _MenuPageState extends State<MenuPage> {
                                                   ),
                                                 ),
                                         ),
+                                        const SizedBox(height: 14),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              ),
+                              // Scrolling content: category title + item grid.
+                              SliverToBoxAdapter(
+                                child: Container(
+                                  color: const Color(0xFFFAF7F2),
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
                                         // Category title header with smooth animated text switcher
                                         Padding(
                                           padding: const EdgeInsets.symmetric(
@@ -535,33 +568,53 @@ class _MenuPageState extends State<MenuPage> {
                                                   ),
                                                 ),
                                               )
-                                            : GridView.builder(
-                                                shrinkWrap: true,
-                                                physics: const NeverScrollableScrollPhysics(),
-                                                padding: const EdgeInsets.symmetric(
-                                                  horizontal: 16,
-                                                ),
-                                                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                                                  crossAxisCount: 2,
-                                                  childAspectRatio: 0.65,
-                                                  crossAxisSpacing: 12,
-                                                  mainAxisSpacing: 12,
-                                                ),
-                                                itemCount: displayItems.length,
-                                                itemBuilder: (context, index) {
-                                                  final item = displayItems[index];
-                                                  return MenuItemCard(
-                                                    item: item,
-                                                    onTap: () => _showAddItemConfirmation(
-                                                      context,
-                                                      item,
+                                            : LayoutBuilder(
+                                                builder: (context, constraints) {
+                                                  // Derive the exact cell ratio
+                                                  // from the available width so the
+                                                  // image is a perfect square and
+                                                  // the fixed text block below fits
+                                                  // with no overflow at any width.
+                                                  const double hPadding = 16;
+                                                  const double crossSpacing = 12;
+                                                  // Slightly > the real text block
+                                                  // (~100px) to leave a hair of slack.
+                                                  const double textBlock = 104;
+                                                  final double itemWidth =
+                                                      (constraints.maxWidth -
+                                                              hPadding * 2 -
+                                                              crossSpacing) /
+                                                          2;
+                                                  final double ratio = itemWidth /
+                                                      (itemWidth + textBlock);
+                                                  return GridView.builder(
+                                                    shrinkWrap: true,
+                                                    physics: const NeverScrollableScrollPhysics(),
+                                                    padding: const EdgeInsets.symmetric(
+                                                      horizontal: hPadding,
                                                     ),
+                                                    gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                                                      crossAxisCount: 2,
+                                                      childAspectRatio: ratio,
+                                                      crossAxisSpacing: crossSpacing,
+                                                      mainAxisSpacing: 12,
+                                                    ),
+                                                    itemCount: displayItems.length,
+                                                    itemBuilder: (context, index) {
+                                                      final item = displayItems[index];
+                                                      return MenuItemCard(
+                                                        item: item,
+                                                        onTap: () => _showAddItemConfirmation(
+                                                          context,
+                                                          item,
+                                                        ),
+                                                      );
+                                                    },
                                                   );
                                                 },
                                               ),
                                         const SizedBox(height: 20),
-                                      ],
-                                    ),
+                                    ],
                                   ),
                                 ),
                               ),

@@ -33,21 +33,20 @@ class MenuItemCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Image
-            Expanded(
-              child: ClipRRect(
-                borderRadius: const BorderRadius.vertical(
-                  top: Radius.circular(20),
-                ),
-                child: SizedBox.expand(
-                  child: item.displayImage != null
-                      ? Image.network(
-                          item.displayImage!,
-                          fit: BoxFit.cover,
-                          errorBuilder: (ctx, err, stack) => const _Placeholder(),
-                        )
-                      : const _Placeholder(),
-                ),
+            // Square image, uniform across every card.
+            ClipRRect(
+              borderRadius: const BorderRadius.vertical(
+                top: Radius.circular(20),
+              ),
+              child: AspectRatio(
+                aspectRatio: 1,
+                child: item.displayImage != null
+                    ? Image.network(
+                        item.displayImage!,
+                        fit: BoxFit.cover,
+                        errorBuilder: (ctx, err, stack) => const _Placeholder(),
+                      )
+                    : const _Placeholder(),
               ),
             ),
             // Details
@@ -56,22 +55,25 @@ class MenuItemCard extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    item.name,
-                    style: const TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.bold,
-                      color: Color(0xFF1A1A1A),
+                  // Fixed 2-line slot with the name vertically centered. The
+                  // constant height keeps the square image uniform and the price
+                  // row aligned across cards; the font never shrinks.
+                  SizedBox(
+                    height: 38,
+                    child: Align(
+                      alignment: Alignment.centerLeft,
+                      child: Text(
+                        item.name,
+                        style: const TextStyle(
+                          fontSize: 14,
+                          height: 1.3,
+                          fontWeight: FontWeight.bold,
+                          color: Color(0xFF1A1A1A),
+                        ),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
                     ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    item.description ?? 'Handcrafted fresh daily',
-                    style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
                   ),
                   const SizedBox(height: 8),
                   Row(
