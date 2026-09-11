@@ -3,6 +3,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:rxdart/rxdart.dart';
 import 'package:uuid/uuid.dart';
 import '../../../../core/config/app_config.dart';
+import '../../../table_qr/data/table_qr_session.dart';
 import '../models/sales_order_model.dart';
 import '../models/sales_order_item_model.dart';
 import 'orders_data_source.dart';
@@ -13,8 +14,9 @@ import 'orders_data_source.dart';
 /// to `sales_order_item` and always read back as "Accepted".
 class LocalOrdersDataSource implements OrdersDataSource {
   final SupabaseClient _client;
+  final TableQrSession _qrSession;
 
-  LocalOrdersDataSource(this._client);
+  LocalOrdersDataSource(this._client, this._qrSession);
 
   String get _posClientId => AppConfig.posClientId;
   int get _orderType => AppConfig.orderTypeCode;
@@ -51,6 +53,9 @@ class LocalOrdersDataSource implements OrdersDataSource {
     required int guestCount,
     required List<SalesOrderItemModel> items,
   }) async {
+    // Dynamic table QR token (null in static mode / no scan); the consolidator
+    // only checks it when the store runs dynamic mode (migration 0061).
+    final qrToken = _qrSession.tokenForTable(tableId);
     try {
       // 1. Reuse the open header for this table, or insert a new one.
       int? salesOrderId = await _activeSalesOrderId(tableId);
@@ -65,6 +70,7 @@ class LocalOrdersDataSource implements OrdersDataSource {
                 'guest_count': guestCount,
                 'order_type': _orderType,
                 'payment_status': 0,
+                'qr_token': ?qrToken,
               })
               .select('sales_order_id')
               .single();
@@ -124,6 +130,7 @@ class LocalOrdersDataSource implements OrdersDataSource {
                     // Re-stamp so the newly-ordered delta routes to THIS send's
                     // kitchen card rather than the original submission's.
                     'kds_batch_id': batchId,
+                    'qr_token': ?qrToken,
                   })
                   .eq('order_item_id', validMatch['order_item_id']),
             );
@@ -145,6 +152,7 @@ class LocalOrdersDataSource implements OrdersDataSource {
               'special_instructions': item.specialInstructions,
               'note': item.note,
               'kds_batch_id': batchId,
+              'qr_token': ?qrToken,
             });
           }
         }
@@ -161,6 +169,7 @@ class LocalOrdersDataSource implements OrdersDataSource {
       // Guest-facing message; must not be wrapped as a generic failure.
       rethrow;
     } catch (e) {
+      if (QrExpiredException.matches(e)) throw const QrExpiredException();
       throw Exception('Failed to create order: $e');
     }
   }

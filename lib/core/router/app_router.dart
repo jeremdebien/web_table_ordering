@@ -15,6 +15,9 @@ import '../../features/menu/presentation/pages/menu_page.dart';
 import '../../features/table/presentation/pages/table_page.dart';
 import '../../features/table/presentation/pages/qr_resolver_page.dart';
 import '../../features/orders/presentation/pages/order_summary_page.dart';
+import '../../features/table_qr/presentation/pages/qr_expired_page.dart';
+import '../../features/table_qr/presentation/pages/table_qr_token_page.dart';
+import '../../features/table_qr/presentation/widgets/table_qr_gate.dart';
 import '../pages/not_found_page.dart';
 
 /// [kiosk] is the Android self-order build (`main_kiosk.dart`): `/` opens the
@@ -78,23 +81,36 @@ GoRouter buildRouter({bool kiosk = false}) => GoRouter(
         ),
       ],
     ),
+    // Dynamic table QR (consolidator migration 0061): the POS-printed slip
+    // points here; the token is resolved, kept for submits, then forwarded to
+    // `/table/:uuid`.
+    GoRoute(
+      path: '/t/:token',
+      builder: (context, state) => TableQrTokenPage(token: state.pathParameters['token']!),
+    ),
+    GoRoute(
+      path: '/qr-expired',
+      builder: (context, state) => QrExpiredPage(reason: state.uri.queryParameters['reason'] ?? 'expired'),
+    ),
     GoRoute(
       path: '/table/:uuid',
       routes: [
         GoRoute(
           path: 'menu',
-          builder: (context, state) => const MenuPage(),
+          builder: (context, state) =>
+              TableQrGate(tableUuid: state.pathParameters['uuid']!, child: const MenuPage()),
         ),
         GoRoute(
           path: 'order_summary',
-          builder: (context, state) => const OrderSummaryPage(),
+          builder: (context, state) =>
+              TableQrGate(tableUuid: state.pathParameters['uuid']!, child: const OrderSummaryPage()),
         ),
       ],
       builder: (context, state) {
         final uuid = state.pathParameters['uuid']!;
         // Load table context
         context.read<TableBloc>().add(GetTable(uuid));
-        return const TablePage();
+        return TableQrGate(tableUuid: uuid, child: const TablePage());
       },
     ),
     GoRoute(

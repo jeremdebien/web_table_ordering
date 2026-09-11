@@ -16,6 +16,26 @@ class SplitTableException implements Exception {
   String toString() => message;
 }
 
+/// Thrown when the consolidator rejects a web order write because the store
+/// runs dynamic table QR and this browser's token is missing, expired, or
+/// revoked (TABLE_QR_EXPIRED / TABLE_QR_INVALID, migration 0061). The message
+/// is guest-facing verbatim.
+class QrExpiredException implements Exception {
+  static const friendlyMessage = 'This table QR has expired. Please ask our staff for a new one.';
+
+  final String message;
+  const QrExpiredException([this.message = friendlyMessage]);
+
+  /// True when [e] is the consolidator's table-QR rejection.
+  static bool matches(Object e) {
+    final text = e.toString();
+    return text.contains('TABLE_QR_EXPIRED') || text.contains('TABLE_QR_INVALID');
+  }
+
+  @override
+  String toString() => message;
+}
+
 /// Read/write contract for orders, implemented per app mode
 /// (online: Edge Functions + pending stage, local: direct writes).
 abstract class OrdersDataSource {

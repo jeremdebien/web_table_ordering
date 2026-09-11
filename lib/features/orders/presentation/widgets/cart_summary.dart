@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:go_router/go_router.dart';
 import '../bloc/cart_bloc.dart';
 import '../../../table/presentation/bloc/table_bloc.dart';
 import '../../../menu/data/models/item_model.dart';
@@ -50,6 +51,14 @@ class _CartSummaryState extends State<CartSummary> {
           Navigator.of(context).pop();
         } else if (state.status == CartStatus.failure) {
           debugPrint('Failed to submit order: ${state.errorMessage}');
+          // Dynamic table QR expired/revoked: the order can never go through
+          // with this token, so leave the menu for the "ask staff" page.
+          if (state.errorMessage == QrExpiredException.friendlyMessage) {
+            final router = GoRouter.of(context);
+            Navigator.of(context).pop();
+            router.go('/qr-expired?reason=expired');
+            return;
+          }
           // A split-table block is an expected, guest-facing condition — show its
           // message verbatim rather than dressing it as a generic failure.
           final isSplitTable =

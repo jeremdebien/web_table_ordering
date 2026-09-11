@@ -23,6 +23,7 @@ import '../../features/auth/data/datasources/user_data_source.dart';
 import '../../features/auth/data/datasources/local_user_data_source.dart';
 import '../../features/auth/data/datasources/online_user_data_source.dart';
 import '../../features/auth/presentation/bloc/auth_bloc.dart';
+import '../../features/table_qr/data/table_qr_session.dart';
 
 final sl = GetIt.instance;
 
@@ -35,6 +36,7 @@ Future<void> init() async {
   // Core
   sl.registerLazySingleton(() => DeviceIdService(sl()));
   sl.registerLazySingleton(() => ReloadSignalService(sl()));
+  sl.registerLazySingleton(() => TableQrSession(sl(), sl()));
   // Features - Home
   sl.registerLazySingleton(() => MenuBloc(sl()));
 
@@ -47,7 +49,7 @@ Future<void> init() async {
     () => AppConfig.isLocal ? LocalMenuDataSource(sl()) : OnlineMenuDataSource(sl()),
   );
   sl.registerLazySingleton<OrdersDataSource>(
-    () => AppConfig.isLocal ? LocalOrdersDataSource(sl()) : OnlineOrdersDataSource(sl()),
+    () => AppConfig.isLocal ? LocalOrdersDataSource(sl(), sl()) : OnlineOrdersDataSource(sl()),
   );
   sl.registerLazySingleton<TableDataSource>(
     () => AppConfig.isLocal ? LocalTableDataSource(sl()) : OnlineTableDataSource(sl()),
