@@ -90,7 +90,7 @@ class LocalOrdersDataSource implements OrdersDataSource {
         // Fetch existing items for this order to check for duplicates
         final existingItemsRes = await _client
             .from('sales_order_item')
-            .select('order_item_id, item_barcode, quantity, customer_name, web_device_id, special_instructions')
+            .select('order_item_id, item_barcode, quantity, customer_name, web_device_id, special_instructions, note')
             .eq('sales_order_id', salesOrderId);
 
         final existingItems = List<Map<String, dynamic>>.from(existingItemsRes);
