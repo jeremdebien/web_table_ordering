@@ -1,1 +1,6 @@
 flutter build web --release --no-web-resources-cdn --dart-define-from-file=.env --pwa-strategy=none
+
+# Android kiosk (self-order)
+flutter run -d windows -t lib/main_kiosk.dart --dart-define-from-file=.env
+flutter run -t lib/main_kiosk.dart --dart-define-from-file=.env
+flutter build apk --release -t lib/main_kiosk.dart --dart-define-from-file=.env

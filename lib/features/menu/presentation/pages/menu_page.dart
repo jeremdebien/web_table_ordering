@@ -1,6 +1,8 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:go_router/go_router.dart';
+import 'package:web_table_ordering/features/kiosk/presentation/widgets/kiosk_checkout_dialog.dart';
 import 'package:web_table_ordering/features/menu/presentation/bloc/menu_bloc.dart';
 import 'package:web_table_ordering/features/orders/presentation/bloc/cart_bloc.dart';
 import 'package:web_table_ordering/features/table/presentation/bloc/table_bloc.dart';
@@ -13,7 +15,14 @@ import '../widgets/menu_item_card.dart';
 import '../widgets/add_item_bottom_sheet.dart';
 
 class MenuPage extends StatefulWidget {
-  const MenuPage({super.key});
+  /// Android self-order kiosk: no table context, no nickname prompt. The table
+  /// and customer name are asked for at checkout (see KioskCheckoutDialog).
+  final bool kiosk;
+
+  /// Kiosk: called after an order is placed, to show the success screen.
+  final ValueChanged<KioskOrderResult>? onKioskOrderPlaced;
+
+  const MenuPage({super.key, this.kiosk = false, this.onKioskOrderPlaced});
 
   @override
   State<MenuPage> createState() => _MenuPageState();
@@ -37,6 +46,7 @@ class _MenuPageState extends State<MenuPage> {
   @override
   void initState() {
     super.initState();
+    if (widget.kiosk) return;
     _loadActiveOrder();
     _loadNickname();
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -91,6 +101,7 @@ class _MenuPageState extends State<MenuPage> {
   @override
   Widget build(BuildContext context) {
     return BlocListener<TableBloc, TableState>(
+      listenWhen: (previous, current) => !widget.kiosk,
       listener: (context, state) {
         if (state is TableLoaded) {
           context.read<CartBloc>().add(LoadActiveOrder(state.table.tableId));
@@ -100,7 +111,8 @@ class _MenuPageState extends State<MenuPage> {
         backgroundColor: const Color(0xFFFAF7F2),
         body: BlocListener<CartBloc, CartState>(
           listenWhen: (previous, current) =>
-              previous.nickname != current.nickname || (previous.deviceId != current.deviceId),
+              !widget.kiosk &&
+              (previous.nickname != current.nickname || (previous.deviceId != current.deviceId)),
           listener: (context, state) {
             if (state.nickname.isEmpty && state.deviceId != null) {
               _showNicknamePrompt(context);
@@ -208,6 +220,36 @@ class _MenuPageState extends State<MenuPage> {
                         if (state is MenuError) {
                           return Center(child: Text(state.message));
                         }
+                        // Nothing visible (e.g. an active menu group with no
+                        // items enabled): the layout below assumes at least
+                        // one category, so show a message instead.
+                        if (state is MenuLoaded && state.categories.isEmpty) {
+                          return GestureDetector(
+                            // Kiosk: keep staff access reachable without the hero.
+                            behavior: HitTestBehavior.opaque,
+                            onLongPress: widget.kiosk ? () => context.push('/staff') : null,
+                            child: Center(
+                            child: Padding(
+                              padding: const EdgeInsets.all(20),
+                              child: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  const Text(
+                                    'The menu is not available right now.',
+                                    textAlign: TextAlign.center,
+                                    style: TextStyle(fontSize: 16, color: Colors.grey),
+                                  ),
+                                  const SizedBox(height: 12),
+                                  TextButton(
+                                    onPressed: () => context.read<MenuBloc>().add(LoadMenu()),
+                                    child: const Text('Retry'),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                          );
+                        }
                         if (state is MenuLoaded) {
                           final isSearching = _searchQuery.isNotEmpty;
                           final query = _searchQuery.toLowerCase();
@@ -278,14 +320,22 @@ class _MenuPageState extends State<MenuPage> {
                                   collapseMode: CollapseMode.parallax,
                                   background: Stack(
                                     children: [
-                                      const Image(
-                                        image: AssetImage(
-                                          "assets/images/menubg_v3.jpeg",
+                                      // Kiosk: hidden staff access via a
+                                      // long-press on the hero (PIN-gated).
+                                      GestureDetector(
+                                        onLongPress: widget.kiosk
+                                            ? () => context.push('/staff')
+                                            : null,
+                                        child: const Image(
+                                          image: AssetImage(
+                                            "assets/images/menubg_v3.jpeg",
+                                          ),
+                                          width: double.infinity,
+                                          fit: BoxFit.fitWidth,
+                                          alignment: Alignment.topCenter,
                                         ),
-                                        width: double.infinity,
-                                        fit: BoxFit.fitWidth,
-                                        alignment: Alignment.topCenter,
                                       ),
+                                      if (!widget.kiosk)
                                       Positioned(
                                         top: 0,
                                         left: 0,
@@ -805,8 +855,8 @@ class _MenuPageState extends State<MenuPage> {
     );
   }
 
-  void _showOrderSummary(BuildContext context) {
-    showModalBottomSheet(
+  Future<void> _showOrderSummary(BuildContext context) async {
+    final result = await showModalBottomSheet<KioskOrderResult>(
       context: context,
       isScrollControlled: true,
       enableDrag: true,
@@ -816,10 +866,14 @@ class _MenuPageState extends State<MenuPage> {
       builder: (context) {
         return SizedBox(
           height: MediaQuery.of(context).size.height * 0.9,
-          child: const CartSummary(),
+          child: CartSummary(kiosk: widget.kiosk),
         );
       },
     );
+    if (result != null) {
+      _clearSearch();
+      widget.onKioskOrderPlaced?.call(result);
+    }
   }
 
   /// Loads an item's special-instruction groups, caching per item so re-opening

@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'core/router/app_router.dart';
+import 'package:go_router/go_router.dart';
 import 'features/menu/presentation/bloc/menu_bloc.dart';
 import 'features/table/presentation/bloc/table_bloc.dart';
 import 'features/orders/presentation/bloc/cart_bloc.dart';
@@ -9,7 +9,9 @@ import 'core/di/injection_container.dart' as di;
 import 'core/services/reload_signal_service.dart';
 
 class MyApp extends StatefulWidget {
-  const MyApp({super.key});
+  final GoRouter router;
+
+  const MyApp({super.key, required this.router});
 
   @override
   State<MyApp> createState() => _MyAppState();
@@ -43,7 +45,7 @@ class _MyAppState extends State<MyApp> {
       child: MaterialApp.router(
         debugShowCheckedModeBanner: false,
         title: 'Web Table Ordering',
-        routerConfig: appRouter,
+        routerConfig: widget.router,
         theme: ThemeData(
           // Dark default so the brief gap between the HTML splash and the first
           // painted page (background images / bloc data still loading) is

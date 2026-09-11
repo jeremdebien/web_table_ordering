@@ -26,6 +26,7 @@ class CartBloc extends Bloc<CartEvent, CartState> {
     on<AddToCart>(_onAddToCart);
     on<RemoveFromCart>(_onRemoveFromCart);
     on<ClearCart>(_onClearCart);
+    on<ResetCart>(_onResetCart);
     on<SubmitOrder>(_onSubmitOrder);
     on<LoadActiveOrder>(_onLoadActiveOrder);
     on<UpdateCartItemNames>(_onUpdateCartItemNames);
@@ -153,7 +154,10 @@ class CartBloc extends Bloc<CartEvent, CartState> {
     emit(state.copyWith(status: CartStatus.loading));
     try {
       // Filter only NEW items (originalQuantity == 0)
-      final itemsToSubmit = state.newOrders;
+      final customerName = event.customerName;
+      final itemsToSubmit = customerName == null
+          ? state.newOrders
+          : state.newOrders.map((i) => i.copyWith(nickname: customerName)).toList();
 
       if (itemsToSubmit.isNotEmpty) {
         await _ordersDataSource.submitSalesOrder(
@@ -172,7 +176,7 @@ class CartBloc extends Bloc<CartEvent, CartState> {
       ));
 
       // Reload the active order to reflect merged state from backend
-      add(LoadActiveOrder(event.tableId));
+      if (event.reloadAfter) add(LoadActiveOrder(event.tableId));
     } catch (e) {
       emit(state.copyWith(status: CartStatus.failure, errorMessage: e.toString()));
     } finally {
@@ -271,6 +275,14 @@ class CartBloc extends Bloc<CartEvent, CartState> {
 
   void _onClearCart(ClearCart event, Emitter<CartState> emit) {
     emit(state.copyWith(items: []));
+  }
+
+  void _onResetCart(ResetCart event, Emitter<CartState> emit) {
+    _realtimeSubscription?.cancel();
+    _realtimeSubscription = null;
+    _subscribedSalesOrderId = null;
+    // Fresh state (copyWith can't null out salesOrderId), keeping the device id.
+    emit(CartState(deviceId: state.deviceId ?? _deviceIdService.getDeviceId()));
   }
 
   Future<void> _onEnableOrdering(EnableOrdering event, Emitter<CartState> emit) async {

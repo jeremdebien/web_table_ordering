@@ -4,6 +4,7 @@ import '../bloc/cart_bloc.dart';
 import '../../../table/presentation/bloc/table_bloc.dart';
 import '../../../menu/data/models/item_model.dart';
 import '../../../menu/presentation/bloc/menu_bloc.dart';
+import '../../../kiosk/presentation/widgets/kiosk_checkout_dialog.dart';
 import 'cart_item_tile.dart';
 import '../../data/datasources/orders_data_source.dart';
 
@@ -15,7 +16,12 @@ enum CartFilter {
 }
 
 class CartSummary extends StatefulWidget {
-  const CartSummary({super.key});
+  /// Kiosk (Android self-order): "Place Order" asks for the table and customer
+  /// name, and the sheet pops with the [KioskOrderResult] instead of showing a
+  /// snackbar.
+  final bool kiosk;
+
+  const CartSummary({super.key, this.kiosk = false});
 
   @override
   State<CartSummary> createState() => _CartSummaryState();
@@ -28,6 +34,8 @@ class _CartSummaryState extends State<CartSummary> {
   @override
   Widget build(BuildContext context) {
     return BlocConsumer<CartBloc, CartState>(
+      // The kiosk checkout dialog reports its own result.
+      listenWhen: (previous, current) => !widget.kiosk,
       listener: (context, state) {
         if (state.status == CartStatus.submitted) {
           debugPrint('Order submitted successfully!');
@@ -560,7 +568,9 @@ class _CartSummaryState extends State<CartSummary> {
           ),
           onPressed: state.status == CartStatus.loading
               ? null
-              : () => _confirmAndSubmitOrder(context),
+              : () => widget.kiosk
+                  ? _kioskCheckout(context)
+                  : _confirmAndSubmitOrder(context),
           child: state.status == CartStatus.loading
               ? const SizedBox(
                   height: 20,
@@ -618,6 +628,13 @@ class _CartSummaryState extends State<CartSummary> {
         ),
       ),
     );
+  }
+
+  Future<void> _kioskCheckout(BuildContext context) async {
+    final result = await showKioskCheckoutDialog(context);
+    if (result != null && context.mounted) {
+      Navigator.of(context).pop(result);
+    }
   }
 
   void _confirmAndSubmitOrder(BuildContext context) {

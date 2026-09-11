@@ -20,8 +20,25 @@ class SubmitOrder extends CartEvent {
   final int tableId;
   final int guestCount;
 
-  SubmitOrder({required this.tableId, required this.guestCount});
+  /// Kiosk: the name typed at checkout. When set, every submitted line is
+  /// stamped with it (lands in `customer_name`), overriding the nickname.
+  final String? customerName;
+
+  /// Reload the table's active order after submitting. The kiosk turns this
+  /// off since it resets to an empty cart instead of tracking the table.
+  final bool reloadAfter;
+
+  SubmitOrder({
+    required this.tableId,
+    required this.guestCount,
+    this.customerName,
+    this.reloadAfter = true,
+  });
 }
+
+/// Kiosk: drop everything (cart, order tracking, realtime) back to a fresh
+/// state for the next customer.
+class ResetCart extends CartEvent {}
 
 class LoadActiveOrder extends CartEvent {
   final int tableId;

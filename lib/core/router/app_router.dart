@@ -8,6 +8,7 @@ import '../../features/menu_admin/presentation/pages/menu_admin_page.dart';
 import '../../features/clear_orders/presentation/bloc/clear_orders_bloc.dart';
 import '../../features/clear_orders/presentation/pages/clear_orders_page.dart';
 import '../../features/home/presentation/pages/welcome_page.dart';
+import '../../features/kiosk/presentation/pages/kiosk_menu_page.dart';
 // TableEvent is now part of TableBloc, so no separate import needed if TableBloc is imported.
 import '../../features/table/presentation/bloc/table_bloc.dart';
 import '../../features/menu/presentation/pages/menu_page.dart';
@@ -16,7 +17,9 @@ import '../../features/table/presentation/pages/qr_resolver_page.dart';
 import '../../features/orders/presentation/pages/order_summary_page.dart';
 import '../pages/not_found_page.dart';
 
-final appRouter = GoRouter(
+/// [kiosk] is the Android self-order build (`main_kiosk.dart`): `/` opens the
+/// menu directly instead of the welcome page. Every other route is shared.
+GoRouter buildRouter({bool kiosk = false}) => GoRouter(
   initialLocation: '/',
   errorBuilder: (context, state) => const NotFoundPage(),
   // Legacy QR codes point at the old POS URL shape
@@ -32,7 +35,10 @@ final appRouter = GoRouter(
     return null;
   },
   routes: [
-    GoRoute(path: '/', builder: (context, state) => const WelcomePage()),
+    GoRoute(
+      path: '/',
+      builder: (context, state) => kiosk ? const KioskMenuPage() : const WelcomePage(),
+    ),
     GoRoute(
       path: '/qr',
       builder: (context, state) => QrResolverPage(
