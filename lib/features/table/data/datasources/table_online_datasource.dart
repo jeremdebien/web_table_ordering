@@ -1,5 +1,6 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../../core/config/app_config.dart';
+import '../../data/models/ground_model.dart';
 import '../../data/models/table_model.dart';
 import 'table_data_source.dart';
 
@@ -33,5 +34,15 @@ class OnlineTableDataSource implements TableDataSource {
     } catch (e) {
       throw Exception('Failed to fetch table by name: $e');
     }
+  }
+
+  @override
+  Future<List<GroundModel>> getGrounds() {
+    throw UnimplementedError('Ground listing is only available in local mode.');
+  }
+
+  @override
+  Future<List<TableModel>> getTables() {
+    throw UnimplementedError('Table listing is only available in local mode.');
   }
 }

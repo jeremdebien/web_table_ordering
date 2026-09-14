@@ -4,6 +4,7 @@ import '../../data/datasources/menu_data_source.dart';
 import '../../data/models/department_model.dart';
 import '../../data/models/category_model.dart';
 import '../../data/models/item_model.dart';
+import '../../domain/menu_ordering.dart';
 
 part 'menu_event.dart';
 part 'menu_state.dart';
@@ -26,36 +27,46 @@ class MenuBloc extends Bloc<MenuEvent, MenuState> {
         _menuDataSource.getItems(),
       ]);
 
+      final departments = results[0] as List<DepartmentModel>;
       var categories = results[1] as List<CategoryModel>;
+      final items = results[2] as List<ItemModel>;
 
       // Filter by isAvailableInWebTable
       categories = categories.where((c) => c.isAvailableInWebTable == true).toList();
 
-      // Sort by orderingIndex with nulls last, then by name
-      categories.sort((a, b) {
-        if (a.orderingIndex == null && b.orderingIndex == null) {
-          return a.name.compareTo(b.name);
+      // Build department lookup map for hierarchical sorting
+      final Map<int, DepartmentModel> deptById = {
+        for (final d in departments) ...{
+          d.id: d,
+          if (d.deptId != null) d.deptId!: d,
         }
-        if (a.orderingIndex == null) return 1;
-        if (b.orderingIndex == null) return -1;
+      };
 
-        final result = a.orderingIndex!.compareTo(b.orderingIndex!);
-        if (result == 0) {
-          return a.name.compareTo(b.name);
-        }
-        return result;
-      });
+      // Sort categories hierarchically: by parent Department order, then by Category order.
+      categories.sort(
+        (a, b) => MenuOrdering.compareCategoriesHierarchically(a, b, deptById),
+      );
+
+      final sortedItems =
+          List<ItemModel>.from(items)..sort(MenuOrdering.compareItems);
+
+      // Hide categories that have no available items (e.g. every item disabled by
+      // the active menu group), so empty category pills never render.
+      final categoryIdsWithItems = sortedItems.map((i) => i.categoryId).toSet();
+      categories = categories
+          .where((c) => categoryIdsWithItems.contains(c.categoryId ?? c.id))
+          .toList();
 
       int? defaultCatId;
       if (categories.isNotEmpty) {
-        defaultCatId = categories.first.categoryId;
+        defaultCatId = categories.first.categoryId ?? categories.first.id;
       }
 
       emit(
         MenuLoaded(
-          departments: results[0] as List<DepartmentModel>,
+          departments: departments,
           categories: categories,
-          items: results[2] as List<ItemModel>,
+          items: sortedItems,
           selectedCategoryId: defaultCatId,
         ),
       );

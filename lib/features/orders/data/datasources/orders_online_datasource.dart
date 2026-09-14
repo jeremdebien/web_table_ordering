@@ -38,6 +38,8 @@ class OnlineOrdersDataSource implements OrdersDataSource {
                 'is_disc_exempt': e.isDiscExempt,
                 'item_discount': e.itemDiscount,
                 'nickname': e.nickname,
+                'special_instructions': e.specialInstructions,
+                'note': e.note,
               },
             )
             .toList(),
@@ -66,6 +68,15 @@ class OnlineOrdersDataSource implements OrdersDataSource {
       await _client.functions.invoke('update_payment_status', body: payload);
     } catch (e) {
       throw Exception('Failed to update payment status: $e');
+    }
+  }
+
+  @override
+  Future<void> completeKdsForSalesOrder(int salesOrderId) async {
+    try {
+      await _client.rpc('kds_complete_sales_order', params: {'p_sales_order_id': salesOrderId});
+    } catch (e) {
+      throw Exception('Failed to complete KDS orders for sales order: $e');
     }
   }
 
@@ -168,6 +179,11 @@ class OnlineOrdersDataSource implements OrdersDataSource {
     }
 
     return orders.map((e) => SalesOrderModel.fromJson(e)).toList();
+  }
+
+  @override
+  Future<List<SalesOrderModel>> getOpenOrders() {
+    throw UnimplementedError('Open-order listing is only available in local mode.');
   }
 
   /// Get customer by device ID

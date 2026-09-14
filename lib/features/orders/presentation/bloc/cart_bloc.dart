@@ -18,11 +18,15 @@ class CartBloc extends Bloc<CartEvent, CartState> {
   StreamSubscription? _menuSubscription;
   StreamSubscription? _realtimeSubscription;
   int? _subscribedSalesOrderId;
+  // Idempotency guard: true while a SubmitOrder is in flight, so rapid
+  // double-taps of "Place Order"/"Confirm & Send" only place the order once.
+  bool _isSubmitting = false;
 
   CartBloc(this._ordersDataSource, this._menuBloc, this._deviceIdService) : super(const CartState()) {
     on<AddToCart>(_onAddToCart);
     on<RemoveFromCart>(_onRemoveFromCart);
     on<ClearCart>(_onClearCart);
+    on<ResetCart>(_onResetCart);
     on<SubmitOrder>(_onSubmitOrder);
     on<LoadActiveOrder>(_onLoadActiveOrder);
     on<UpdateCartItemNames>(_onUpdateCartItemNames);
@@ -142,10 +146,18 @@ class CartBloc extends Bloc<CartEvent, CartState> {
   }
 
   Future<void> _onSubmitOrder(SubmitOrder event, Emitter<CartState> emit) async {
+    // Idempotency guard: drop repeat submits while one is already in flight.
+    // BLoC handlers run concurrently by default, so without this a double-tap
+    // would fire two submitSalesOrder calls and place the order twice.
+    if (_isSubmitting) return;
+    _isSubmitting = true;
     emit(state.copyWith(status: CartStatus.loading));
     try {
       // Filter only NEW items (originalQuantity == 0)
-      final itemsToSubmit = state.newOrders;
+      final customerName = event.customerName;
+      final itemsToSubmit = customerName == null
+          ? state.newOrders
+          : state.newOrders.map((i) => i.copyWith(nickname: customerName)).toList();
 
       if (itemsToSubmit.isNotEmpty) {
         await _ordersDataSource.submitSalesOrder(
@@ -164,22 +176,25 @@ class CartBloc extends Bloc<CartEvent, CartState> {
       ));
 
       // Reload the active order to reflect merged state from backend
-      add(LoadActiveOrder(event.tableId));
+      if (event.reloadAfter) add(LoadActiveOrder(event.tableId));
     } catch (e) {
       emit(state.copyWith(status: CartStatus.failure, errorMessage: e.toString()));
+    } finally {
+      _isSubmitting = false;
     }
   }
 
   void _onAddToCart(AddToCart event, Emitter<CartState> emit) {
     // Find existing "New" item (originalQuantity == 0). Only merge when the
-    // orderer AND the special-instruction answers also match, so the same item
-    // with different instructions (or a different guest) stays a separate line.
+    // orderer, special-instruction answers, AND note also match, so the same item
+    // with different instructions or notes (or a different guest) stays a separate line.
     final existingNewIndex = state.items.indexWhere(
       (i) =>
           i.itemBarcode == event.item.itemBarcode &&
           i.originalQuantity == 0 &&
           i.nickname == state.nickname &&
-          (i.specialInstructions ?? '') == (event.item.specialInstructions ?? ''),
+          (i.specialInstructions ?? '') == (event.item.specialInstructions ?? '') &&
+          (i.note ?? '') == (event.item.note ?? ''),
     );
 
     if (existingNewIndex >= 0) {
@@ -260,6 +275,14 @@ class CartBloc extends Bloc<CartEvent, CartState> {
 
   void _onClearCart(ClearCart event, Emitter<CartState> emit) {
     emit(state.copyWith(items: []));
+  }
+
+  void _onResetCart(ResetCart event, Emitter<CartState> emit) {
+    _realtimeSubscription?.cancel();
+    _realtimeSubscription = null;
+    _subscribedSalesOrderId = null;
+    // Fresh state (copyWith can't null out salesOrderId), keeping the device id.
+    emit(CartState(deviceId: state.deviceId ?? _deviceIdService.getDeviceId()));
   }
 
   Future<void> _onEnableOrdering(EnableOrdering event, Emitter<CartState> emit) async {

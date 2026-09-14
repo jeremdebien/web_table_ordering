@@ -17,6 +17,7 @@ class SalesOrderItemModel {
   final String nickname; // Added for customer tracking
   final String? webDeviceId; // Stable ordering-device id (web app); nullable for POS/legacy rows
   final String? specialInstructions; // JSON: answers to per-item instruction questions
+  final String? note; // Free-text kitchen note (sales_order_item.note)
 
   /// Kitchen serving state of the line: 'preparing' or 'served'. Distinct from
   /// [status], which tracks pending/accepted/cancelled submission. Derived on
@@ -70,6 +71,7 @@ class SalesOrderItemModel {
     this.nickname = '',
     this.webDeviceId,
     this.specialInstructions,
+    this.note,
     this.servingStatus,
     this.servedQuantity = 0,
   });
@@ -101,6 +103,7 @@ class SalesOrderItemModel {
       nickname: json['nickname'] as String? ?? json['customer_name'] as String? ?? '',
       webDeviceId: json['web_device_id'] as String?,
       specialInstructions: json['special_instructions'] as String?,
+      note: json['note'] as String?,
       // Present only in local (consolidator) mode; absent online.
       servingStatus: json['item_status'] as String?,
       servedQuantity: (json['served_quantity'] as num?)?.toDouble() ?? 0,
@@ -126,6 +129,7 @@ class SalesOrderItemModel {
       'customer_name': nickname,
       if (webDeviceId != null) 'web_device_id': webDeviceId,
       'special_instructions': specialInstructions,
+      if (note != null) 'note': note,
     };
   }
 
@@ -148,6 +152,7 @@ class SalesOrderItemModel {
     String? nickname,
     String? webDeviceId,
     String? specialInstructions,
+    String? note,
     String? servingStatus,
     double? servedQuantity,
   }) {
@@ -170,6 +175,7 @@ class SalesOrderItemModel {
       nickname: nickname ?? this.nickname,
       webDeviceId: webDeviceId ?? this.webDeviceId,
       specialInstructions: specialInstructions ?? this.specialInstructions,
+      note: note ?? this.note,
       servingStatus: servingStatus ?? this.servingStatus,
       servedQuantity: servedQuantity ?? this.servedQuantity,
     );

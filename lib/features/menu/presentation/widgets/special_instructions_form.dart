@@ -2,8 +2,8 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import '../../data/models/instruction_group_model.dart';
 
-/// Renders the per-item special-instruction questions and reports validity +
-/// the answers JSON up to the host dialog via [onChanged].
+/// Renders the special-instruction questions (Global, Category, Item level)
+/// and reports validity + the answers JSON up to the host dialog via [onChanged].
 ///
 /// Answers JSON shape (only groups with an answer are included):
 /// `[{ "group_id": int, "label": str, "choices": [str,...], "free_text": str|null }]`
@@ -45,11 +45,16 @@ class _SpecialInstructionsFormState extends State<SpecialInstructionsForm> {
     return choices + (hasText ? 1 : 0);
   }
 
+  bool _isGroupSatisfied(InstructionGroup g) {
+    final count = _answerCount(g);
+    if (g.isRequired && count < g.minSelect) return false;
+    if (g.maxSelect != null && count > g.maxSelect!) return false;
+    return true;
+  }
+
   bool get _isValid {
     for (final g in widget.groups) {
-      final count = _answerCount(g);
-      if (count < g.minSelect) return false;
-      if (g.maxSelect != null && count > g.maxSelect!) return false;
+      if (!_isGroupSatisfied(g)) return false;
     }
     return true;
   }
@@ -98,78 +103,194 @@ class _SpecialInstructionsFormState extends State<SpecialInstructionsForm> {
   }
 
   String _hint(InstructionGroup g) {
-    if (g.isSingleSelect)
-      return g.isRequired ? 'Select one (required)' : 'Select one';
+    if (g.isSingleSelect) {
+      return g.isRequired ? 'Select 1 option (Required)' : 'Select 1 option (Optional)';
+    }
     final max = g.maxSelect;
-    final maxTxt = max == null ? 'any' : '$max';
-    if (g.isRequired) return 'Pick ${g.minSelect}–$maxTxt (required)';
-    return 'Pick up to $maxTxt';
+    final maxTxt = max == null ? 'unlimited' : 'max $max';
+    if (g.isRequired) return 'Pick ${g.minSelect}–$maxTxt (Required)';
+    return 'Pick up to $maxTxt (Optional)';
   }
 
   @override
   Widget build(BuildContext context) {
+    const accent = Color(0xFFC5A880);
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         for (final g in widget.groups) ...[
-          const SizedBox(height: 12),
-          Row(
-            children: [
-              Expanded(
-                child: Text(
-                  g.label,
-                  style: const TextStyle(
-                    fontSize: 15,
-                    fontWeight: FontWeight.bold,
+          Container(
+            margin: const EdgeInsets.only(bottom: 16),
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: Colors.grey.shade50,
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(
+                color: g.isRequired && !_isGroupSatisfied(g)
+                    ? const Color(0xFFE25822).withValues(alpha: 0.5)
+                    : const Color(0xFFE5E7EB),
+                width: g.isRequired && !_isGroupSatisfied(g) ? 1.5 : 1,
+              ),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Header row
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        g.label,
+                        style: const TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.bold,
+                          color: Color(0xFF1A1A1A),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 3,
+                      ),
+                      decoration: BoxDecoration(
+                        color: g.isRequired
+                            ? const Color(0xFFE25822).withValues(alpha: 0.1)
+                            : Colors.grey.shade200,
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: Text(
+                        g.isRequired ? 'REQUIRED' : 'OPTIONAL',
+                        style: TextStyle(
+                          fontSize: 10,
+                          fontWeight: FontWeight.bold,
+                          color: g.isRequired
+                              ? const Color(0xFFE25822)
+                              : Colors.grey.shade700,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  _hint(g),
+                  style: TextStyle(
+                    fontSize: 11,
+                    color: Colors.grey.shade600,
                   ),
                 ),
-              ),
-              Text(
-                _hint(g),
-                style: TextStyle(
-                  fontSize: 11,
-                  color: g.isRequired ? const Color(0xfff25125) : Colors.grey,
-                ),
-              ),
-            ],
+                const SizedBox(height: 12),
+                // Choices
+                if (g.choices.isNotEmpty)
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: g.choices.map((c) {
+                      final isSelected =
+                          _selected[g.id]?.contains(c.label) ?? false;
+                      return InkWell(
+                        borderRadius: BorderRadius.circular(10),
+                        onTap: () => _toggleChoice(g, c.label),
+                        child: AnimatedContainer(
+                          duration: const Duration(milliseconds: 150),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 8,
+                          ),
+                          decoration: BoxDecoration(
+                            color: isSelected
+                                ? const Color(0xFF1A1A1A)
+                                : Colors.white,
+                            borderRadius: BorderRadius.circular(10),
+                            border: Border.all(
+                              color: isSelected
+                                  ? const Color(0xFF1A1A1A)
+                                  : const Color(0xFFD1D5DB),
+                              width: isSelected ? 1.5 : 1,
+                            ),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                g.isSingleSelect
+                                    ? (isSelected
+                                        ? Icons.radio_button_checked
+                                        : Icons.radio_button_off)
+                                    : (isSelected
+                                        ? Icons.check_box
+                                        : Icons.check_box_outline_blank),
+                                size: 16,
+                                color: isSelected ? accent : Colors.black45,
+                              ),
+                              const SizedBox(width: 6),
+                              Text(
+                                c.label,
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: isSelected
+                                      ? FontWeight.bold
+                                      : FontWeight.w500,
+                                  color: isSelected
+                                      ? Colors.white
+                                      : const Color(0xFF1A1A1A),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      );
+                    }).toList(),
+                  ),
+                // Free text note
+                if (g.allowFreeText) ...[
+                  const SizedBox(height: 10),
+                  TextField(
+                    decoration: InputDecoration(
+                      isDense: true,
+                      filled: true,
+                      fillColor: Colors.white,
+                      hintText: g.choices.isEmpty
+                          ? 'Type your special instructions / note here...'
+                          : 'Other notes / custom request...',
+                      hintStyle: TextStyle(
+                        fontSize: 12,
+                        color: Colors.grey.shade400,
+                      ),
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 10,
+                      ),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(10),
+                        borderSide: const BorderSide(color: Color(0xFFD1D5DB)),
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(10),
+                        borderSide: const BorderSide(color: Color(0xFFD1D5DB)),
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(10),
+                        borderSide: const BorderSide(
+                          color: Color(0xFF1A1A1A),
+                          width: 1.5,
+                        ),
+                      ),
+                    ),
+                    minLines: 1,
+                    maxLines: 3,
+                    onChanged: (v) {
+                      _freeText[g.id] = v;
+                      _emit();
+                    },
+                  ),
+                ],
+              ],
+            ),
           ),
-          const SizedBox(height: 6),
-          if (g.choices.isNotEmpty)
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: g.choices.map((c) {
-                final selected = _selected[g.id]?.contains(c.label) ?? false;
-                return ChoiceChip(
-                  label: Text(c.label),
-                  selected: selected,
-                  onSelected: (_) => _toggleChoice(g, c.label),
-                  selectedColor: Colors.black,
-                  checkmarkColor: Colors.white,
-                  labelStyle: TextStyle(
-                    color: selected ? Colors.white : Colors.black87,
-                  ),
-                );
-              }).toList(),
-            ),
-          if (g.allowFreeText) ...[
-            const SizedBox(height: 8),
-            TextField(
-              decoration: InputDecoration(
-                isDense: true,
-                hintText: g.choices.isEmpty
-                    ? 'Type your answer'
-                    : 'Other / notes',
-                border: const OutlineInputBorder(),
-              ),
-              minLines: 1,
-              maxLines: 3,
-              onChanged: (v) {
-                _freeText[g.id] = v;
-                _emit();
-              },
-            ),
-          ],
         ],
       ],
     );

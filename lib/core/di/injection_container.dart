@@ -1,12 +1,15 @@
 import 'package:get_it/get_it.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../utils/device_id_service.dart';
+import '../services/reload_signal_service.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../config/app_config.dart';
 import '../../features/menu/data/datasources/menu_data_source.dart';
 import '../../features/menu/data/datasources/menu_online_datasource.dart';
 import '../../features/menu/data/datasources/menu_local_datasource.dart';
 import '../../features/menu/presentation/bloc/menu_bloc.dart';
+import '../../features/menu_admin/presentation/bloc/menu_admin_bloc.dart';
+import '../../features/clear_orders/presentation/bloc/clear_orders_bloc.dart';
 import '../../features/orders/data/datasources/orders_data_source.dart';
 import '../../features/orders/data/datasources/orders_online_datasource.dart';
 import '../../features/orders/data/datasources/orders_local_datasource.dart';
@@ -20,6 +23,7 @@ import '../../features/auth/data/datasources/user_data_source.dart';
 import '../../features/auth/data/datasources/local_user_data_source.dart';
 import '../../features/auth/data/datasources/online_user_data_source.dart';
 import '../../features/auth/presentation/bloc/auth_bloc.dart';
+import '../../features/table_qr/data/table_qr_session.dart';
 
 final sl = GetIt.instance;
 
@@ -31,6 +35,8 @@ Future<void> init() async {
 
   // Core
   sl.registerLazySingleton(() => DeviceIdService(sl()));
+  sl.registerLazySingleton(() => ReloadSignalService(sl()));
+  sl.registerLazySingleton(() => TableQrSession(sl(), sl()));
   // Features - Home
   sl.registerLazySingleton(() => MenuBloc(sl()));
 
@@ -43,7 +49,7 @@ Future<void> init() async {
     () => AppConfig.isLocal ? LocalMenuDataSource(sl()) : OnlineMenuDataSource(sl()),
   );
   sl.registerLazySingleton<OrdersDataSource>(
-    () => AppConfig.isLocal ? LocalOrdersDataSource(sl()) : OnlineOrdersDataSource(sl()),
+    () => AppConfig.isLocal ? LocalOrdersDataSource(sl(), sl()) : OnlineOrdersDataSource(sl()),
   );
   sl.registerLazySingleton<TableDataSource>(
     () => AppConfig.isLocal ? LocalTableDataSource(sl()) : OnlineTableDataSource(sl()),
@@ -57,6 +63,8 @@ Future<void> init() async {
 
   // Bloct
   sl.registerFactory(() => TableBloc(sl()));
+  sl.registerFactory(() => MenuAdminBloc(sl()));
+  sl.registerFactory(() => ClearOrdersBloc(sl(), sl()));
   sl.registerFactory(() => CartBloc(sl(), sl(), sl()));
   sl.registerLazySingleton(() => AuthBloc(sl(), sl()));
 

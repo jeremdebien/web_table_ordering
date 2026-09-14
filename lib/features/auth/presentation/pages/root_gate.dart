@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import '../../../../core/utils/splash_dismisser.dart';
 import '../../../home/presentation/pages/home_page.dart';
 import '../bloc/auth_bloc.dart';
 import 'pin_login_page.dart';
@@ -14,16 +15,20 @@ class RootGate extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return BlocBuilder<AuthBloc, AuthState>(
-      builder: (context, state) {
-        if (state is AuthAuthenticated) {
-          return const HomePage();
-        }
-        if (state is AuthInitial || state is AuthChecking) {
-          return const _GateLoader();
-        }
-        return const PinLoginPage();
-      },
+    // No heavy background image on the staff routes — lift the splash on the
+    // first painted frame.
+    return SplashDismisser(
+      child: BlocBuilder<AuthBloc, AuthState>(
+        builder: (context, state) {
+          if (state is AuthAuthenticated) {
+            return const HomePage();
+          }
+          if (state is AuthInitial || state is AuthChecking) {
+            return const _GateLoader();
+          }
+          return const PinLoginPage();
+        },
+      ),
     );
   }
 }

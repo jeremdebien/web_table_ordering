@@ -130,7 +130,8 @@ Deno.serve(async (req) => {
     if (!stored) continue;
     const decrypted = await decryptPassword(stored, cryptoKey);
     if (decrypted !== null && decrypted === target) {
-      // Fetch the access-level row for this user (permission flags for TBD use).
+      // Fetch the access-level row for this user (legacy column-per-flag model,
+      // e.g. `sales_order`, `admin_mode`).
       const { data: access, error: accessErr } = await supabase
         .from("users_access_level")
         .select("*")
@@ -139,12 +140,32 @@ Deno.serve(async (req) => {
       if (accessErr) {
         console.error("verify-waiter-pin access lookup failed:", accessErr);
       }
+
+      // Fold in the row-model `user_access` grants (keyed by `access_key`), which
+      // is where kwikpos_lite's AccessKeyRegistry actually stores permissions
+      // such as `web_clear_table` / `web_menu_curation`. Merged into the same
+      // `access_level` map so the client's `hasAccess(key)` resolves either source.
+      const { data: grants, error: grantsErr } = await supabase
+        .from("user_access")
+        .select("access_key, access_value")
+        .eq("access_level_id", row.access_level_id);
+      if (grantsErr) {
+        console.error("verify-waiter-pin user_access lookup failed:", grantsErr);
+      }
+
+      const accessLevel: Record<string, unknown> = { ...(access ?? {}) };
+      for (const g of grants ?? []) {
+        if (typeof g.access_key === "string") {
+          accessLevel[g.access_key] = g.access_value;
+        }
+      }
+
       return json({
         user: {
           id: row.id,
           name: row.name,
           access_level_id: row.access_level_id,
-          access_level: access ?? null,
+          access_level: accessLevel,
         },
       });
     }
