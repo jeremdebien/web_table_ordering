@@ -1,330 +1,89 @@
-import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:get_it/get_it.dart';
-import 'package:mobile_scanner/mobile_scanner.dart';
 import '../../../../core/services/reload_signal_service.dart';
 import '../../../table/presentation/bloc/table_bloc.dart';
 import '../../../auth/presentation/bloc/auth_bloc.dart';
 import '../../../auth/presentation/access_guard.dart';
 
-class HomePage extends StatefulWidget {
-  final String? tableUuid;
-  const HomePage({super.key, this.tableUuid});
+const _bg = Color(0xff121212);
+const _accent = Color(0xfff25125);
+
+/// Staff home (`/staff` on web, `/` in the waiter app). One primary Add Order
+/// action plus the staff settings as on-page tiles — no app-bar actions.
+class StaffHomePage extends StatefulWidget {
+  const StaffHomePage({super.key});
 
   @override
-  State<HomePage> createState() => _HomePageState();
+  State<StaffHomePage> createState() => _StaffHomePageState();
 }
 
-class _HomePageState extends State<HomePage> {
+class _StaffHomePageState extends State<StaffHomePage> {
+  /// True only while this page's table-name dialog is open. TableBloc is
+  /// app-wide, so without this the home (still mounted under `/staff/order`)
+  /// would also react to the picker's TableLoaded and pop the wrong route.
+  bool _awaitingTableName = false;
+
   @override
   void initState() {
     super.initState();
-    // Reset any previous table bloc states upon loading the landing page
+    // Reset any previous table bloc states upon loading the staff home
     context.read<TableBloc>().add(const ResetTableState());
   }
 
-  void _showQrScanner(BuildContext context) {
-    final tableBloc = context.read<TableBloc>();
-    showDialog<String>(
+  /// Add Order: type the table name, or pick it from the floor plan.
+  Future<void> _showAddOrder(BuildContext context) async {
+    final choice = await showModalBottomSheet<String>(
       context: context,
-      barrierDismissible: false,
-      builder: (dialogContext) => const QrScannerDialog(),
-    ).then((result) {
-      tableBloc.add(const ResetTableState());
-      if (result == 'show_name_input' && context.mounted) {
-        _showTableNameInput(context);
-      }
-    });
-  }
-
-  void _showTableNameInput(BuildContext context) {
-    final tableBloc = context.read<TableBloc>();
-    showDialog(
-      context: context,
-      barrierDismissible: true,
-      builder: (dialogContext) => const TableNameDialog(),
-    ).then((_) {
-      tableBloc.add(const ResetTableState());
-    });
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return AnnotatedRegion<SystemUiOverlayStyle>(
-      value: SystemUiOverlayStyle.light.copyWith(
-        statusBarColor: Colors.transparent,
-        statusBarIconBrightness: Brightness.light,
+      backgroundColor: _bg,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
-      child: BlocListener<TableBloc, TableState>(
-        listener: (context, state) {
-          if (state is TableLoaded) {
-            // Dismiss active dialogs if any
-            if (Navigator.canPop(context)) {
-              Navigator.pop(context);
-            }
-            final uuid = state.table.uuid;
-            if (uuid != null && uuid.isNotEmpty) {
-              context.go('/table/$uuid');
-            }
-          }
-        },
-        child: Scaffold(
-          body: Stack(
+      builder: (sheetContext) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 20, 16, 16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              // Background Image
-              Container(
-                decoration: const BoxDecoration(
-                  image: DecorationImage(
-                    image: AssetImage("assets/images/nyx.jpg"),
-                    fit: BoxFit.cover,
-                  ),
-                ),
+              const Text(
+                'Add Order',
+                style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
               ),
-              // Soft dark overlay to bring out the design elements
-              Container(
-                color: Colors.black.withValues(alpha: 0.4),
+              const SizedBox(height: 16),
+              _SheetOption(
+                icon: Icons.keyboard,
+                label: 'Input table name',
+                onTap: () => Navigator.pop(sheetContext, 'name'),
               ),
-              // Main Scrollable Body
-              SafeArea(
-                child: Center(
-                  child: SingleChildScrollView(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 24,
-                      vertical: 32,
-                    ),
-                    child: ConstrainedBox(
-                      constraints: const BoxConstraints(maxWidth: 500),
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          // App Logo
-                          Hero(
-                            tag: 'app-logo',
-                            child: Container(
-                              decoration: BoxDecoration(
-                                shape: BoxShape.circle,
-                                border: Border.all(
-                                  color: Colors.white.withValues(alpha: 0.8),
-                                  width: 3,
-                                ),
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: Colors.black.withValues(alpha: 0.3),
-                                    blurRadius: 20,
-                                    spreadRadius: 2,
-                                  ),
-                                ],
-                              ),
-                              child: ClipOval(
-                                child: Image.asset(
-                                  'assets/images/nyx_logo.jpg',
-                                  fit: BoxFit.contain,
-                                  width: 140,
-                                  height: 140,
-                                ),
-                              ),
-                            ),
-                          ),
-                          const SizedBox(height: 24),
-
-                          // Brand Title Stack (Matches TablePage branding)
-                          Stack(
-                            children: [
-                              Text(
-                                "Welcome to Nyx",
-                                textAlign: TextAlign.center,
-                                style: TextStyle(
-                                  fontSize: 24,
-                                  fontWeight: FontWeight.bold,
-                                  foreground: Paint()
-                                    ..style = PaintingStyle.stroke
-                                    ..strokeWidth = 2.5
-                                    ..color = Colors.black,
-                                ),
-                              ),
-                              const Text(
-                                "Welcome to Nyx",
-                                textAlign: TextAlign.center,
-                                style: TextStyle(
-                                  fontSize: 24,
-                                  fontWeight: FontWeight.bold,
-                                  color: Colors.white,
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 8),
-                          Stack(
-                            children: [
-                              Text(
-                                "A place where gastronomy meets grandeur.",
-                                textAlign: TextAlign.center,
-                                style: TextStyle(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.bold,
-                                  foreground: Paint()
-                                    ..style = PaintingStyle.stroke
-                                    ..strokeWidth = 2
-                                    ..color = Colors.black,
-                                ),
-                              ),
-                              const Text(
-                                "A place where gastronomy meets grandeur.",
-                                textAlign: TextAlign.center,
-                                style: TextStyle(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.bold,
-                                  color: Colors.amber,
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 32),
-
-                          // Glassmorphic Explanation Container
-                          ClipRRect(
-                            borderRadius: BorderRadius.circular(24),
-                            child: BackdropFilter(
-                              filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
-                              child: Container(
-                                padding: const EdgeInsets.all(24),
-                                decoration: BoxDecoration(
-                                  color: Colors.white.withValues(alpha: 0.15),
-                                  borderRadius: BorderRadius.circular(24),
-                                  border: Border.all(
-                                    color: Colors.white.withValues(alpha: 0.25),
-                                    width: 1.5,
-                                  ),
-                                ),
-                                child: Column(
-                                  children: [
-                                    const Icon(
-                                      Icons.restaurant_menu,
-                                      color: Colors.white,
-                                      size: 32,
-                                    ),
-                                    const SizedBox(height: 12),
-                                    const Text(
-                                      "Convenient Self-Ordering",
-                                      style: TextStyle(
-                                        color: Colors.white,
-                                        fontSize: 18,
-                                        fontWeight: FontWeight.bold,
-                                        letterSpacing: 0.5,
-                                      ),
-                                    ),
-                                    const SizedBox(height: 12),
-                                    Text(
-                                      "Browse our menu, customize your order, and request the bill directly from your phone. Select an option below to connect to your table.",
-                                      textAlign: TextAlign.center,
-                                      style: TextStyle(
-                                        color: Colors.white.withValues(
-                                          alpha: 0.9,
-                                        ),
-                                        fontSize: 14,
-                                        height: 1.5,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ),
-                          ),
-                          const SizedBox(height: 40),
-
-                          // Action Buttons
-                          // 1. Scan QR Code
-                          SizedBox(
-                            width: double.infinity,
-                            height: 56,
-                            child: ElevatedButton.icon(
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: Colors.black,
-                                foregroundColor: Colors.white,
-                                elevation: 4,
-                                shadowColor: const Color(
-                                  0xfff25125,
-                                ).withValues(alpha: 0.4),
-                                side: const BorderSide(
-                                  color: Colors.white,
-                                  width: 1.5,
-                                ),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(16),
-                                ),
-                              ),
-                              onPressed: () => _showQrScanner(context),
-                              icon: const Icon(Icons.qr_code_scanner, size: 24),
-                              label: const Text(
-                                'SCAN TABLE QR CODE',
-                                style: TextStyle(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.bold,
-                                  letterSpacing: 1.2,
-                                ),
-                              ),
-                            ),
-                          ),
-                          const SizedBox(height: 16),
-
-                          // 2. Enter Table Name
-                          SizedBox(
-                            width: double.infinity,
-                            height: 56,
-                            child: OutlinedButton.icon(
-                              style: OutlinedButton.styleFrom(
-                                foregroundColor: Colors.white,
-                                backgroundColor: Colors.black.withValues(
-                                  alpha: 0.3,
-                                ),
-                                side: BorderSide(
-                                  color: Colors.white.withValues(alpha: 0.8),
-                                  width: 1.5,
-                                ),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(16),
-                                ),
-                              ),
-                              onPressed: () => _showTableNameInput(context),
-                              icon: const Icon(
-                                Icons.table_restaurant,
-                                size: 24,
-                              ),
-                              label: const Text(
-                                'INPUT TABLE NAME',
-                                style: TextStyle(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.bold,
-                                  letterSpacing: 1.2,
-                                  color: Colors.white,
-                                ),
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
+              const SizedBox(height: 10),
+              _SheetOption(
+                icon: Icons.grid_view_rounded,
+                label: 'Select table',
+                onTap: () => Navigator.pop(sheetContext, 'select'),
               ),
-              // Waiter session header (local mode, only when signed in).
-              const _WaiterHeader(),
             ],
           ),
         ),
       ),
     );
-  }
-}
 
-/// Top overlay bar shown on the waiter tool: the signed-in staff name and a
-/// logout action. Renders nothing unless a waiter is authenticated, so it stays
-/// invisible on the customer-facing (online mode) landing.
-class _WaiterHeader extends StatelessWidget {
-  const _WaiterHeader();
+    if (!context.mounted) return;
+    if (choice == 'name') {
+      final tableBloc = context.read<TableBloc>();
+      _awaitingTableName = true;
+      await showDialog(
+        context: context,
+        builder: (_) => const TableNameDialog(),
+      );
+      _awaitingTableName = false;
+      tableBloc.add(const ResetTableState());
+    } else if (choice == 'select') {
+      context.push('/staff/order');
+    }
+  }
 
   /// Confirms, then broadcasts a reload signal that forces every connected
   /// client (all customer devices + this one) to reload onto the latest build.
@@ -332,7 +91,7 @@ class _WaiterHeader extends StatelessWidget {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (_) => AlertDialog(
-        backgroundColor: const Color(0xff121212),
+        backgroundColor: _bg,
         title: const Text('Reload all devices?', style: TextStyle(color: Colors.white)),
         content: Text(
           'Every open device — including customer tablets — will reload '
@@ -348,7 +107,7 @@ class _WaiterHeader extends StatelessWidget {
             onPressed: () => Navigator.pop(context, true),
             child: const Text(
               'Reload all',
-              style: TextStyle(color: Color(0xfff25125), fontWeight: FontWeight.bold),
+              style: TextStyle(color: _accent, fontWeight: FontWeight.bold),
             ),
           ),
         ],
@@ -372,428 +131,240 @@ class _WaiterHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return BlocBuilder<AuthBloc, AuthState>(
-      builder: (context, state) {
-        if (state is! AuthAuthenticated) return const SizedBox.shrink();
-        return SafeArea(
-          child: Align(
-            alignment: Alignment.topCenter,
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Flexible(
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        const Icon(Icons.badge_outlined, color: Colors.white, size: 18),
-                        const SizedBox(width: 8),
-                        Flexible(
-                          child: Text(
-                            state.user.name,
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
-                              color: Colors.white,
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: SystemUiOverlayStyle.light.copyWith(
+        statusBarColor: Colors.transparent,
+        statusBarIconBrightness: Brightness.light,
+      ),
+      child: BlocListener<TableBloc, TableState>(
+        listenWhen: (prev, curr) => _awaitingTableName,
+        listener: (context, state) {
+          if (state is TableLoaded) {
+            // Dismiss the table name dialog
+            _awaitingTableName = false;
+            Navigator.pop(context);
+            final uuid = state.table.uuid;
+            if (uuid != null && uuid.isNotEmpty) {
+              context.go('/table/$uuid/menu');
+            }
+          }
+        },
+        child: Scaffold(
+          backgroundColor: _bg,
+          appBar: AppBar(
+            backgroundColor: _bg,
+            foregroundColor: Colors.white,
+            elevation: 0,
+            automaticallyImplyLeading: false,
+            titleSpacing: 16,
+            title: const _StaffHeader(),
+            actions: [
+              IconButton(
+                tooltip: 'Log out',
+                icon: const Icon(Icons.logout),
+                onPressed: () => context.read<AuthBloc>().add(const AuthLogout()),
+              ),
+              const SizedBox(width: 4),
+            ],
+          ),
+          body: SafeArea(
+            child: Center(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 600),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      // Primary action
+                      SizedBox(
+                        height: 72,
+                        child: ElevatedButton.icon(
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: _accent,
+                            foregroundColor: Colors.white,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(16),
+                            ),
+                          ),
+                          onPressed: () => _showAddOrder(context),
+                          icon: const Icon(Icons.add_circle_outline, size: 28),
+                          label: const Text(
+                            'ADD ORDER',
+                            style: TextStyle(
+                              fontSize: 18,
                               fontWeight: FontWeight.bold,
+                              letterSpacing: 1.2,
                             ),
                           ),
                         ),
-                      ],
-                    ),
-                  ),
-                  Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      TextButton.icon(
-                        onPressed: () => guardWebAction(
+                      ),
+                      const SizedBox(height: 32),
+
+                      Text(
+                        'SETTINGS',
+                        style: TextStyle(
+                          color: Colors.white.withValues(alpha: 0.5),
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                          letterSpacing: 1.2,
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      _SettingsTile(
+                        icon: Icons.restaurant_menu,
+                        title: 'Menu curation',
+                        subtitle: 'Choose which items show on web ordering',
+                        onTap: () => guardWebAction(
                           context,
                           accessKey: 'web_menu_curation',
                           actionName: 'Menu Curation',
-                          onGranted: () => context.go('/staff/menu'),
-                        ),
-                        icon: const Icon(Icons.restaurant_menu, size: 18, color: Colors.white),
-                        label: const Text(
-                          'Menu',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontWeight: FontWeight.bold,
-                          ),
+                          onGranted: () => context.push('/staff/menu'),
                         ),
                       ),
-                      TextButton.icon(
-                        onPressed: () => guardWebAction(
+                      _SettingsTile(
+                        icon: Icons.table_restaurant,
+                        title: 'Clear / settle tables',
+                        subtitle: 'Settle open orders from the floor plan',
+                        onTap: () => guardWebAction(
                           context,
                           accessKey: 'web_clear_table',
                           actionName: 'Clear / Settle Table',
-                          onGranted: () => context.go('/staff/tables'),
-                        ),
-                        icon: const Icon(Icons.table_restaurant, size: 18, color: Colors.white),
-                        label: const Text(
-                          'Tables',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontWeight: FontWeight.bold,
-                          ),
+                          onGranted: () => context.push('/staff/tables'),
                         ),
                       ),
-                      TextButton.icon(
-                        onPressed: () => guardWebAction(
+                      _SettingsTile(
+                        icon: Icons.refresh,
+                        title: 'Reload all devices',
+                        subtitle: 'Force every open device onto the latest version',
+                        onTap: () => guardWebAction(
                           context,
                           accessKey: 'web_force_reload',
                           actionName: 'Reload all devices',
                           onGranted: () => _confirmAndReloadAll(context),
                         ),
-                        icon: const Icon(Icons.refresh, size: 18, color: Colors.white),
-                        label: const Text(
-                          'Reload all',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ),
-                      TextButton.icon(
-                        onPressed: () => context.read<AuthBloc>().add(const AuthLogout()),
-                        icon: const Icon(Icons.logout, size: 18, color: Colors.white),
-                        label: const Text(
-                          'Log out',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
                       ),
                     ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// App bar title: the signed-in staff name.
+class _StaffHeader extends StatelessWidget {
+  const _StaffHeader();
+
+  @override
+  Widget build(BuildContext context) {
+    return BlocBuilder<AuthBloc, AuthState>(
+      builder: (context, state) {
+        final name = state is AuthAuthenticated ? state.user.name : '';
+        return Row(
+          children: [
+            const Icon(Icons.badge_outlined, color: Colors.white70, size: 22),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Signed in as',
+                    style: TextStyle(color: Colors.white.withValues(alpha: 0.5), fontSize: 11),
+                  ),
+                  Text(
+                    name,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                 ],
               ),
             ),
-          ),
+          ],
         );
       },
     );
   }
 }
 
-/// A premium dialog that handles QR code scanning with camera fallback.
-class QrScannerDialog extends StatefulWidget {
-  const QrScannerDialog({super.key});
+class _SettingsTile extends StatelessWidget {
+  final IconData icon;
+  final String title;
+  final String subtitle;
+  final VoidCallback onTap;
 
-  @override
-  State<QrScannerDialog> createState() => _QrScannerDialogState();
-}
-
-class _QrScannerDialogState extends State<QrScannerDialog> with SingleTickerProviderStateMixin {
-  final MobileScannerController _scannerController = MobileScannerController(
-    detectionSpeed: DetectionSpeed.normal,
-    facing: CameraFacing.back,
-  );
-
-  bool _hasError = false;
-  bool _isPermissionDenied = false;
-  late AnimationController _animationController;
-
-  @override
-  void initState() {
-    super.initState();
-    _animationController = AnimationController(
-      duration: const Duration(seconds: 2),
-      vsync: this,
-    )..repeat(reverse: true);
-  }
-
-  @override
-  void dispose() {
-    _animationController.dispose();
-    _scannerController.dispose();
-    super.dispose();
-  }
-
-  String? _extractTableUuid(String text) {
-    final trimmed = text.trim();
-    // Regex for standard UUID matching
-    final uuidRegex = RegExp(
-      r'^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$',
-      caseSensitive: false,
-    );
-    if (uuidRegex.hasMatch(trimmed)) {
-      return trimmed;
-    }
-
-    // Try parsing as a URL
-    try {
-      final uri = Uri.parse(trimmed);
-      final segments = uri.pathSegments;
-      final tableIndex = segments.indexOf('table');
-      if (tableIndex != -1 && tableIndex + 1 < segments.length) {
-        final potentialUuid = segments[tableIndex + 1];
-        if (uuidRegex.hasMatch(potentialUuid)) {
-          return potentialUuid;
-        }
-      }
-    } catch (_) {
-      // Ignored URL parse error
-    }
-    return null;
-  }
-
-  void _onDetect(BarcodeCapture capture) {
-    final barcodes = capture.barcodes;
-    for (final barcode in barcodes) {
-      final rawValue = barcode.rawValue;
-      if (rawValue != null) {
-        final uuid = _extractTableUuid(rawValue);
-        if (uuid != null) {
-          _scannerController.stop();
-          // Load the table metadata, this transitions TableBloc state
-          context.read<TableBloc>().add(GetTable(uuid));
-          return;
-        }
-      }
-    }
-  }
+  const _SettingsTile({
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+    required this.onTap,
+  });
 
   @override
   Widget build(BuildContext context) {
-    return Dialog(
-      backgroundColor: Colors.transparent,
-      insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
-      child: Center(
-        child: Container(
-          width: double.infinity,
-          constraints: const BoxConstraints(maxWidth: 400, maxHeight: 520),
-          decoration: BoxDecoration(
-            color: const Color(0xff121212),
-            borderRadius: BorderRadius.circular(28),
-            border: Border.all(
-              color: Colors.white.withValues(alpha: 0.15),
-              width: 1.5,
-            ),
-            boxShadow: const [
-              BoxShadow(
-                color: Colors.black54,
-                blurRadius: 24,
-                spreadRadius: 4,
-              ),
-            ],
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              // Header
-              Padding(
-                padding: const EdgeInsets.fromLTRB(20, 20, 12, 12),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    const Row(
-                      children: [
-                        Icon(
-                          Icons.qr_code_scanner,
-                          color: Color.fromARGB(255, 235, 209, 16),
-                          size: 24,
-                        ),
-                        SizedBox(width: 10),
-                        Text(
-                          'Scan Table QR Code',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ],
-                    ),
-                    IconButton(
-                      icon: const Icon(Icons.close, color: Colors.white54),
-                      onPressed: () => Navigator.pop(context),
-                    ),
-                  ],
-                ),
-              ),
-
-              // Scanner Viewport or Fallback
-              Expanded(
-                child: Container(
-                  margin: const EdgeInsets.symmetric(horizontal: 20),
-                  decoration: BoxDecoration(
-                    color: Colors.black,
-                    borderRadius: BorderRadius.circular(20),
-                    border: Border.all(
-                      color: Colors.white.withValues(alpha: 0.1),
-                      width: 1,
-                    ),
-                  ),
-                  clipBehavior: Clip.antiAlias,
-                  child: _isPermissionDenied || _hasError
-                      ? _buildCameraFallback()
-                      : Stack(
-                          children: [
-                            MobileScanner(
-                              controller: _scannerController,
-                              onDetect: _onDetect,
-                              errorBuilder: (context, error) {
-                                WidgetsBinding.instance.addPostFrameCallback((
-                                  _,
-                                ) {
-                                  if (mounted && !_hasError) {
-                                    setState(() {
-                                      _hasError = true;
-                                      if (error.errorCode == MobileScannerErrorCode.permissionDenied) {
-                                        _isPermissionDenied = true;
-                                      }
-                                    });
-                                  }
-                                });
-                                return const SizedBox();
-                              },
-                            ),
-                            // Scanning overlay / grid box
-                            _buildScannerOverlay(),
-                          ],
-                        ),
-                ),
-              ),
-
-              // Footer explanation
-              Padding(
-                padding: const EdgeInsets.all(20),
-                child: Column(
-                  children: [
-                    Text(
-                      _isPermissionDenied || _hasError
-                          ? 'Please enter the table name manually instead.'
-                          : 'Point your camera at the QR code on your table.',
-                      textAlign: TextAlign.center,
-                      style: const TextStyle(
-                        color: Colors.white70,
-                        fontSize: 13,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    const Text(
-                      'Tip: Scanning the QR code with your phone\'s native camera app will also work!',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        color: Colors.amber,
-                        fontSize: 11,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: Material(
+        color: Colors.white.withValues(alpha: 0.05),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(14),
+          side: BorderSide(color: Colors.white.withValues(alpha: 0.1)),
         ),
-      ),
-    );
-  }
-
-  Widget _buildScannerOverlay() {
-    return AnimatedBuilder(
-      animation: _animationController,
-      builder: (context, child) {
-        final double lineOffset = _animationController.value;
-        return Stack(
-          children: [
-            // Darkened outer borders
-            Container(
-              decoration: ShapeDecoration(
-                shape: QrScannerOverlayShape(
-                  borderColor: const Color(0xfff25125),
-                  borderRadius: 16,
-                  borderLength: 24,
-                  borderWidth: 4,
-                  cutOutSize: 220,
-                ),
-              ),
-            ),
-            // Pulsing Red Laser Line
-            Center(
-              child: Container(
-                width: 220,
-                height: 220,
-                alignment: Alignment.topCenter,
-                child: Padding(
-                  padding: EdgeInsets.only(top: 220 * lineOffset),
-                  child: Container(
-                    height: 3,
-                    width: 200,
-                    decoration: BoxDecoration(
-                      color: const Color(0xfff25125),
-                      boxShadow: [
-                        BoxShadow(
-                          color: const Color(0xfff25125).withValues(alpha: 0.8),
-                          blurRadius: 8,
-                          spreadRadius: 1,
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          ],
-        );
-      },
-    );
-  }
-
-  Widget _buildCameraFallback() {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(24.0),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const Icon(
-              Icons.videocam_off,
-              color: Colors.redAccent,
-              size: 48,
-            ),
-            const SizedBox(height: 16),
-            const Text(
-              'Camera Access Blocked',
-              style: TextStyle(
-                color: Colors.white,
-                fontWeight: FontWeight.bold,
-                fontSize: 16,
-              ),
-            ),
-            const SizedBox(height: 8),
-            const Text(
-              'Camera permissions were denied or your browser requires HTTPS for camera access.',
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                color: Colors.white70,
-                fontSize: 12,
-                height: 1.4,
-              ),
-            ),
-            const SizedBox(height: 20),
-            ElevatedButton(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xfff25125),
-                foregroundColor: Colors.white,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-              ),
-              onPressed: () {
-                Navigator.pop(context, 'show_name_input');
-              },
-              child: const Text('Use Table Name Instead'),
-            ),
-          ],
+        child: ListTile(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+          leading: Icon(icon, color: _accent),
+          title: Text(
+            title,
+            style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+          ),
+          subtitle: Text(
+            subtitle,
+            style: TextStyle(color: Colors.white.withValues(alpha: 0.6), fontSize: 12),
+          ),
+          trailing: const Icon(Icons.chevron_right, color: Colors.white38),
+          onTap: onTap,
         ),
       ),
     );
   }
 }
 
-/// A premium dialog that handles inputting table names and querying them.
+class _SheetOption extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final VoidCallback onTap;
+
+  const _SheetOption({required this.icon, required this.label, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: 56,
+      child: OutlinedButton.icon(
+        style: OutlinedButton.styleFrom(
+          foregroundColor: Colors.white,
+          side: BorderSide(color: Colors.white.withValues(alpha: 0.3)),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+        ),
+        onPressed: onTap,
+        icon: Icon(icon),
+        label: Text(label, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+      ),
+    );
+  }
+}
+
+/// Dialog that looks a table up by name via [TableBloc] (`GetTableByName`).
 class TableNameDialog extends StatefulWidget {
   const TableNameDialog({super.key});
 
@@ -818,362 +389,99 @@ class _TableNameDialogState extends State<TableNameDialog> {
     }
   }
 
+  OutlineInputBorder _border(Color color, [double width = 1]) => OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: BorderSide(color: color, width: width),
+      );
+
   @override
   Widget build(BuildContext context) {
-    return Dialog(
-      backgroundColor: Colors.transparent,
-      child: Center(
-        child: Container(
-          width: double.infinity,
-          constraints: const BoxConstraints(maxWidth: 400),
-          decoration: BoxDecoration(
-            color: const Color(0xff121212),
-            borderRadius: BorderRadius.circular(24),
-            border: Border.all(
-              color: Colors.white.withValues(alpha: 0.15),
-              width: 1.5,
-            ),
-            boxShadow: const [
-              BoxShadow(
-                color: Colors.black54,
-                blurRadius: 24,
-                spreadRadius: 4,
-              ),
-            ],
-          ),
-          padding: const EdgeInsets.all(24),
-          child: BlocBuilder<TableBloc, TableState>(
-            builder: (context, state) {
-              final isLoading = state is TableLoading;
-
-              return Form(
-                key: _formKey,
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    // Title Header
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        const Row(
-                          children: [
-                            Icon(
-                              Icons.table_restaurant,
-                              color: Color.fromARGB(255, 235, 209, 16),
-                              size: 24,
-                            ),
-                            SizedBox(width: 10),
-                            Text(
-                              'Enter Table Name',
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontSize: 18,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ],
-                        ),
-                        IconButton(
-                          icon: const Icon(
-                            Icons.close,
-                            color: Colors.white54,
-                            size: 20,
-                          ),
-                          onPressed: isLoading ? null : () => Navigator.pop(context),
-                        ),
-                      ],
+    return AlertDialog(
+      backgroundColor: _bg,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(24),
+        side: BorderSide(color: Colors.white.withValues(alpha: 0.15), width: 1.5),
+      ),
+      title: const Text('Enter Table Name', style: TextStyle(color: Colors.white)),
+      content: SizedBox(
+        width: 360,
+        child: BlocBuilder<TableBloc, TableState>(
+          builder: (context, state) {
+            final isLoading = state is TableLoading;
+            return Form(
+              key: _formKey,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  TextFormField(
+                    controller: _inputController,
+                    autofocus: true,
+                    enabled: !isLoading,
+                    style: const TextStyle(color: Colors.white, fontSize: 16),
+                    textInputAction: TextInputAction.done,
+                    onFieldSubmitted: (_) => _submit(),
+                    decoration: InputDecoration(
+                      hintText: 'e.g. Table 1',
+                      hintStyle: TextStyle(color: Colors.white.withValues(alpha: 0.3)),
+                      filled: true,
+                      fillColor: Colors.white.withValues(alpha: 0.05),
+                      focusedBorder: _border(_accent, 1.5),
+                      enabledBorder: _border(Colors.white.withValues(alpha: 0.2)),
+                      disabledBorder: _border(Colors.white.withValues(alpha: 0.05)),
+                      errorBorder: _border(Colors.redAccent, 1.5),
+                      focusedErrorBorder: _border(Colors.redAccent, 1.5),
                     ),
-                    const SizedBox(height: 16),
-
-                    // Instructions
-                    const Text(
-                      'Please enter the table name printed on your table (e.g. "Table 1").',
-                      style: TextStyle(color: Colors.white70, fontSize: 13),
-                    ),
-                    const SizedBox(height: 20),
-
-                    // Input Field
-                    TextFormField(
-                      controller: _inputController,
-                      enabled: !isLoading,
-                      style: const TextStyle(color: Colors.white, fontSize: 16),
-                      textInputAction: TextInputAction.done,
-                      onFieldSubmitted: (_) => _submit(),
-                      decoration: InputDecoration(
-                        hintText: 'e.g. Table 1',
-                        hintStyle: TextStyle(
-                          color: Colors.white.withValues(alpha: 0.3),
-                        ),
-                        filled: true,
-                        fillColor: Colors.white.withValues(alpha: 0.05),
-                        contentPadding: const EdgeInsets.symmetric(
-                          horizontal: 16,
-                          vertical: 16,
-                        ),
-                        focusedBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                          borderSide: const BorderSide(
-                            color: Color.fromARGB(255, 235, 209, 16),
-                            width: 1.5,
-                          ),
-                        ),
-                        enabledBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                          borderSide: BorderSide(
-                            color: Colors.white.withValues(alpha: 0.2),
-                          ),
-                        ),
-                        disabledBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                          borderSide: BorderSide(
-                            color: Colors.white.withValues(alpha: 0.05),
-                          ),
-                        ),
-                        errorBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                          borderSide: const BorderSide(
-                            color: Colors.redAccent,
-                            width: 1.5,
-                          ),
-                        ),
-                        focusedErrorBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                          borderSide: const BorderSide(
-                            color: Colors.redAccent,
-                            width: 1.5,
-                          ),
-                        ),
-                      ),
-                      validator: (value) {
-                        if (value == null || value.trim().isEmpty) {
-                          return 'Table name cannot be empty';
-                        }
-                        return null;
-                      },
-                    ),
+                    validator: (value) {
+                      if (value == null || value.trim().isEmpty) {
+                        return 'Table name cannot be empty';
+                      }
+                      return null;
+                    },
+                  ),
+                  if (state is TableError) ...[
                     const SizedBox(height: 12),
-
-                    // Error Feedback Box
-                    if (state is TableError)
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 8,
-                        ),
-                        decoration: BoxDecoration(
-                          color: Colors.redAccent.withValues(alpha: 0.1),
-                          borderRadius: BorderRadius.circular(8),
-                          border: Border.all(
-                            color: Colors.redAccent.withValues(alpha: 0.3),
-                          ),
-                        ),
-                        child: Row(
-                          children: [
-                            const Icon(
-                              Icons.error_outline,
-                              color: Colors.redAccent,
-                              size: 18,
-                            ),
-                            const SizedBox(width: 8),
-                            Expanded(
-                              child: Text(
-                                state.message.contains('Exception:')
-                                    ? state.message.split('Exception:').last.trim()
-                                    : 'Table not found. Check the name and try again.',
-                                style: const TextStyle(
-                                  color: Colors.redAccent,
-                                  fontSize: 12,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    const SizedBox(height: 24),
-
-                    // Action Buttons
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.end,
-                      children: [
-                        TextButton(
-                          onPressed: isLoading ? null : () => Navigator.pop(context),
-                          child: Text(
-                            'Cancel',
-                            style: TextStyle(
-                              color: isLoading ? Colors.white30 : Colors.white70,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        ElevatedButton(
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: Color.fromARGB(255, 235, 209, 16),
-                            foregroundColor: Colors.white,
-                            disabledBackgroundColor: const Color(
-                              0xfff25125,
-                            ).withValues(alpha: 0.5),
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 24,
-                              vertical: 12,
-                            ),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                          ),
-                          onPressed: isLoading ? null : _submit,
-                          child: isLoading
-                              ? const SizedBox(
-                                  width: 20,
-                                  height: 20,
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 2,
-                                    valueColor: AlwaysStoppedAnimation<Color>(
-                                      Colors.white,
-                                    ),
-                                  ),
-                                )
-                              : const Text(
-                                  'Find Table',
-                                  style: TextStyle(
-                                    fontWeight: FontWeight.bold,
-                                    color: Colors.black,
-                                  ),
-                                ),
-                        ),
-                      ],
+                    Text(
+                      state.message.contains('Exception:')
+                          ? state.message.split('Exception:').last.trim()
+                          : 'Table not found. Check the name and try again.',
+                      style: const TextStyle(color: Colors.redAccent, fontSize: 12),
                     ),
                   ],
-                ),
-              );
-            },
-          ),
+                  const SizedBox(height: 20),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    children: [
+                      TextButton(
+                        onPressed: isLoading ? null : () => Navigator.pop(context),
+                        child: const Text('Cancel', style: TextStyle(color: Colors.white70)),
+                      ),
+                      const SizedBox(width: 8),
+                      ElevatedButton(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: _accent,
+                          foregroundColor: Colors.white,
+                        ),
+                        onPressed: isLoading ? null : _submit,
+                        child: isLoading
+                            ? const SizedBox(
+                                width: 18,
+                                height: 18,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                                ),
+                              )
+                            : const Text('Find Table', style: TextStyle(fontWeight: FontWeight.bold)),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            );
+          },
         ),
       ),
-    );
-  }
-}
-
-/// Custom painter for drawing a scanner viewport overlay (the borders).
-class QrScannerOverlayShape extends ShapeBorder {
-  final Color borderColor;
-  final double borderWidth;
-  final double borderLength;
-  final double borderRadius;
-  final double cutOutSize;
-
-  const QrScannerOverlayShape({
-    this.borderColor = Colors.red,
-    this.borderWidth = 3.0,
-    this.borderLength = 20.0,
-    this.borderRadius = 0.0,
-    this.cutOutSize = 250.0,
-  });
-
-  @override
-  EdgeInsetsGeometry get dimensions => EdgeInsets.zero;
-
-  @override
-  Path getInnerPath(Rect rect, {TextDirection? textDirection}) {
-    return Path()..addRect(
-      Rect.fromCenter(
-        center: rect.center,
-        width: cutOutSize,
-        height: cutOutSize,
-      ),
-    );
-  }
-
-  @override
-  Path getOuterPath(Rect rect, {TextDirection? textDirection}) {
-    return Path()..addRect(rect);
-  }
-
-  @override
-  void paint(Canvas canvas, Rect rect, {TextDirection? textDirection}) {
-    final backgroundPaint = Paint()
-      ..color = Colors.black.withValues(alpha: 0.6)
-      ..style = PaintingStyle.fill;
-
-    final borderPaint = Paint()
-      ..color = borderColor
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = borderWidth;
-
-    final boxRect = Rect.fromCenter(
-      center: rect.center,
-      width: cutOutSize,
-      height: cutOutSize,
-    );
-
-    // Draw darkened background around cutOut
-    final path = Path()
-      ..addRect(rect)
-      ..addRRect(
-        RRect.fromRectAndRadius(boxRect, Radius.circular(borderRadius)),
-      );
-    canvas.drawPath(path, backgroundPaint);
-
-    // Draw borders/corners
-    final double halfWidth = borderWidth / 2;
-    final double radius = borderRadius;
-
-    // Top-Left Corner
-    final topLeftPath = Path()
-      ..moveTo(boxRect.left + borderLength, boxRect.top - halfWidth)
-      ..lineTo(boxRect.left + radius, boxRect.top - halfWidth)
-      ..arcToPoint(
-        Offset(boxRect.left - halfWidth, boxRect.top + radius),
-        radius: Radius.circular(radius),
-        clockwise: false,
-      )
-      ..lineTo(boxRect.left - halfWidth, boxRect.top + borderLength);
-    canvas.drawPath(topLeftPath, borderPaint);
-
-    // Top-Right Corner
-    final topRightPath = Path()
-      ..moveTo(boxRect.right - borderLength, boxRect.top - halfWidth)
-      ..lineTo(boxRect.right - radius, boxRect.top - halfWidth)
-      ..arcToPoint(
-        Offset(boxRect.right + halfWidth, boxRect.top + radius),
-        radius: Radius.circular(radius),
-      )
-      ..lineTo(boxRect.right + halfWidth, boxRect.top + borderLength);
-    canvas.drawPath(topRightPath, borderPaint);
-
-    // Bottom-Left Corner
-    final bottomLeftPath = Path()
-      ..moveTo(boxRect.left + borderLength, boxRect.bottom + halfWidth)
-      ..lineTo(boxRect.left + radius, boxRect.bottom + halfWidth)
-      ..arcToPoint(
-        Offset(boxRect.left - halfWidth, boxRect.bottom - radius),
-        radius: Radius.circular(radius),
-      )
-      ..lineTo(boxRect.left - halfWidth, boxRect.bottom - borderLength);
-    canvas.drawPath(bottomLeftPath, borderPaint);
-
-    // Bottom-Right Corner
-    final bottomRightPath = Path()
-      ..moveTo(boxRect.right - borderLength, boxRect.bottom + halfWidth)
-      ..lineTo(boxRect.right - radius, boxRect.bottom + halfWidth)
-      ..arcToPoint(
-        Offset(boxRect.right + halfWidth, boxRect.bottom - radius),
-        radius: Radius.circular(radius),
-        clockwise: false,
-      )
-      ..lineTo(boxRect.right + halfWidth, boxRect.bottom - borderLength);
-    canvas.drawPath(bottomRightPath, borderPaint);
-  }
-
-  @override
-  ShapeBorder scale(double t) {
-    return QrScannerOverlayShape(
-      borderColor: borderColor,
-      borderWidth: borderWidth * t,
-      borderLength: borderLength * t,
-      borderRadius: borderRadius * t,
-      cutOutSize: cutOutSize * t,
     );
   }
 }

@@ -3,9 +3,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:get_it/get_it.dart';
 import 'package:go_router/go_router.dart';
+import '../../../../core/router/staff_routes.dart';
 import '../../../orders/data/datasources/orders_data_source.dart';
 import '../../../table/data/models/ground_model.dart';
 import '../../../table/data/models/table_model.dart';
+import '../../../table/presentation/bloc/table_bloc.dart';
 import '../bloc/clear_orders_bloc.dart';
 
 /// Staff-only screen (`/staff/tables`) to clear (settle) a table's open order.
@@ -15,8 +17,13 @@ import '../bloc/clear_orders_bloc.dart';
 ///
 /// Clearing sets `payment_status = 2` via the existing
 /// `OrdersDataSource.updatePaymentStatus`. Local-mode only.
+///
+/// With [orderMode] (`/staff/order`) the same floor plan is a table picker for
+/// waiter ordering: every table is tappable and a tap opens its menu.
 class ClearOrdersPage extends StatefulWidget {
-  const ClearOrdersPage({super.key});
+  final bool orderMode;
+
+  const ClearOrdersPage({super.key, this.orderMode = false});
 
   @override
   State<ClearOrdersPage> createState() => _ClearOrdersPageState();
@@ -76,9 +83,12 @@ class _ClearOrdersPageState extends State<ClearOrdersPage> {
             elevation: 0,
             leading: IconButton(
               icon: const Icon(Icons.arrow_back),
-              onPressed: () => context.canPop() ? context.pop() : context.go('/staff'),
+              onPressed: () => context.canPop() ? context.pop() : context.go(staffHomePath),
             ),
-            title: const Text('Clear Orders', style: TextStyle(fontWeight: FontWeight.bold)),
+            title: Text(
+              widget.orderMode ? 'Select Table' : 'Clear Orders',
+              style: const TextStyle(fontWeight: FontWeight.bold),
+            ),
             actions: [
               if (showRotate)
                 IconButton(
@@ -152,12 +162,14 @@ class _ClearOrdersPageState extends State<ClearOrdersPage> {
                         ground: effective,
                         tables: groundTables,
                         state: state,
+                        orderMode: widget.orderMode,
                         onTap: (t) => _handleTableTap(context, state, t),
                       ),
                     )
                   : _GridView(
                       tables: groundTables,
                       state: state,
+                      orderMode: widget.orderMode,
                       onTap: (t) => _handleTableTap(context, state, t),
                     )),
         ),
@@ -261,6 +273,14 @@ class _ClearOrdersPageState extends State<ClearOrdersPage> {
     ClearOrdersLoaded state,
     TableModel table,
   ) async {
+    if (widget.orderMode) {
+      final uuid = table.uuid;
+      if (uuid == null || uuid.isEmpty) return;
+      context.read<TableBloc>().add(GetTable(uuid));
+      context.go('/table/$uuid/menu');
+      return;
+    }
+
     final order = state.openOrders[table.id];
     if (order == null) return; // empty table — nothing to clear
 
@@ -317,9 +337,15 @@ class _TableColors {
 class _GridView extends StatelessWidget {
   final List<TableModel> tables;
   final ClearOrdersLoaded state;
+  final bool orderMode;
   final ValueChanged<TableModel> onTap;
 
-  const _GridView({required this.tables, required this.state, required this.onTap});
+  const _GridView({
+    required this.tables,
+    required this.state,
+    required this.orderMode,
+    required this.onTap,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -345,7 +371,8 @@ class _GridView extends StatelessWidget {
             return _TableCard(
               table: t,
               colors: _TableColors.forTable(state, t),
-              isOpen: state.isOpen(t.id),
+              tappable: orderMode || state.isOpen(t.id),
+              hint: orderMode ? 'Tap to order' : 'Tap to clear',
               onTap: () => onTap(t),
             );
           },
@@ -358,13 +385,15 @@ class _GridView extends StatelessWidget {
 class _TableCard extends StatelessWidget {
   final TableModel table;
   final _TableColors colors;
-  final bool isOpen;
+  final bool tappable;
+  final String hint;
   final VoidCallback onTap;
 
   const _TableCard({
     required this.table,
     required this.colors,
-    required this.isOpen,
+    required this.tappable,
+    required this.hint,
     required this.onTap,
   });
 
@@ -374,7 +403,7 @@ class _TableCard extends StatelessWidget {
       color: Colors.transparent,
       child: InkWell(
         borderRadius: BorderRadius.circular(12),
-        onTap: isOpen ? onTap : null,
+        onTap: tappable ? onTap : null,
         child: Container(
           decoration: BoxDecoration(
             color: colors.fill,
@@ -401,10 +430,10 @@ class _TableCard extends StatelessWidget {
                 colors.label,
                 style: TextStyle(color: colors.text, fontSize: 11),
               ),
-              if (isOpen) ...[
+              if (tappable) ...[
                 const SizedBox(height: 4),
-                const Text('Tap to clear',
-                    style: TextStyle(color: Colors.white38, fontSize: 10)),
+                Text(hint,
+                    style: const TextStyle(color: Colors.white38, fontSize: 10)),
               ],
             ],
           ),
@@ -423,12 +452,14 @@ class _BlueprintView extends StatefulWidget {
   final GroundModel ground;
   final List<TableModel> tables;
   final ClearOrdersLoaded state;
+  final bool orderMode;
   final ValueChanged<TableModel> onTap;
 
   const _BlueprintView({
     required this.ground,
     required this.tables,
     required this.state,
+    required this.orderMode,
     required this.onTap,
   });
 
@@ -501,7 +532,7 @@ class _BlueprintViewState extends State<_BlueprintView> {
             child: Stack(
               children: widget.tables.map((t) {
                 final colors = _TableColors.forTable(widget.state, t);
-                final isOpen = widget.state.isOpen(t.id);
+                final tappable = widget.orderMode || widget.state.isOpen(t.id);
                 final w = widget.ground.tableSize * t.gridWidth;
                 final h = widget.ground.tableSize * t.gridHeight;
                 return Positioned(
@@ -510,7 +541,7 @@ class _BlueprintViewState extends State<_BlueprintView> {
                   child: Transform.rotate(
                     angle: t.rotation * math.pi / 180,
                     child: GestureDetector(
-                      onTap: isOpen ? () => widget.onTap(t) : null,
+                      onTap: tappable ? () => widget.onTap(t) : null,
                       child: Container(
                         width: w,
                         height: h,

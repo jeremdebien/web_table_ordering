@@ -19,10 +19,18 @@ import '../../features/table_qr/presentation/pages/qr_expired_page.dart';
 import '../../features/table_qr/presentation/pages/table_qr_token_page.dart';
 import '../../features/table_qr/presentation/widgets/table_qr_gate.dart';
 import '../pages/not_found_page.dart';
+import 'staff_routes.dart';
 
 /// [kiosk] is the Android self-order build (`main_kiosk.dart`): `/` opens the
-/// menu directly instead of the welcome page. Every other route is shared.
-GoRouter buildRouter({bool kiosk = false}) => GoRouter(
+/// menu directly instead of the welcome page. [waiter] is the Android waiter
+/// app (`main_waiter.dart`): `/` is the staff PIN login / staff home. Every
+/// other route is shared.
+GoRouter buildRouter({bool kiosk = false, bool waiter = false}) {
+  staffHomePath = waiter ? '/' : '/staff';
+  return _buildRouter(kiosk: kiosk, waiter: waiter);
+}
+
+GoRouter _buildRouter({required bool kiosk, required bool waiter}) => GoRouter(
   initialLocation: '/',
   errorBuilder: (context, state) => const NotFoundPage(),
   // Legacy QR codes point at the old POS URL shape
@@ -40,7 +48,10 @@ GoRouter buildRouter({bool kiosk = false}) => GoRouter(
   routes: [
     GoRoute(
       path: '/',
-      builder: (context, state) => kiosk ? const KioskMenuPage() : const WelcomePage(),
+      builder: (context, state) {
+        if (waiter) return const RootGate();
+        return kiosk ? const KioskMenuPage() : const WelcomePage();
+      },
     ),
     GoRoute(
       path: '/qr',
@@ -75,6 +86,20 @@ GoRouter buildRouter({bool kiosk = false}) => GoRouter(
               return BlocProvider(
                 create: (_) => GetIt.instance<ClearOrdersBloc>()..add(const LoadTables()),
                 child: const ClearOrdersPage(),
+              );
+            },
+          ),
+        ),
+        // Waiter "Add Order" table picker: the clear-orders floor plan in
+        // order mode. Same waiter-session gate as `/staff`.
+        GoRoute(
+          path: 'order',
+          builder: (context, state) => BlocBuilder<AuthBloc, AuthState>(
+            builder: (context, authState) {
+              if (authState is! AuthAuthenticated) return const RootGate();
+              return BlocProvider(
+                create: (_) => GetIt.instance<ClearOrdersBloc>()..add(const LoadTables()),
+                child: const ClearOrdersPage(orderMode: true),
               );
             },
           ),

@@ -6,8 +6,8 @@ import '../bloc/auth_bloc.dart';
 import 'pin_login_page.dart';
 
 /// The staff console at `/staff`, gated behind a PIN. While the session is being
-/// read it shows a loader, an authenticated waiter sees the [HomePage] waiter
-/// tool (QR + table search), and everyone else sees the [PinLoginPage]. The PIN
+/// read it shows a loader, an authenticated waiter sees the [StaffHomePage]
+/// (Add Order + settings), and everyone else sees the [PinLoginPage]. The PIN
 /// is only verifiable in local mode (the verifier edge function); online is
 /// unsupported by design.
 class RootGate extends StatelessWidget {
@@ -21,7 +21,7 @@ class RootGate extends StatelessWidget {
       child: BlocBuilder<AuthBloc, AuthState>(
         builder: (context, state) {
           if (state is AuthAuthenticated) {
-            return const HomePage();
+            return const StaffHomePage();
           }
           if (state is AuthInitial || state is AuthChecking) {
             return const _GateLoader();
