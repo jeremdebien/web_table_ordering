@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
+import '../../../auth/presentation/bloc/auth_bloc.dart';
 import '../../../table/presentation/bloc/table_bloc.dart';
 import '../../../menu/presentation/bloc/menu_bloc.dart';
 import '../bloc/cart_bloc.dart';
@@ -75,7 +76,10 @@ class _OrderSummaryPageState extends State<OrderSummaryPage> {
                     size: 22,
                   ),
                   onPressed: () {
-                    context.go('/table/$uuid');
+                    // Waiters came here from the staff home, not the
+                    // customer table landing — send them back to the menu.
+                    final isStaff = context.read<AuthBloc>().state is AuthAuthenticated;
+                    context.go(isStaff ? '/table/$uuid/menu' : '/table/$uuid');
                   },
                 ),
               ),

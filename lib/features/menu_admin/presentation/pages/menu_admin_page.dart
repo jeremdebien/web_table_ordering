@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
+import '../../../../core/router/staff_routes.dart';
 import '../../../menu/data/models/category_model.dart';
 import '../../../menu/data/models/department_model.dart';
 import '../../../menu/data/models/item_model.dart';
@@ -49,7 +50,7 @@ class _MenuAdminPageState extends State<MenuAdminPage> {
   Future<void> _handleBack(BuildContext context, bool isDirty) async {
     if (isDirty && !await _confirmDiscardPrompt(context)) return;
     if (!context.mounted) return;
-    context.canPop() ? context.pop() : context.go('/staff');
+    context.canPop() ? context.pop() : context.go(staffHomePath);
   }
 
   @override
@@ -91,7 +92,7 @@ class _MenuAdminPageState extends State<MenuAdminPage> {
           onPopInvokedWithResult: (didPop, result) async {
             if (didPop) return;
             if (await _confirmDiscardPrompt(context) && context.mounted) {
-              context.canPop() ? context.pop() : context.go('/staff');
+              context.canPop() ? context.pop() : context.go(staffHomePath);
             }
           },
           child: Scaffold(

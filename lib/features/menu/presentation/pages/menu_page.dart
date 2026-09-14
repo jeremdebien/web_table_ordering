@@ -7,6 +7,8 @@ import 'package:web_table_ordering/features/menu/presentation/bloc/menu_bloc.dar
 import 'package:web_table_ordering/features/orders/presentation/bloc/cart_bloc.dart';
 import 'package:web_table_ordering/features/table/presentation/bloc/table_bloc.dart';
 import '../../../../core/di/injection_container.dart';
+import '../../../../core/router/staff_routes.dart';
+import '../../../auth/presentation/bloc/auth_bloc.dart';
 import '../../data/datasources/menu_data_source.dart';
 import '../../data/models/instruction_group_model.dart';
 import '../../data/models/item_model.dart';
@@ -352,6 +354,24 @@ class _MenuPageState extends State<MenuPage> {
                                               mainAxisAlignment:
                                                   MainAxisAlignment.end,
                                               children: [
+                                                // Waiter ordering for a table:
+                                                // way back to the staff home.
+                                                BlocBuilder<AuthBloc, AuthState>(
+                                                  builder: (context, auth) {
+                                                    if (auth is! AuthAuthenticated) {
+                                                      return const SizedBox.shrink();
+                                                    }
+                                                    return IconButton(
+                                                      tooltip: 'Back to staff',
+                                                      style: IconButton.styleFrom(
+                                                        backgroundColor: const Color(0xFF121212),
+                                                      ),
+                                                      icon: const Icon(Icons.arrow_back, color: Colors.white),
+                                                      onPressed: () => context.go(staffHomePath),
+                                                    );
+                                                  },
+                                                ),
+                                                const Spacer(),
                                                 GestureDetector(
                                                   onTap: () => _showNicknamePrompt(
                                                     context,
