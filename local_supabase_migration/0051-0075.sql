@@ -2116,3 +2116,17 @@ GRANT EXECUTE ON FUNCTION staff_table_qr(BIGINT, TEXT) TO anon, authenticated;
 GRANT EXECUTE ON FUNCTION resolve_table_qr(TEXT) TO anon, authenticated;
 GRANT EXECUTE ON FUNCTION revoke_table_qr(BIGINT, TEXT) TO anon, authenticated;
 GRANT EXECUTE ON FUNCTION table_qr_mode() TO anon, authenticated;
+
+-- ═══════════════════════════════════════════════════════════════════
+-- 0062  Filter web orders by device (app_config toggle)
+-- ═══════════════════════════════════════════════════════════════════
+-- 'filter_orders_by_device' decides whether the web app shows a guest only
+-- the lines from their own device (web_device_id) or every line on the
+-- table's open order. Missing row = filtering; this seed makes it explicit.
+-- To show every line: UPDATE app_config SET value = '{"enabled": false}'
+--   WHERE key = 'filter_orders_by_device';
+-- ON CONFLICT DO NOTHING keeps a setup's existing choice on re-run.
+
+INSERT INTO app_config (key, value)
+VALUES ('filter_orders_by_device', '{"enabled": true}')
+ON CONFLICT (key) DO NOTHING;

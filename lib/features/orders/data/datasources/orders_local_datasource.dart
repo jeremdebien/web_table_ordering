@@ -246,7 +246,8 @@ class LocalOrdersDataSource implements OrdersDataSource {
 
       // Line items scoped to the current ordering device. Rows with a NULL
       // web_device_id (POS/waiter-added or pre-device legacy) are intentionally
-      // excluded so a guest sees only their own items.
+      // excluded so a guest sees only their own items. A null [deviceId] (the
+      // app_config 'filter_orders_by_device' setting is off) returns every line.
       var itemQuery = _client.from('sales_order_item').select().eq('sales_order_id', orderId);
       if (deviceId != null) {
         itemQuery = itemQuery.eq('web_device_id', deviceId);

@@ -40,7 +40,10 @@ class OrderList extends StatelessWidget {
       // Group by nickname
       final Map<String, List<SalesOrderItemModel>> multiGroups = {};
       for (var item in groupedItems) {
-        final nick = item.nickname.isEmpty ? 'Unknown' : item.nickname;
+        // No nickname and no web device id means the line was added on the POS.
+        final nick = item.nickname.isNotEmpty
+            ? item.nickname
+            : ((item.webDeviceId ?? '').isEmpty ? 'Store Staff' : 'Unknown');
         if (!multiGroups.containsKey(nick)) {
           multiGroups[nick] = [];
         }
