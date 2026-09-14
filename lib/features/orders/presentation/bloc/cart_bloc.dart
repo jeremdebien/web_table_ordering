@@ -7,6 +7,7 @@ import '../../../menu/presentation/bloc/menu_bloc.dart';
 
 import '../../data/datasources/orders_data_source.dart';
 import '../../../../core/utils/device_id_service.dart';
+import '../../../../core/services/order_filter_config_service.dart';
 
 part 'cart_event.dart';
 part 'cart_state.dart';
@@ -15,6 +16,7 @@ class CartBloc extends Bloc<CartEvent, CartState> {
   final OrdersDataSource _ordersDataSource;
   final MenuBloc _menuBloc;
   final DeviceIdService _deviceIdService;
+  final OrderFilterConfigService _orderFilterConfig;
   StreamSubscription? _menuSubscription;
   StreamSubscription? _realtimeSubscription;
   int? _subscribedSalesOrderId;
@@ -22,7 +24,7 @@ class CartBloc extends Bloc<CartEvent, CartState> {
   // double-taps of "Place Order"/"Confirm & Send" only place the order once.
   bool _isSubmitting = false;
 
-  CartBloc(this._ordersDataSource, this._menuBloc, this._deviceIdService) : super(const CartState()) {
+  CartBloc(this._ordersDataSource, this._menuBloc, this._deviceIdService, this._orderFilterConfig) : super(const CartState()) {
     on<AddToCart>(_onAddToCart);
     on<RemoveFromCart>(_onRemoveFromCart);
     on<ClearCart>(_onClearCart);
@@ -100,7 +102,13 @@ class CartBloc extends Bloc<CartEvent, CartState> {
     // aside and re-append below.
     final unsubmitted = state.newOrders;
     try {
-      final order = await _ordersDataSource.getActiveOrder(tableId: event.tableId, deviceId: deviceId);
+      // app_config 'filter_orders_by_device' decides whether the guest sees
+      // only their own lines or every line on the table.
+      final filterByDevice = await _orderFilterConfig.filterByDevice();
+      final order = await _ordersDataSource.getActiveOrder(
+        tableId: event.tableId,
+        deviceId: filterByDevice ? deviceId : null,
+      );
       if (order != null) {
         var items = [...order.items, ...unsubmitted];
         final sOrderId = order.salesOrderId ?? order.id;
