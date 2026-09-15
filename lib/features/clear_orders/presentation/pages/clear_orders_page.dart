@@ -256,7 +256,9 @@ class _ClearOrdersPageState extends State<ClearOrdersPage> {
               color: selected ? Colors.white : Colors.white70,
               fontWeight: FontWeight.bold,
             ),
-            backgroundColor: Colors.white.withValues(alpha: 0.06),
+            // Solid dark fills: the translucent white used before picked up the
+            // light theme's surface and washed out the white label.
+            backgroundColor: const Color(0xff2a2a2a),
             selectedColor: _accent,
             side: BorderSide(
               color: selected ? _accent : Colors.white.withValues(alpha: 0.15),
