@@ -6,8 +6,12 @@ import 'package:go_router/go_router.dart';
 import '../../../../core/router/staff_routes.dart';
 import '../../../orders/data/datasources/orders_data_source.dart';
 import '../../../table/data/models/ground_model.dart';
+import '../../../table/data/models/layout_item_model.dart';
 import '../../../table/data/models/table_model.dart';
 import '../../../table/presentation/bloc/table_bloc.dart';
+import '../../../table/presentation/widgets/blueprint/architectural_entity_painter.dart';
+import '../../../table/presentation/widgets/blueprint/layout_element_widget.dart';
+import '../../../table/presentation/widgets/blueprint/table_shape_widget.dart';
 import '../bloc/clear_orders_bloc.dart';
 
 /// Staff-only screen (`/staff/tables`) to clear (settle) a table's open order.
@@ -161,6 +165,9 @@ class _ClearOrdersPageState extends State<ClearOrdersPage> {
                       child: _BlueprintView(
                         ground: effective,
                         tables: groundTables,
+                        layoutItems: state.layoutItems
+                            .where((i) => i.groundId == effective!.id)
+                            .toList(),
                         state: state,
                         orderMode: widget.orderMode,
                         onTap: (t) => _handleTableTap(context, state, t),
@@ -447,12 +454,15 @@ class _TableCard extends StatelessWidget {
 
 // ── Blueprint layout (custom grounds) ────────────────────────────────────────
 
-/// Simplified spatial floor plan: tables placed at their `x_loc/y_loc` on a
-/// fixed canvas, fit-to-viewport, colored by status. Combine/split/lock badges
-/// and seat rendering from the POS are intentionally omitted.
+/// Spatial floor plan drawn like the POS blueprint (shared [TableShapeWidget],
+/// chairs, layout structures), fit-to-viewport and colored by status.
+/// Combine/split/lock badges from the POS are intentionally omitted.
 class _BlueprintView extends StatefulWidget {
   final GroundModel ground;
   final List<TableModel> tables;
+
+  /// Structures for this ground; never filtered by search / open-only.
+  final List<LayoutItemModel> layoutItems;
   final ClearOrdersLoaded state;
   final bool orderMode;
   final ValueChanged<TableModel> onTap;
@@ -460,6 +470,7 @@ class _BlueprintView extends StatefulWidget {
   const _BlueprintView({
     required this.ground,
     required this.tables,
+    required this.layoutItems,
     required this.state,
     required this.orderMode,
     required this.onTap,
@@ -501,15 +512,102 @@ class _BlueprintViewState extends State<_BlueprintView> {
       ..scale(scale);
   }
 
+  Widget _buildTable(TableModel t) {
+    final colors = _TableColors.forTable(widget.state, t);
+    final tappable = widget.orderMode || widget.state.isOpen(t.id);
+    final ground = widget.ground;
+    return Positioned(
+      left: t.xLoc,
+      top: t.yLoc,
+      child: GestureDetector(
+        onTap: tappable ? () => widget.onTap(t) : null,
+        child: TableShapeWidget(
+          shape: t.shape,
+          label: t.description,
+          capacity: t.capacity,
+          rotation: t.rotation,
+          tableSize: ground.tableSize,
+          gridWidth: t.gridWidth,
+          gridHeight: t.gridHeight,
+          seatLayout: t.seatLayout,
+          isAvailable: !widget.state.isOpen(t.id),
+          statusColor: colors.border,
+          nameScale: t.nameScale ?? ground.tableNameScale,
+          chairWidthScale: t.chairWidthScale ?? ground.chairWidthScale,
+          chairHeightScale: t.chairHeightScale ?? ground.chairHeightScale,
+        ),
+      ),
+    );
+  }
+
+  /// Non-interactive structure, rendered like the POS
+  /// `SalesOrderBlueprintView._buildLayoutItem`.
+  Widget _buildLayoutItem(LayoutItemModel item, bool isDark) {
+    final w = item.width > 0 ? item.width : 100.0;
+    final h = item.height > 0 ? item.height : 100.0;
+    final Widget child;
+    if (isLayoutElementType(item.type)) {
+      child = LayoutElementWidget(item: item, isDark: isDark);
+    } else if (item.type == 'cashier') {
+      child = Container(
+        decoration: BoxDecoration(
+          color: isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0),
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(
+            color: isDark ? Colors.grey[700]! : Colors.grey[400]!,
+            width: 1.5,
+          ),
+        ),
+        alignment: Alignment.center,
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              Icons.point_of_sale_rounded,
+              size: widget.ground.tableSize * 0.45,
+              color: isDark ? Colors.grey[300] : Colors.grey[700],
+            ),
+            const SizedBox(height: 2),
+            Text(
+              item.description,
+              style: TextStyle(
+                fontSize: widget.ground.tableSize * 0.13,
+                fontWeight: FontWeight.bold,
+                color: isDark ? Colors.grey[300] : Colors.grey[800],
+              ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ],
+        ),
+      );
+    } else {
+      child = CustomPaint(
+        painter: ArchitecturalEntityPainter(type: item.type, isSelected: false, isDark: isDark),
+      );
+    }
+    return Positioned(
+      left: item.xLoc,
+      top: item.yLoc,
+      child: IgnorePointer(
+        child: Transform.rotate(
+          angle: item.rotation * math.pi / 180,
+          child: SizedBox(width: w, height: h, child: child),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    if (widget.tables.isEmpty) {
+    if (widget.tables.isEmpty && widget.layoutItems.isEmpty) {
       return _EmptyView(
         message: widget.state.openOnly
             ? 'No open tables here.'
             : 'No tables match your search.',
       );
     }
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return LayoutBuilder(
       builder: (context, constraints) {
         final vp = Size(constraints.maxWidth, constraints.maxHeight);
@@ -532,45 +630,16 @@ class _BlueprintViewState extends State<_BlueprintView> {
             width: widget.ground.canvasWidth,
             height: widget.ground.canvasHeight,
             child: Stack(
-              children: widget.tables.map((t) {
-                final colors = _TableColors.forTable(widget.state, t);
-                final tappable = widget.orderMode || widget.state.isOpen(t.id);
-                final w = widget.ground.tableSize * t.gridWidth;
-                final h = widget.ground.tableSize * t.gridHeight;
-                return Positioned(
-                  left: t.xLoc,
-                  top: t.yLoc,
-                  child: Transform.rotate(
-                    angle: t.rotation * math.pi / 180,
-                    child: GestureDetector(
-                      onTap: tappable ? () => widget.onTap(t) : null,
-                      child: Container(
-                        width: w,
-                        height: h,
-                        alignment: Alignment.center,
-                        decoration: BoxDecoration(
-                          color: colors.fill,
-                          borderRadius: BorderRadius.circular(
-                            t.shape == 'circle' ? w / 2 : 8,
-                          ),
-                          border: Border.all(color: colors.border, width: 2),
-                        ),
-                        child: Text(
-                          t.description,
-                          textAlign: TextAlign.center,
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontWeight: FontWeight.bold,
-                            fontSize: 12,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                );
-              }).toList(),
+              children: [
+                // Same order as the POS: areas behind tables, the rest on top.
+                ...widget.layoutItems
+                    .where((i) => i.type == kLayoutArea)
+                    .map((i) => _buildLayoutItem(i, isDark)),
+                ...widget.tables.map(_buildTable),
+                ...widget.layoutItems
+                    .where((i) => i.type != kLayoutArea)
+                    .map((i) => _buildLayoutItem(i, isDark)),
+              ],
             ),
           ),
         );

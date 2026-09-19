@@ -19,6 +19,11 @@ class TableModel {
   final int gridHeight;
   final String seatLayout;
 
+  /// Per-table blueprint overrides (migration 0068); null = use the ground's.
+  final double? nameScale;
+  final double? chairWidthScale;
+  final double? chairHeightScale;
+
   TableModel({
     required this.id,
     required this.tableId,
@@ -35,6 +40,9 @@ class TableModel {
     this.gridWidth = 1,
     this.gridHeight = 1,
     this.seatLayout = 'all',
+    this.nameScale,
+    this.chairWidthScale,
+    this.chairHeightScale,
   });
 
   factory TableModel.fromJson(Map<String, dynamic> json) {
@@ -54,6 +62,9 @@ class TableModel {
       gridWidth: (json['grid_width'] as num?)?.toInt() ?? 1,
       gridHeight: (json['grid_height'] as num?)?.toInt() ?? 1,
       seatLayout: json['seat_layout'] as String? ?? 'all',
+      nameScale: (json['name_scale'] as num?)?.toDouble(),
+      chairWidthScale: (json['chair_width_scale'] as num?)?.toDouble(),
+      chairHeightScale: (json['chair_height_scale'] as num?)?.toDouble(),
     );
   }
 
@@ -74,6 +85,9 @@ class TableModel {
       'grid_width': gridWidth,
       'grid_height': gridHeight,
       'seat_layout': seatLayout,
+      'name_scale': nameScale,
+      'chair_width_scale': chairWidthScale,
+      'chair_height_scale': chairHeightScale,
     };
   }
 }

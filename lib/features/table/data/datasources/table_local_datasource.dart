@@ -1,6 +1,7 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../data/models/ground_model.dart';
 import '../../data/models/table_model.dart';
+import '../../data/models/layout_item_model.dart';
 import 'table_data_source.dart';
 
 /// Local (self-hosted) table lookup targeting the local_supabase_migration
@@ -70,6 +71,9 @@ class LocalTableDataSource implements TableDataSource {
               'canvas_width': row['canvas_width'],
               'canvas_height': row['canvas_height'],
               'initial_zoom': row['initial_zoom'],
+              'table_name_scale': row['table_name_scale'],
+              'chair_width_scale': row['chair_width_scale'],
+              'chair_height_scale': row['chair_height_scale'],
               'created_at': row['created_at'] ?? DateTime.now().toIso8601String(),
             }),
           )
@@ -101,12 +105,25 @@ class LocalTableDataSource implements TableDataSource {
               'grid_width': row['grid_width'],
               'grid_height': row['grid_height'],
               'seat_layout': row['seat_layout'],
+              'name_scale': row['name_scale'],
+              'chair_width_scale': row['chair_width_scale'],
+              'chair_height_scale': row['chair_height_scale'],
               'created_at': row['created_at'] ?? DateTime.now().toIso8601String(),
             }),
           )
           .toList();
     } catch (e) {
       throw Exception('Failed to fetch tables: $e');
+    }
+  }
+
+  @override
+  Future<List<LayoutItemModel>> getLayoutItems() async {
+    try {
+      final rows = await _client.from('table_layout_items').select();
+      return List<Map<String, dynamic>>.from(rows as List).map(LayoutItemModel.fromJson).toList();
+    } catch (e) {
+      throw Exception('Failed to fetch layout items: $e');
     }
   }
 }

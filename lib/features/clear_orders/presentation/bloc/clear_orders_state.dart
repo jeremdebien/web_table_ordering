@@ -31,6 +31,9 @@ class ClearOrdersLoaded extends ClearOrdersState {
   final List<GroundModel> grounds;
   final List<TableModel> tables;
 
+  /// Blueprint structures for every ground (never filtered by search).
+  final List<LayoutItemModel> layoutItems;
+
   /// `tableId → open order` for every table with `payment_status IN (0,1)`.
   final Map<int, SalesOrderModel> openOrders;
 
@@ -45,6 +48,7 @@ class ClearOrdersLoaded extends ClearOrdersState {
   const ClearOrdersLoaded({
     required this.grounds,
     required this.tables,
+    this.layoutItems = const [],
     required this.openOrders,
     this.selectedGroundId,
     this.query = '',
@@ -75,6 +79,7 @@ class ClearOrdersLoaded extends ClearOrdersState {
   ClearOrdersLoaded copyWith({
     List<GroundModel>? grounds,
     List<TableModel>? tables,
+    List<LayoutItemModel>? layoutItems,
     Map<int, SalesOrderModel>? openOrders,
     int? selectedGroundId,
     String? query,
@@ -85,6 +90,7 @@ class ClearOrdersLoaded extends ClearOrdersState {
     return ClearOrdersLoaded(
       grounds: grounds ?? this.grounds,
       tables: tables ?? this.tables,
+      layoutItems: layoutItems ?? this.layoutItems,
       openOrders: openOrders ?? this.openOrders,
       selectedGroundId: selectedGroundId ?? this.selectedGroundId,
       query: query ?? this.query,
@@ -98,6 +104,7 @@ class ClearOrdersLoaded extends ClearOrdersState {
   List<Object?> get props => [
         grounds,
         tables,
+        layoutItems,
         openOrders,
         selectedGroundId,
         query,

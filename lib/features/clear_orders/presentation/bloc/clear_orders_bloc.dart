@@ -4,6 +4,7 @@ import '../../../orders/data/datasources/orders_data_source.dart';
 import '../../../orders/data/models/sales_order_model.dart';
 import '../../../table/data/datasources/table_data_source.dart';
 import '../../../table/data/models/ground_model.dart';
+import '../../../table/data/models/layout_item_model.dart';
 import '../../../table/data/models/table_model.dart';
 
 part 'clear_orders_event.dart';
@@ -35,15 +36,20 @@ class ClearOrdersBloc extends Bloc<ClearOrdersEvent, ClearOrdersState> {
         _tableDataSource.getGrounds(),
         _tableDataSource.getTables(),
         _ordersDataSource.getOpenOrders(),
+        // Decoration only: a failure (e.g. table missing) must not block the
+        // floor plan, so fall back to no structures.
+        _tableDataSource.getLayoutItems().catchError((_) => <LayoutItemModel>[]),
       ]);
       final grounds = results[0] as List<GroundModel>;
       final tables = results[1] as List<TableModel>;
       final openOrders = results[2] as List<SalesOrderModel>;
+      final layoutItems = results[3] as List<LayoutItemModel>;
 
       emit(
         ClearOrdersLoaded(
           grounds: grounds,
           tables: tables,
+          layoutItems: layoutItems,
           openOrders: {for (final o in openOrders) o.tableId: o},
           selectedGroundId: grounds.isNotEmpty ? grounds.first.id : null,
         ),
