@@ -57,7 +57,14 @@ class LocalTableDataSource implements TableDataSource {
   @override
   Future<List<GroundModel>> getGrounds() async {
     try {
-      final rows = await _client.from('ground').select();
+      // Admin-chosen order first (Postgres ASC sorts NULL ordering_index
+      // last), creation order as the tiebreaker — same as the POS, so the
+      // floor plan lists areas and defaults to grounds.first identically.
+      final rows = await _client
+          .from('ground')
+          .select()
+          .order('ordering_index', ascending: true)
+          .order('created_at', ascending: true);
       return List<Map<String, dynamic>>.from(rows as List)
           .where((row) => row['ground_status'] == true)
           .map(
@@ -74,6 +81,7 @@ class LocalTableDataSource implements TableDataSource {
               'table_name_scale': row['table_name_scale'],
               'chair_width_scale': row['chair_width_scale'],
               'chair_height_scale': row['chair_height_scale'],
+              'ordering_index': row['ordering_index'],
               'created_at': row['created_at'] ?? DateTime.now().toIso8601String(),
             }),
           )

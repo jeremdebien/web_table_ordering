@@ -2801,3 +2801,14 @@ ALTER TABLE tables ADD COLUMN IF NOT EXISTS chair_height_scale double precision;
 -- upserts every toMap() key, so a missing column fails layout-item saves.
 
 ALTER TABLE table_layout_items ADD COLUMN IF NOT EXISTS props text;
+
+-- ═══════════════════════════════════════════════════════════════════
+-- 0071  ground: admin-chosen display order for areas/floors
+-- ═══════════════════════════════════════════════════════════════════
+-- 0-based position, rewritten as a clean 0..n-1 sequence when the area list
+-- is dragged in Table Layout Maintenance. Nullable so existing rows keep
+-- creation order until first reordered (PG ASC sorts NULLs last, matching
+-- the local sqlite order-by). Must be applied BEFORE POS db v76: the
+-- consolidator repository upserts every Ground.toMap() key.
+
+ALTER TABLE ground ADD COLUMN IF NOT EXISTS ordering_index integer;
