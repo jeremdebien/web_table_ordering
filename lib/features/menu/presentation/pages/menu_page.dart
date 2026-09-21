@@ -45,9 +45,20 @@ class _MenuPageState extends State<MenuPage> {
   // Per-item cache of special-instruction groups (page lifetime).
   final Map<String, List<InstructionGroup>> _instructionCache = {};
 
+  static const AssetImage _heroImage = AssetImage("assets/images/menubg_v3.jpeg");
+  // Hero height / width, read from the decoded asset so the header follows
+  // whatever image is used. Null until the image has been decoded.
+  double? _heroAspect;
+  ImageStream? _heroStream;
+  late final ImageStreamListener _heroListener = ImageStreamListener((info, _) {
+    if (!mounted) return;
+    setState(() => _heroAspect = info.image.height / info.image.width);
+  });
+
   @override
   void initState() {
     super.initState();
+    _heroStream = _heroImage.resolve(ImageConfiguration.empty)..addListener(_heroListener);
     if (widget.kiosk) return;
     _loadActiveOrder();
     _loadNickname();
@@ -89,6 +100,7 @@ class _MenuPageState extends State<MenuPage> {
   @override
   void dispose() {
     _debounceTimer?.cancel();
+    _heroStream?.removeListener(_heroListener);
     _searchController.dispose();
     super.dispose();
   }
@@ -299,11 +311,12 @@ class _MenuPageState extends State<MenuPage> {
                                 .toList();
                           }
 
-                          // Hero image height derived from the asset's exact
-                          // aspect ratio (1513x1039) so the full image is shown
-                          // at screen width with no cropping when expanded.
+                          // Hero image height derived from the decoded asset's
+                          // aspect ratio so the full image is shown at screen
+                          // width with no cropping, whatever image is used.
+                          // Falls back to 0 until the image has decoded.
                           final double heroHeight =
-                              MediaQuery.of(context).size.width * (1039 / 1513);
+                              MediaQuery.of(context).size.width * (_heroAspect ?? 0);
 
                           return CustomScrollView(
                             slivers: [
@@ -329,9 +342,7 @@ class _MenuPageState extends State<MenuPage> {
                                             ? () => context.push('/staff')
                                             : null,
                                         child: const Image(
-                                          image: AssetImage(
-                                            "assets/images/menubg_v3.jpeg",
-                                          ),
+                                          image: _heroImage,
                                           width: double.infinity,
                                           fit: BoxFit.fitWidth,
                                           alignment: Alignment.topCenter,
