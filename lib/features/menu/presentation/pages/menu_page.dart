@@ -661,11 +661,16 @@ class _MenuPageState extends State<MenuPage> {
                                                   // Slightly > the real text block
                                                   // (~100px) to leave a hair of slack.
                                                   const double textBlock = 104;
+                                                  // Kiosk (tablet): 3 columns,
+                                                  // falling back to 2 on narrow
+                                                  // screens so cards stay usable.
+                                                  final int columns =
+                                                      widget.kiosk && constraints.maxWidth >= 500 ? 3 : 2;
                                                   final double itemWidth =
                                                       (constraints.maxWidth -
                                                               hPadding * 2 -
-                                                              crossSpacing) /
-                                                          2;
+                                                              crossSpacing * (columns - 1)) /
+                                                          columns;
                                                   final double ratio = itemWidth /
                                                       (itemWidth + textBlock);
                                                   return GridView.builder(
@@ -675,7 +680,7 @@ class _MenuPageState extends State<MenuPage> {
                                                       horizontal: hPadding,
                                                     ),
                                                     gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                                                      crossAxisCount: 2,
+                                                      crossAxisCount: columns,
                                                       childAspectRatio: ratio,
                                                       crossAxisSpacing: crossSpacing,
                                                       mainAxisSpacing: 12,
