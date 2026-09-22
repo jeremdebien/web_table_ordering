@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
@@ -18,21 +20,31 @@ class MyApp extends StatefulWidget {
 }
 
 class _MyAppState extends State<MyApp> {
+  late final MenuBloc _menuBloc = di.sl<MenuBloc>()..add(LoadMenu());
+  StreamSubscription<void>? _reloadSub;
+
   @override
   void initState() {
     super.initState();
     // Always-on listener so a staff "Reload all" signal reaches this client
-    // instantly (web only; a no-op elsewhere).
-    di.sl<ReloadSignalService>().start();
+    // instantly. Web reloads the page; native (Android kiosk) re-fetches the
+    // masterfile from the consolidator in place.
+    final reloadSignal = di.sl<ReloadSignalService>()..start();
+    _reloadSub = reloadSignal.signals.listen((_) => _menuBloc.add(LoadMenu()));
+  }
+
+  @override
+  void dispose() {
+    _reloadSub?.cancel();
+    _menuBloc.close();
+    super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     return MultiBlocProvider(
       providers: [
-        BlocProvider<MenuBloc>(
-          create: (context) => di.sl<MenuBloc>()..add(LoadMenu()),
-        ),
+        BlocProvider<MenuBloc>.value(value: _menuBloc),
         BlocProvider<TableBloc>(create: (context) => di.sl<TableBloc>()),
         BlocProvider<CartBloc>(create: (context) => di.sl<CartBloc>()),
         BlocProvider<AuthBloc>(
