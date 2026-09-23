@@ -42,6 +42,8 @@ class _MenuPageState extends State<MenuPage> {
 
   // Guards against opening more than one "Add Item" sheet from rapid taps.
   bool _isAddItemSheetOpen = false;
+  // Same guard for the nickname dialog (auto prompt + manual edit).
+  bool _isNicknamePromptOpen = false;
   // Per-item cache of special-instruction groups (page lifetime).
   final Map<String, List<InstructionGroup>> _instructionCache = {};
 
@@ -65,7 +67,7 @@ class _MenuPageState extends State<MenuPage> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       final state = context.read<CartBloc>().state;
-      if (state.nickname.isEmpty && state.deviceId != null) {
+      if (state.nicknameLoaded && state.nickname.isEmpty) {
         _showNicknamePrompt(context);
       }
     });
@@ -124,11 +126,13 @@ class _MenuPageState extends State<MenuPage> {
       child: Scaffold(
         backgroundColor: const Color(0xFFFAF7F2),
         body: BlocListener<CartBloc, CartState>(
+          // Only prompt once the stored nickname has been loaded; keying off
+          // deviceId raced with LoadActiveOrder and re-prompted on reload.
           listenWhen: (previous, current) =>
               !widget.kiosk &&
-              (previous.nickname != current.nickname || (previous.deviceId != current.deviceId)),
+              (previous.nickname != current.nickname || previous.nicknameLoaded != current.nicknameLoaded),
           listener: (context, state) {
-            if (state.nickname.isEmpty && state.deviceId != null) {
+            if (state.nicknameLoaded && state.nickname.isEmpty) {
               _showNicknamePrompt(context);
             }
           },
@@ -953,6 +957,8 @@ class _MenuPageState extends State<MenuPage> {
   }
 
   void _showNicknamePrompt(BuildContext context, {String initialValue = ''}) {
+    if (_isNicknamePromptOpen) return;
+    _isNicknamePromptOpen = true;
     final controller = TextEditingController(text: initialValue);
     final formKey = GlobalKey<FormState>();
 
@@ -1132,7 +1138,7 @@ class _MenuPageState extends State<MenuPage> {
           ),
         );
       },
-    );
+    ).whenComplete(() => _isNicknamePromptOpen = false);
   }
 
   Widget _buildCategoryChip({

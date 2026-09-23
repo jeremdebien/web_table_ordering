@@ -244,7 +244,7 @@ class CartBloc extends Bloc<CartEvent, CartState> {
       }
     }
 
-    emit(state.copyWith(deviceId: deviceId, nickname: nickname ?? ''));
+    emit(state.copyWith(deviceId: deviceId, nickname: nickname ?? '', nicknameLoaded: true));
   }
 
   Future<void> _onUpdateNickname(UpdateNickname event, Emitter<CartState> emit) async {
@@ -260,7 +260,7 @@ class CartBloc extends Bloc<CartEvent, CartState> {
       return i;
     }).toList();
 
-    emit(state.copyWith(nickname: event.nickname, items: updatedItems));
+    emit(state.copyWith(nickname: event.nickname, nicknameLoaded: true, items: updatedItems));
   }
 
   void _onRemoveFromCart(RemoveFromCart event, Emitter<CartState> emit) {
@@ -289,8 +289,13 @@ class CartBloc extends Bloc<CartEvent, CartState> {
     _realtimeSubscription?.cancel();
     _realtimeSubscription = null;
     _subscribedSalesOrderId = null;
-    // Fresh state (copyWith can't null out salesOrderId), keeping the device id.
-    emit(CartState(deviceId: state.deviceId ?? _deviceIdService.getDeviceId()));
+    // Fresh state (copyWith can't null out salesOrderId), keeping the device id
+    // and nickname.
+    emit(CartState(
+      deviceId: state.deviceId ?? _deviceIdService.getDeviceId(),
+      nickname: state.nickname,
+      nicknameLoaded: state.nicknameLoaded,
+    ));
   }
 
   Future<void> _onEnableOrdering(EnableOrdering event, Emitter<CartState> emit) async {

@@ -10,6 +10,9 @@ class CartState {
   final int? salesOrderId;
   final String? deviceId;
   final String nickname;
+  // True once LoadNickname has resolved (local storage / backend). Until then
+  // an empty nickname means "not loaded yet", not "no nickname".
+  final bool nicknameLoaded;
 
   const CartState({
     this.items = const [],
@@ -19,6 +22,7 @@ class CartState {
     this.salesOrderId,
     this.deviceId,
     this.nickname = '',
+    this.nicknameLoaded = false,
   });
 
   double get totalAmount => items.fold(0.0, (total, current) => total + current.totalPrice);
@@ -44,6 +48,7 @@ class CartState {
     int? salesOrderId,
     String? deviceId,
     String? nickname,
+    bool? nicknameLoaded,
   }) {
     return CartState(
       items: items ?? this.items,
@@ -53,6 +58,7 @@ class CartState {
       salesOrderId: salesOrderId ?? this.salesOrderId,
       deviceId: deviceId ?? this.deviceId,
       nickname: nickname ?? this.nickname,
+      nicknameLoaded: nicknameLoaded ?? this.nicknameLoaded,
     );
   }
 }
