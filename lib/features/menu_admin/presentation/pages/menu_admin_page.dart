@@ -149,6 +149,25 @@ class _MenuAdminPageState extends State<MenuAdminPage> {
   }
 }
 
+/// "X of Y items visible" across the whole menu (staged edits included).
+/// Self-subscribes so a toggle updates it without rebuilding the list.
+class _VisibleSummary extends StatelessWidget {
+  const _VisibleSummary();
+
+  @override
+  Widget build(BuildContext context) {
+    final info = context.select<MenuAdminBloc, ({int visible, int total})>((bloc) {
+      final s = bloc.state;
+      if (s is! MenuAdminLoaded) return (visible: 0, total: 0);
+      return (visible: s.items.where(s.visibilityOf).length, total: s.items.length);
+    });
+    return Text(
+      '${info.visible} of ${info.total} items visible',
+      style: const TextStyle(color: Colors.white54, fontSize: 12),
+    );
+  }
+}
+
 /// Save button that subscribes only to the staged-change count + saving flag, so
 /// it updates on each toggle without rebuilding the item list.
 class _SaveFab extends StatelessWidget {
@@ -219,17 +238,33 @@ class _LoadedViewState extends State<_LoadedView> {
 
   static String _catKey(_CatGroup g) => 'cat_${g.categoryId}';
 
+  /// Collapses every category section; department sections are left alone.
+  void _collapseAllCategories(Iterable<String> catKeys) {
+    setState(() => _collapsed.addAll(catKeys));
+  }
+
+  /// Expands every category section; department sections are left alone.
+  void _expandAllCategories() {
+    setState(() => _collapsed.removeWhere((k) => k.startsWith('cat_')));
+  }
+
   @override
   Widget build(BuildContext context) {
     final state = widget.state;
     final searching = state.query.isNotEmpty;
-    final rows = _flatten(_buildGroups(state), searching);
+    final groups = _buildGroups(state);
+    final rows = _flatten(groups, searching);
+    final catKeys = [
+      for (final dept in groups)
+        for (final cat in dept.categories) _catKey(cat),
+    ];
+    final allCatsCollapsed = catKeys.isNotEmpty && catKeys.every(_collapsed.contains);
 
     return Column(
       children: [
         const _GroupBar(),
         Padding(
-          padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
           child: TextField(
             controller: widget.searchController,
             style: const TextStyle(color: Colors.white),
@@ -258,6 +293,28 @@ class _LoadedViewState extends State<_LoadedView> {
                 borderSide: const BorderSide(color: _accent, width: 1.5),
               ),
             ),
+          ),
+        ),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 0, 4, 4),
+          child: Row(
+            children: [
+              const Expanded(child: _VisibleSummary()),
+              TextButton.icon(
+                // Search already forces every section open.
+                onPressed: searching || catKeys.isEmpty
+                    ? null
+                    : allCatsCollapsed
+                        ? _expandAllCategories
+                        : () => _collapseAllCategories(catKeys),
+                style: TextButton.styleFrom(foregroundColor: Colors.white70),
+                icon: Icon(allCatsCollapsed ? Icons.unfold_more : Icons.unfold_less, size: 18),
+                label: Text(
+                  allCatsCollapsed ? 'Expand all' : 'Collapse all',
+                  style: const TextStyle(fontSize: 12),
+                ),
+              ),
+            ],
           ),
         ),
         Expanded(
@@ -712,15 +769,110 @@ Future<String?> _promptGroupName(
   return trimmed.isEmpty ? null : trimmed;
 }
 
+/// Prompts for a new menu group's name plus whether to copy the current
+/// on-screen selection into it. Returns null if cancelled or the name is empty.
+Future<({String name, bool copyCurrent})?> _promptNewGroup(BuildContext context) async {
+  final controller = TextEditingController();
+  var copyCurrent = true;
+  final ok = await showDialog<bool>(
+    context: context,
+    builder: (dialogContext) => StatefulBuilder(
+      builder: (dialogContext, setDialogState) => AlertDialog(
+        backgroundColor: _bgColor,
+        title: const Text('New menu group', style: TextStyle(color: Colors.white)),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: controller,
+              autofocus: true,
+              style: const TextStyle(color: Colors.white),
+              textCapitalization: TextCapitalization.words,
+              onSubmitted: (_) => Navigator.pop(dialogContext, true),
+              decoration: InputDecoration(
+                hintText: 'e.g. Weekday Dinner',
+                hintStyle: TextStyle(color: Colors.white.withValues(alpha: 0.4)),
+                enabledBorder: const UnderlineInputBorder(
+                  borderSide: BorderSide(color: Colors.white24),
+                ),
+                focusedBorder: const UnderlineInputBorder(
+                  borderSide: BorderSide(color: _accentColor),
+                ),
+              ),
+            ),
+            const SizedBox(height: 8),
+            CheckboxListTile(
+              value: copyCurrent,
+              contentPadding: EdgeInsets.zero,
+              controlAffinity: ListTileControlAffinity.leading,
+              activeColor: _accentColor,
+              checkColor: Colors.white,
+              side: const BorderSide(color: Colors.white54),
+              onChanged: (v) => setDialogState(() => copyCurrent = v ?? false),
+              title: const Text('Copy items from current menu',
+                  style: TextStyle(color: Colors.white70, fontSize: 14)),
+              subtitle: const Text('Otherwise the new group starts with nothing selected.',
+                  style: TextStyle(color: Colors.white38, fontSize: 12)),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: const Text('Create', style: TextStyle(color: _accentColor)),
+          ),
+        ],
+      ),
+    ),
+  );
+  final name = controller.text.trim();
+  controller.dispose();
+  if (ok != true || name.isEmpty) return null;
+  return (name: name, copyCurrent: copyCurrent);
+}
+
+/// Asked when activating a group that has unsaved edits: activating as-is would
+/// publish its stale saved config. Returns true to save first, then activate.
+Future<bool> _promptSaveAndActivate(BuildContext context, String name) async {
+  final ok = await showDialog<bool>(
+    context: context,
+    builder: (dialogContext) => AlertDialog(
+      backgroundColor: _bgColor,
+      title: const Text('Save and activate?', style: TextStyle(color: Colors.white)),
+      content: Text(
+        '"$name" has unsaved changes. Save them and make it the active menu?',
+        style: const TextStyle(color: Colors.white70),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(dialogContext, false),
+          child: const Text('Cancel'),
+        ),
+        TextButton(
+          onPressed: () => Navigator.pop(dialogContext, true),
+          child: const Text('Save & activate', style: TextStyle(color: _accentColor)),
+        ),
+      ],
+    ),
+  );
+  return ok == true;
+}
+
 /// Confirmation dialog for deleting a group. Returns true to proceed.
-Future<bool> _promptDeleteGroup(BuildContext context, String name) async {
+Future<bool> _promptDeleteGroup(BuildContext context, String name, {bool isActive = false}) async {
   final ok = await showDialog<bool>(
     context: context,
     builder: (dialogContext) => AlertDialog(
       backgroundColor: _bgColor,
       title: const Text('Delete menu group?', style: TextStyle(color: Colors.white)),
       content: Text(
-        'Delete "$name"? Its saved item configuration will be removed. This cannot be undone.',
+        'Delete "$name"? Its saved item configuration will be removed. This cannot be undone.'
+        '${isActive ? '\n\nThis is the ACTIVE menu — customers will see the legacy per-item '
+            'list until another menu is set active.' : ''}',
         style: const TextStyle(color: Colors.white70),
       ),
       actions: [
@@ -805,12 +957,20 @@ class _GroupBar extends StatelessWidget {
               const SizedBox(width: 6),
               Expanded(
                 child: Text(
-                  activeGroup?.name ?? 'None (per-item flags)',
+                  activeGroup?.name ??
+                      (info.groups.isEmpty
+                          ? 'None (per-item flags)'
+                          : 'None — customers see the legacy item list. Set a menu active.'),
                   style: TextStyle(
-                    color: activeGroup != null ? _accentColor : Colors.white70,
+                    color: activeGroup != null
+                        ? _accentColor
+                        : info.groups.isEmpty
+                            ? Colors.white70
+                            : Colors.amber,
                     fontSize: 12,
                     fontWeight: FontWeight.bold,
                   ),
+                  maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                 ),
               ),
@@ -839,14 +999,30 @@ class _GroupBar extends StatelessWidget {
                       style: const TextStyle(color: Colors.white, fontSize: 14),
                       onChanged: info.saving ? null : (v) => switchEditing(v),
                       items: [
-                        const DropdownMenuItem<int?>(
-                          value: null,
-                          child: Text('Default (per-item flags)'),
-                        ),
+                        // The legacy per-item flags only matter when no menu
+                        // group exists; once one does, groups drive the menu.
+                        if (info.groups.isEmpty)
+                          const DropdownMenuItem<int?>(
+                            value: null,
+                            child: Text('Default (per-item flags)'),
+                          ),
                         for (final g in info.groups)
                           DropdownMenuItem<int?>(
                             value: g.id,
-                            child: Text(g.isActive ? '${g.name}  • ACTIVE' : g.name),
+                            child: Row(
+                              children: [
+                                Flexible(
+                                  child: Text(g.name, overflow: TextOverflow.ellipsis),
+                                ),
+                                if (g.isActive) ...[
+                                  const SizedBox(width: 8),
+                                  const Icon(Icons.circle, size: 8, color: _accentColor),
+                                  const SizedBox(width: 4),
+                                  const Text('Active',
+                                      style: TextStyle(color: _accentColor, fontSize: 12)),
+                                ],
+                              ],
+                            ),
                           ),
                       ],
                     ),
@@ -861,12 +1037,10 @@ class _GroupBar extends StatelessWidget {
                     : () async {
                         if (info.dirty && !await _promptDiscardChanges(context)) return;
                         if (!context.mounted) return;
-                        final name = await _promptGroupName(
-                          context,
-                          title: 'New menu group',
-                          actionLabel: 'Create',
-                        );
-                        if (name != null) bloc.add(CreateGroup(name));
+                        final result = await _promptNewGroup(context);
+                        if (result != null) {
+                          bloc.add(CreateGroup(result.name, copyCurrent: result.copyCurrent));
+                        }
                       },
               ),
             ],
@@ -879,7 +1053,14 @@ class _GroupBar extends StatelessWidget {
                   TextButton.icon(
                     onPressed: info.saving
                         ? null
-                        : () => bloc.add(SelectActiveGroup(editingGroup.id)),
+                        : () async {
+                            if (!info.dirty) {
+                              bloc.add(SelectActiveGroup(editingGroup.id));
+                            } else if (await _promptSaveAndActivate(
+                                context, editingGroup.name)) {
+                              bloc.add(SaveAndActivate(editingGroup.id));
+                            }
+                          },
                     icon: const Icon(Icons.check_circle_outline, size: 18, color: _accentColor),
                     label: const Text('Set active', style: TextStyle(color: _accentColor)),
                   )
@@ -911,7 +1092,8 @@ class _GroupBar extends StatelessWidget {
                   onPressed: info.saving
                       ? null
                       : () async {
-                          if (await _promptDeleteGroup(context, editingGroup.name)) {
+                          if (await _promptDeleteGroup(context, editingGroup.name,
+                              isActive: editingIsActive)) {
                             bloc.add(DeleteGroup(editingGroup.id));
                           }
                         },
