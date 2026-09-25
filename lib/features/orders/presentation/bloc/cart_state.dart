@@ -13,6 +13,9 @@ class CartState {
   // True once LoadNickname has resolved (local storage / backend). Until then
   // an empty nickname means "not loaded yet", not "no nickname".
   final bool nicknameLoaded;
+  // app_config 'allow_order_when_billed': guests may keep ordering while the
+  // order is tempo billed (paymentStatus == 1).
+  final bool allowOrderWhenBilled;
 
   const CartState({
     this.items = const [],
@@ -23,6 +26,7 @@ class CartState {
     this.deviceId,
     this.nickname = '',
     this.nicknameLoaded = false,
+    this.allowOrderWhenBilled = false,
   });
 
   double get totalAmount => items.fold(0.0, (total, current) => total + current.totalPrice);
@@ -49,6 +53,7 @@ class CartState {
     String? deviceId,
     String? nickname,
     bool? nicknameLoaded,
+    bool? allowOrderWhenBilled,
   }) {
     return CartState(
       items: items ?? this.items,
@@ -59,6 +64,7 @@ class CartState {
       deviceId: deviceId ?? this.deviceId,
       nickname: nickname ?? this.nickname,
       nicknameLoaded: nicknameLoaded ?? this.nicknameLoaded,
+      allowOrderWhenBilled: allowOrderWhenBilled ?? this.allowOrderWhenBilled,
     );
   }
 }

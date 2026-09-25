@@ -8,6 +8,7 @@ import '../../../menu/presentation/bloc/menu_bloc.dart';
 import '../../data/datasources/orders_data_source.dart';
 import '../../../../core/utils/device_id_service.dart';
 import '../../../../core/services/order_filter_config_service.dart';
+import '../../../../core/services/billed_order_config_service.dart';
 
 part 'cart_event.dart';
 part 'cart_state.dart';
@@ -17,6 +18,7 @@ class CartBloc extends Bloc<CartEvent, CartState> {
   final MenuBloc _menuBloc;
   final DeviceIdService _deviceIdService;
   final OrderFilterConfigService _orderFilterConfig;
+  final BilledOrderConfigService _billedOrderConfig;
   StreamSubscription? _menuSubscription;
   StreamSubscription? _realtimeSubscription;
   int? _subscribedSalesOrderId;
@@ -24,7 +26,8 @@ class CartBloc extends Bloc<CartEvent, CartState> {
   // double-taps of "Place Order"/"Confirm & Send" only place the order once.
   bool _isSubmitting = false;
 
-  CartBloc(this._ordersDataSource, this._menuBloc, this._deviceIdService, this._orderFilterConfig) : super(const CartState()) {
+  CartBloc(this._ordersDataSource, this._menuBloc, this._deviceIdService, this._orderFilterConfig, this._billedOrderConfig)
+      : super(const CartState()) {
     on<AddToCart>(_onAddToCart);
     on<RemoveFromCart>(_onRemoveFromCart);
     on<ClearCart>(_onClearCart);
@@ -104,7 +107,14 @@ class CartBloc extends Bloc<CartEvent, CartState> {
     try {
       // app_config 'filter_orders_by_device' decides whether the guest sees
       // only their own lines or every line on the table.
-      final filterByDevice = await _orderFilterConfig.filterByDevice();
+      // app_config 'allow_order_when_billed' decides whether a tempo-billed
+      // order still lets the guest order.
+      final config = await Future.wait([
+        _orderFilterConfig.filterByDevice(),
+        _billedOrderConfig.allowOrderWhenBilled(),
+      ]);
+      final filterByDevice = config[0];
+      final allowOrderWhenBilled = config[1];
       final order = await _ordersDataSource.getActiveOrder(
         tableId: event.tableId,
         deviceId: filterByDevice ? deviceId : null,
@@ -135,6 +145,7 @@ class CartBloc extends Bloc<CartEvent, CartState> {
             items: items,
             paymentStatus: order.paymentStatus,
             salesOrderId: sOrderId,
+            allowOrderWhenBilled: allowOrderWhenBilled,
           ),
         );
       } else {
@@ -146,6 +157,7 @@ class CartBloc extends Bloc<CartEvent, CartState> {
           items: unsubmitted,
           paymentStatus: 0,
           salesOrderId: null,
+          allowOrderWhenBilled: allowOrderWhenBilled,
         ));
       }
     } catch (e) {
@@ -173,6 +185,16 @@ class CartBloc extends Bloc<CartEvent, CartState> {
           guestCount: event.guestCount,
           items: itemsToSubmit,
         );
+
+        // A new order on a tempo-billed table flips it back to not billed
+        // (app_config 'reset_billed_on_new_order').
+        if (state.paymentStatus == 1 && await _billedOrderConfig.resetBilledOnNewOrder()) {
+          await _ordersDataSource.updatePaymentStatus(
+            tableId: event.tableId,
+            status: 0,
+            salesOrderId: state.salesOrderId,
+          );
+        }
       }
 
       // Drop the just-submitted lines: they belong to the backend now and come

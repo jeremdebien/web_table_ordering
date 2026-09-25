@@ -148,9 +148,12 @@ class _MenuPageState extends State<MenuPage> {
                       prev.paymentStatus != curr.paymentStatus ||
                       prev.salesOrderId != curr.salesOrderId ||
                       prev.status != curr.status ||
-                      prev.nickname != curr.nickname,
+                      prev.nickname != curr.nickname ||
+                      prev.allowOrderWhenBilled != curr.allowOrderWhenBilled,
                   builder: (context, cartState) {
-                    if (cartState.paymentStatus == 1) {
+                    // Tempo billed: block ordering unless the store allows it
+                    // (app_config 'allow_order_when_billed').
+                    if (cartState.paymentStatus == 1 && !cartState.allowOrderWhenBilled) {
                       return Center(
                         child: Padding(
                           padding: const EdgeInsets.all(20.0),
