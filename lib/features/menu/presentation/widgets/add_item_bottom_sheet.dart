@@ -773,7 +773,7 @@ class _AddItemBottomSheetState extends State<AddItemBottomSheet> {
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     const Text(
-                      'Add to Order',
+                      'Add to Cart',
                       style: TextStyle(
                         fontSize: 15,
                         fontWeight: FontWeight.w800,

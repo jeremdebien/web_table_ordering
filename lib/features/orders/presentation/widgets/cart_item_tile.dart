@@ -1,4 +1,4 @@
-﻿import 'dart:convert';
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../data/models/sales_order_item_model.dart';
@@ -162,7 +162,7 @@ class CartItemTile extends StatelessWidget {
                             ),
                             SizedBox(width: 3.5),
                             Text(
-                              'To Order',
+                              'In Cart (Unsent)',
                               style: TextStyle(
                                 fontSize: 10.5,
                                 fontWeight: FontWeight.w700,

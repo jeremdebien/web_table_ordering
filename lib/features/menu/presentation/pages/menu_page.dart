@@ -777,6 +777,8 @@ class _MenuPageState extends State<MenuPage> {
                   final subtotal = state.totalAmount;
                   final totalAmountWithService = subtotal * 1.10;
                   final hasNewDrafts = state.newOrders.isNotEmpty;
+                  final draftCount = state.newOrdersCount;
+                  final submittedCount = totalCount - draftCount;
 
                   return GestureDetector(
                     onTap: () => _showOrderSummary(context),
@@ -792,9 +794,9 @@ class _MenuPageState extends State<MenuPage> {
                         borderRadius: BorderRadius.circular(20),
                         border: Border.all(
                           color: hasNewDrafts
-                              ? const Color(0xFFC5A880).withValues(alpha: 0.5)
+                              ? const Color(0xFFC5A880)
                               : Colors.white.withValues(alpha: 0.1),
-                          width: 1,
+                          width: hasNewDrafts ? 1.5 : 1.0,
                         ),
                         boxShadow: [
                           BoxShadow(
@@ -813,12 +815,16 @@ class _MenuPageState extends State<MenuPage> {
                                 width: 40,
                                 height: 40,
                                 decoration: BoxDecoration(
-                                  color: Colors.white.withValues(alpha: 0.1),
+                                  color: hasNewDrafts
+                                      ? const Color(0xFFC5A880).withValues(alpha: 0.2)
+                                      : Colors.white.withValues(alpha: 0.1),
                                   shape: BoxShape.circle,
                                 ),
-                                child: const Icon(
-                                  Icons.shopping_bag_outlined,
-                                  color: Colors.white,
+                                child: Icon(
+                                  hasNewDrafts
+                                      ? Icons.shopping_cart_outlined
+                                      : Icons.receipt_long_outlined,
+                                  color: hasNewDrafts ? const Color(0xFFE8D5B5) : Colors.white,
                                   size: 22,
                                 ),
                               ),
@@ -828,7 +834,7 @@ class _MenuPageState extends State<MenuPage> {
                                 child: Container(
                                   padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
                                   decoration: BoxDecoration(
-                                    color: const Color(0xFFC5A880),
+                                    color: hasNewDrafts ? const Color(0xFFC5A880) : const Color(0xFF2E7D32),
                                     borderRadius: BorderRadius.circular(10),
                                     border: Border.all(color: const Color(0xFF141414), width: 1.5),
                                   ),
@@ -837,9 +843,9 @@ class _MenuPageState extends State<MenuPage> {
                                     minHeight: 18,
                                   ),
                                   child: Text(
-                                    '$totalCount',
-                                    style: const TextStyle(
-                                      color: Colors.black,
+                                    hasNewDrafts ? '$draftCount' : '$submittedCount',
+                                    style: TextStyle(
+                                      color: hasNewDrafts ? Colors.black : Colors.white,
                                       fontSize: 10,
                                       fontWeight: FontWeight.w800,
                                     ),
@@ -850,52 +856,62 @@ class _MenuPageState extends State<MenuPage> {
                             ],
                           ),
                           const SizedBox(width: 14),
-                          Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Row(
-                                children: [
-                                  const Text(
-                                    'View Order',
-                                    style: TextStyle(
-                                      color: Colors.white,
-                                      fontSize: 15,
-                                      fontWeight: FontWeight.bold,
-                                      letterSpacing: 0.2,
+                          Expanded(
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  children: [
+                                    Flexible(
+                                      child: Text(
+                                        hasNewDrafts ? 'Review Cart & Send' : 'Table Orders',
+                                        style: const TextStyle(
+                                          color: Colors.white,
+                                          fontSize: 15,
+                                          fontWeight: FontWeight.bold,
+                                          letterSpacing: 0.2,
+                                        ),
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
                                     ),
-                                  ),
-                                  if (hasNewDrafts) ...[
                                     const SizedBox(width: 6),
                                     Container(
                                       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1.5),
                                       decoration: BoxDecoration(
-                                        color: const Color(0xFFC5A880),
+                                        color: hasNewDrafts
+                                            ? const Color(0xFFC5A880)
+                                            : const Color(0xFF2E7D32),
                                         borderRadius: BorderRadius.circular(4),
                                       ),
-                                      child: const Text(
-                                        'Draft',
+                                      child: Text(
+                                        hasNewDrafts ? 'NOT SENT' : 'IN KITCHEN',
                                         style: TextStyle(
-                                          color: Colors.black,
-                                          fontSize: 9.5,
+                                          color: hasNewDrafts ? Colors.black : Colors.white,
+                                          fontSize: 9,
                                           fontWeight: FontWeight.w800,
+                                          letterSpacing: 0.3,
                                         ),
                                       ),
                                     ),
                                   ],
-                                ],
-                              ),
-                              const SizedBox(height: 2),
-                              Text(
-                                '$totalCount ${totalCount == 1 ? 'item' : 'items'} in order',
-                                style: TextStyle(
-                                  color: Colors.white.withValues(alpha: 0.6),
-                                  fontSize: 12,
                                 ),
-                              ),
-                            ],
+                                const SizedBox(height: 2),
+                                Text(
+                                  hasNewDrafts
+                                      ? (submittedCount > 0
+                                          ? '$draftCount in cart • $submittedCount in kitchen'
+                                          : '$draftCount ${draftCount == 1 ? 'item' : 'items'} ready to send')
+                                      : '$submittedCount ${submittedCount == 1 ? 'item' : 'items'} sent to kitchen',
+                                  style: TextStyle(
+                                    color: Colors.white.withValues(alpha: 0.7),
+                                    fontSize: 12,
+                                  ),
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ],
+                            ),
                           ),
-                          const Spacer(),
                           Column(
                             mainAxisAlignment: MainAxisAlignment.center,
                             crossAxisAlignment: CrossAxisAlignment.end,
@@ -921,13 +937,13 @@ class _MenuPageState extends State<MenuPage> {
                           Container(
                             width: 32,
                             height: 32,
-                            decoration: const BoxDecoration(
-                              color: Color(0xFFC5A880),
+                            decoration: BoxDecoration(
+                              color: hasNewDrafts ? const Color(0xFFC5A880) : Colors.white.withValues(alpha: 0.15),
                               shape: BoxShape.circle,
                             ),
-                            child: const Icon(
+                            child: Icon(
                               Icons.arrow_forward_rounded,
-                              color: Colors.black,
+                              color: hasNewDrafts ? Colors.black : Colors.white,
                               size: 18,
                             ),
                           ),

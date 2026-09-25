@@ -143,9 +143,9 @@ class _CartSummaryState extends State<CartSummary> {
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text(
-                        'Your Order',
-                        style: TextStyle(
+                      Text(
+                        draftItems.isNotEmpty ? 'Review Your Cart' : 'Table Orders',
+                        style: const TextStyle(
                           fontSize: 24,
                           fontWeight: FontWeight.bold,
                           color: Color(0xFF1A1A1A),
@@ -154,7 +154,9 @@ class _CartSummaryState extends State<CartSummary> {
                       ),
                       const SizedBox(height: 2),
                       Text(
-                        '$totalCount ${totalCount == 1 ? 'item' : 'items'} in total',
+                        draftItems.isNotEmpty
+                            ? '${draftItems.length} unsent in cart${(kitchenItems.length + servedItems.length) > 0 ? ' • ${(kitchenItems.length + servedItems.length)} ordered at table' : ''}'
+                            : '$totalCount ${totalCount == 1 ? 'item' : 'items'} ordered for table',
                         style: TextStyle(
                           color: Colors.grey.shade600,
                           fontSize: 13,
@@ -192,7 +194,7 @@ class _CartSummaryState extends State<CartSummary> {
                       if (draftItems.isNotEmpty) ...[
                         const SizedBox(width: 8),
                         _buildFilterChip(
-                          label: 'To Order (${draftItems.length})',
+                          label: 'In Cart (${draftItems.length})',
                           filter: CartFilter.toOrder,
                         ),
                       ],
@@ -210,6 +212,43 @@ class _CartSummaryState extends State<CartSummary> {
                           filter: CartFilter.served,
                         ),
                       ],
+                    ],
+                  ),
+                ),
+              ],
+
+              // Unsent Cart Alert Banner
+              if (draftItems.isNotEmpty) ...[
+                const SizedBox(height: 12),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFFFF8E1),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: const Color(0xFFFFD54F),
+                      width: 1.0,
+                    ),
+                  ),
+                  child: const Row(
+                    children: [
+                      Icon(
+                        Icons.info_outline_rounded,
+                        color: Color(0xFFB78103),
+                        size: 18,
+                      ),
+                      SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          'Items in your cart are not sent yet. Tap "Send to Kitchen" below to place your order.',
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                            color: Color(0xFF7A5600),
+                            height: 1.25,
+                          ),
+                        ),
+                      ),
                     ],
                   ),
                 ),
@@ -416,7 +455,7 @@ class _CartSummaryState extends State<CartSummary> {
     required String? Function(String) getDisplayImage,
   }) {
     if (_selectedFilter == CartFilter.toOrder) {
-      if (draftItems.isEmpty) return _buildFilterEmptyState('No items to order');
+      if (draftItems.isEmpty) return _buildFilterEmptyState('No unsent items in cart');
       return ListView.builder(
         itemCount: draftItems.length,
         itemBuilder: (context, index) {
@@ -467,7 +506,7 @@ class _CartSummaryState extends State<CartSummary> {
         children: [
           // Section 1: Draft Items
           _buildSectionHeader(
-            title: 'Items to Order',
+            title: 'Your Cart (Unsent)',
             count: draftItems.length,
             badgeColor: const Color(0xFFFFF9E6),
             badgeTextColor: const Color(0xFFB78103),
@@ -481,7 +520,7 @@ class _CartSummaryState extends State<CartSummary> {
 
           // Section 2: Current Table Orders
           _buildSectionHeader(
-            title: 'Current Table Orders',
+            title: 'Sent to Kitchen / Table Status',
             count: combinedSubmitted.length,
             badgeColor: const Color(0xFFE8F5E9),
             badgeTextColor: const Color(0xFF2E7D32),
@@ -579,7 +618,7 @@ class _CartSummaryState extends State<CartSummary> {
               ? null
               : () => widget.kiosk
                   ? _kioskCheckout(context)
-                  : _confirmAndSubmitOrder(context),
+                  : _submitOrderDirectly(context),
           child: state.status == CartStatus.loading
               ? const SizedBox(
                   height: 20,
@@ -592,8 +631,10 @@ class _CartSummaryState extends State<CartSummary> {
               : Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
+                    const Icon(Icons.restaurant_rounded, size: 20, color: Color(0xFFCEB38C)),
+                    const SizedBox(width: 8),
                     Text(
-                      'Place Order (${state.newOrdersCount} ${state.newOrdersCount == 1 ? 'item' : 'items'})',
+                      'Send ${state.newOrdersCount} ${state.newOrdersCount == 1 ? 'Item' : 'Items'} to Kitchen',
                       style: const TextStyle(
                         fontSize: 15.5,
                         fontWeight: FontWeight.bold,
@@ -646,75 +687,14 @@ class _CartSummaryState extends State<CartSummary> {
     }
   }
 
-  void _confirmAndSubmitOrder(BuildContext context) {
+  void _submitOrderDirectly(BuildContext context) {
     final tableState = context.read<TableBloc>().state;
     if (tableState is TableLoaded) {
-      showDialog(
-        context: context,
-        builder: (BuildContext dialogContext) {
-          return AlertDialog(
-            backgroundColor: const Color(0xFFFAF7F2),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(20),
-            ),
-            title: const Text(
-              'Confirm Order',
-              style: TextStyle(
-                color: Color(0xFF1A1A1A),
-                fontFamily: 'PTSerif',
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            content: const Text(
-              'Are you ready to send your selected items to the kitchen?',
-              style: TextStyle(
-                color: Color(0xFF4A4A4A),
-                fontSize: 14.5,
-                height: 1.35,
-              ),
-            ),
-            actionsPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-            actions: <Widget>[
-              TextButton(
-                child: Text(
-                  'Cancel',
-                  style: TextStyle(
-                    color: Colors.grey.shade700,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                onPressed: () {
-                  Navigator.of(dialogContext).pop();
-                },
-              ),
-              ElevatedButton(
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF1A1A1A),
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                ),
-                child: const Text(
-                  'Confirm & Send',
-                  style: TextStyle(
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                onPressed: () {
-                  Navigator.of(dialogContext).pop();
-                  context.read<CartBloc>().add(
-                    SubmitOrder(
-                      tableId: tableState.table.tableId,
-                      guestCount: 1,
-                    ),
-                  );
-                },
-              ),
-            ],
-          );
-        },
+      context.read<CartBloc>().add(
+        SubmitOrder(
+          tableId: tableState.table.tableId,
+          guestCount: 1,
+        ),
       );
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
