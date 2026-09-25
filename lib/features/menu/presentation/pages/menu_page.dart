@@ -44,6 +44,9 @@ class _MenuPageState extends State<MenuPage> {
   bool _isAddItemSheetOpen = false;
   // Same guard for the nickname dialog (auto prompt + manual edit).
   bool _isNicknamePromptOpen = false;
+  // Staff logged in: the name is asked once per menu open (blank), so an order
+  // placed for another customer never reuses the previous customer's name.
+  bool _staffPromptShown = false;
   // Per-item cache of special-instruction groups (page lifetime).
   final Map<String, List<InstructionGroup>> _instructionCache = {};
 
@@ -66,11 +69,36 @@ class _MenuPageState extends State<MenuPage> {
     _loadNickname();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
-      final state = context.read<CartBloc>().state;
-      if (state.nicknameLoaded && state.nickname.isEmpty) {
-        _showNicknamePrompt(context);
-      }
+      _syncStaffMode(context.read<AuthBloc>().state);
+      _maybePromptNickname(context.read<CartBloc>().state);
     });
+  }
+
+  bool get _isStaff => !widget.kiosk && context.read<AuthBloc>().state is AuthAuthenticated;
+
+  /// Access key (POS User Access > Web Table Ordering) that lets a logged-in
+  /// staff member see and punch staff-only items.
+  static const String _staffItemsAccessKey = 'web_staff_only_items';
+
+  static bool _canSeeStaffItems(AuthState auth) =>
+      auth is AuthAuthenticated && auth.user.hasAccess(_staffItemsAccessKey);
+
+  bool get _showStaffItems => !widget.kiosk && _canSeeStaffItems(context.read<AuthBloc>().state);
+
+  void _syncStaffMode(AuthState auth) {
+    if (widget.kiosk) return;
+    context.read<MenuBloc>().add(SetStaffMode(_canSeeStaffItems(auth)));
+  }
+
+  void _maybePromptNickname(CartState state) {
+    if (!state.nicknameLoaded) return;
+    if (_isStaff) {
+      if (_staffPromptShown) return;
+      _staffPromptShown = true;
+      _showNicknamePrompt(context, forceNew: true, previousName: state.nickname);
+    } else if (state.nickname.isEmpty) {
+      _showNicknamePrompt(context);
+    }
   }
 
   void _onSearchChanged(String value) {
@@ -116,13 +144,28 @@ class _MenuPageState extends State<MenuPage> {
 
   @override
   Widget build(BuildContext context) {
-    return BlocListener<TableBloc, TableState>(
-      listenWhen: (previous, current) => !widget.kiosk,
-      listener: (context, state) {
-        if (state is TableLoaded) {
-          context.read<CartBloc>().add(LoadActiveOrder(state.table.tableId));
-        }
-      },
+    return MultiBlocListener(
+      listeners: [
+        BlocListener<TableBloc, TableState>(
+          listenWhen: (previous, current) => !widget.kiosk,
+          listener: (context, state) {
+            if (state is TableLoaded) {
+              context.read<CartBloc>().add(LoadActiveOrder(state.table.tableId));
+            }
+          },
+        ),
+        // Staff login/logout: toggle staff-only items and the name prompt.
+        BlocListener<AuthBloc, AuthState>(
+          listenWhen: (previous, current) =>
+              !widget.kiosk &&
+              ((previous is AuthAuthenticated) != (current is AuthAuthenticated) ||
+                  _canSeeStaffItems(previous) != _canSeeStaffItems(current)),
+          listener: (context, auth) {
+            _syncStaffMode(auth);
+            _maybePromptNickname(context.read<CartBloc>().state);
+          },
+        ),
+      ],
       child: Scaffold(
         backgroundColor: const Color(0xFFFAF7F2),
         body: BlocListener<CartBloc, CartState>(
@@ -131,11 +174,7 @@ class _MenuPageState extends State<MenuPage> {
           listenWhen: (previous, current) =>
               !widget.kiosk &&
               (previous.nickname != current.nickname || previous.nicknameLoaded != current.nicknameLoaded),
-          listener: (context, state) {
-            if (state.nicknameLoaded && state.nickname.isEmpty) {
-              _showNicknamePrompt(context);
-            }
-          },
+          listener: (context, state) => _maybePromptNickname(state),
           child: Column(
             children: [
               Expanded(
@@ -302,6 +341,11 @@ class _MenuPageState extends State<MenuPage> {
                                   matchedItemsByCat.containsKey(_selectedSearchCategoryId))
                               ? _selectedSearchCategoryId
                               : null;
+
+                          // Staff: mark categories that contain staff-only items.
+                          final Set<int> staffCategoryIds = _showStaffItems
+                              ? {for (final i in state.items) if (i.isStaffOnly) i.categoryId}
+                              : const {};
 
                           final List<dynamic> displayItems;
                           if (isSearching) {
@@ -575,6 +619,7 @@ class _MenuPageState extends State<MenuPage> {
                                                         child: _buildCategoryChip(
                                                           label: label,
                                                           isSelected: isSelected,
+                                                          staff: staffCategoryIds.contains(category.categoryId),
                                                         ),
                                                       );
                                                     },
@@ -697,6 +742,7 @@ class _MenuPageState extends State<MenuPage> {
                                                       final item = displayItems[index];
                                                       return MenuItemCard(
                                                         item: item,
+                                                        showStaffBadge: _showStaffItems && item.isStaffOnly == true,
                                                         onTap: () => _showAddItemConfirmation(
                                                           context,
                                                           item,
@@ -959,15 +1005,23 @@ class _MenuPageState extends State<MenuPage> {
     ).whenComplete(() => _isAddItemSheetOpen = false);
   }
 
-  void _showNicknamePrompt(BuildContext context, {String initialValue = ''}) {
+  /// [forceNew]: staff ordering for a customer. Starts blank and cannot be
+  /// dismissed; [previousName] is shown as a hint.
+  void _showNicknamePrompt(
+    BuildContext context, {
+    String initialValue = '',
+    bool forceNew = false,
+    String previousName = '',
+  }) {
     if (_isNicknamePromptOpen) return;
     _isNicknamePromptOpen = true;
+    final canDismiss = !forceNew && initialValue.isNotEmpty;
     final controller = TextEditingController(text: initialValue);
     final formKey = GlobalKey<FormState>();
 
     showDialog(
       context: context,
-      barrierDismissible: initialValue.isNotEmpty,
+      barrierDismissible: canDismiss,
       builder: (context) {
         return Dialog(
           backgroundColor: const Color(0xFF121212),
@@ -1006,7 +1060,9 @@ class _MenuPageState extends State<MenuPage> {
                         ),
                         const SizedBox(width: 12),
                         Text(
-                          initialValue.isEmpty ? 'Identify Yourself' : 'Edit Nickname',
+                          forceNew
+                              ? 'Who is this order for?'
+                              : (initialValue.isEmpty ? 'Identify Yourself' : 'Edit Nickname'),
                           style: const TextStyle(
                             color: Colors.white,
                             fontSize: 20,
@@ -1018,7 +1074,9 @@ class _MenuPageState extends State<MenuPage> {
                     ),
                     const SizedBox(height: 16),
                     Text(
-                      'Your nickname will be used to label your items in the shared cart.',
+                      forceNew
+                          ? "Enter the customer's name for this order."
+                          : 'Your nickname will be used to label your items in the shared cart.',
                       style: TextStyle(
                         color: Colors.white.withValues(alpha: 0.7),
                         fontSize: 13,
@@ -1032,7 +1090,9 @@ class _MenuPageState extends State<MenuPage> {
                       autofocus: true,
                       style: const TextStyle(color: Colors.white, fontSize: 16),
                       decoration: InputDecoration(
-                        hintText: 'e.g. Joshua M.',
+                        hintText: forceNew && previousName.isNotEmpty
+                            ? 'Previous: $previousName'
+                            : 'e.g. Joshua M.',
                         hintStyle: TextStyle(
                           color: Colors.white.withValues(alpha: 0.3),
                         ),
@@ -1088,7 +1148,7 @@ class _MenuPageState extends State<MenuPage> {
                     Row(
                       mainAxisAlignment: MainAxisAlignment.end,
                       children: [
-                        if (initialValue.isNotEmpty)
+                        if (canDismiss)
                           TextButton(
                             onPressed: () => Navigator.pop(context),
                             style: TextButton.styleFrom(
@@ -1147,6 +1207,7 @@ class _MenuPageState extends State<MenuPage> {
   Widget _buildCategoryChip({
     required String label,
     required bool isSelected,
+    bool staff = false,
   }) {
     return AnimatedContainer(
       duration: const Duration(milliseconds: 200),
@@ -1178,14 +1239,23 @@ class _MenuPageState extends State<MenuPage> {
         ],
       ),
       alignment: Alignment.center,
-      child: Text(
-        label,
-        style: TextStyle(
-          fontSize: 13,
-          fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
-          color: isSelected ? Colors.white : Colors.white70,
-          letterSpacing: 0.2,
-        ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (staff) ...[
+            const Icon(Icons.badge, size: 14, color: Colors.amber),
+            const SizedBox(width: 5),
+          ],
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 13,
+              fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+              color: isSelected ? Colors.white : Colors.white70,
+              letterSpacing: 0.2,
+            ),
+          ),
+        ],
       ),
     );
   }

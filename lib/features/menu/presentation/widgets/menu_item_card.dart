@@ -3,8 +3,10 @@ import 'package:flutter/material.dart';
 class MenuItemCard extends StatelessWidget {
   final dynamic item;
   final VoidCallback onTap;
+  // Staff logged in and this is a staff-only item.
+  final bool showStaffBadge;
 
-  const MenuItemCard({super.key, required this.item, required this.onTap});
+  const MenuItemCard({super.key, required this.item, required this.onTap, this.showStaffBadge = false});
 
   @override
   Widget build(BuildContext context) {
@@ -40,13 +42,20 @@ class MenuItemCard extends StatelessWidget {
               ),
               child: AspectRatio(
                 aspectRatio: 1,
-                child: item.displayImage != null
-                    ? Image.network(
-                        item.displayImage!,
-                        fit: BoxFit.cover,
-                        errorBuilder: (ctx, err, stack) => const _Placeholder(),
-                      )
-                    : const _Placeholder(),
+                child: Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    item.displayImage != null
+                        ? Image.network(
+                            item.displayImage!,
+                            fit: BoxFit.cover,
+                            errorBuilder: (ctx, err, stack) => const _Placeholder(),
+                          )
+                        : const _Placeholder(),
+                    if (showStaffBadge)
+                      const Positioned(top: 8, left: 8, child: StaffBadge()),
+                  ],
+                ),
               ),
             ),
             // Details
@@ -106,6 +115,31 @@ class MenuItemCard extends StatelessWidget {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+/// Amber "STAFF" pill marking staff-only items (shown to logged-in staff only).
+class StaffBadge extends StatelessWidget {
+  const StaffBadge({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+      decoration: BoxDecoration(
+        color: Colors.amber,
+        borderRadius: BorderRadius.circular(10),
+        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.2), blurRadius: 4)],
+      ),
+      child: const Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(Icons.badge, size: 12, color: Colors.black),
+          SizedBox(width: 3),
+          Text('STAFF', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w800, color: Colors.black)),
+        ],
       ),
     );
   }

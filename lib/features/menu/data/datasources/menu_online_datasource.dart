@@ -43,7 +43,9 @@ class OnlineMenuDataSource implements MenuDataSource {
 
   // Items
   @override
-  Future<List<ItemModel>> getItems({int? categoryId}) async {
+  Future<List<ItemModel>> getItems({int? categoryId, bool includeStaffOnly = false}) async {
+    // `is_staff_only` (migration 0080) is likewise not on the hosted schema yet,
+    // so [includeStaffOnly] is ignored here.
     // Web-visibility flag `is_available_in_web_table` (migration 0046) is a
     // consolidator/local-mode column; the hosted `items` schema may not have it
     // yet, so we intentionally do NOT filter on it here to avoid breaking the

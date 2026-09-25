@@ -11,11 +11,20 @@ part 'menu_state.dart';
 
 class MenuBloc extends Bloc<MenuEvent, MenuState> {
   final MenuDataSource _menuDataSource;
+  // Include staff-only items in every load (see SetStaffMode).
+  bool _isStaff = false;
 
   MenuBloc(this._menuDataSource) : super(const MenuInitial()) {
     on<LoadMenu>(_onLoadMenu);
     on<SelectDepartment>(_onSelectDepartment);
     on<SelectCategory>(_onSelectCategory);
+    on<SetStaffMode>(_onSetStaffMode);
+  }
+
+  Future<void> _onSetStaffMode(SetStaffMode event, Emitter<MenuState> emit) async {
+    if (event.isStaff == _isStaff) return;
+    _isStaff = event.isStaff;
+    await _onLoadMenu(LoadMenu(), emit);
   }
 
   Future<void> _onLoadMenu(LoadMenu event, Emitter<MenuState> emit) async {
@@ -24,7 +33,7 @@ class MenuBloc extends Bloc<MenuEvent, MenuState> {
       final results = await Future.wait([
         _menuDataSource.getDepartments(),
         _menuDataSource.getCategories(),
-        _menuDataSource.getItems(),
+        _menuDataSource.getItems(includeStaffOnly: _isStaff),
       ]);
 
       final departments = results[0] as List<DepartmentModel>;

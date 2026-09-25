@@ -67,7 +67,7 @@ class LocalMenuDataSource implements MenuDataSource {
   }
 
   @override
-  Future<List<ItemModel>> getItems({int? categoryId}) async {
+  Future<List<ItemModel>> getItems({int? categoryId, bool includeStaffOnly = false}) async {
     // Live-override resolution (migration 0052): if a menu group is active, it is
     // the source of truth -- show only its enabled barcodes. With NO active
     // group, fall back to the per-item `is_available_in_web_table` flag
@@ -93,8 +93,24 @@ class LocalMenuDataSource implements MenuDataSource {
       query = query.eq('category', categoryId);
     }
 
+    // Curation alone decides what customers see; a staff-only item (migration
+    // 0080) that is ticked in curation is public too.
     final response = await query.order('item_desc');
-    return (response as List).map((row) => _mapItemRow(row)).toList();
+    final items = (response as List).map((row) => _mapItemRow(row)).toList();
+    if (!includeStaffOnly) return items;
+
+    // Staff logged in: add every staff-only item, regardless of the active
+    // menu group or the per-item web flag.
+    var staffQuery = _client.from('item').select().eq('item_status', 1).eq('is_staff_only', 1);
+    if (categoryId != null) {
+      staffQuery = staffQuery.eq('category', categoryId);
+    }
+    final staffRows = await staffQuery.order('item_desc');
+    final seen = {for (final i in items) i.barcode};
+    return [
+      ...items,
+      ...(staffRows as List).map((row) => _mapItemRow(row)).where((i) => seen.add(i.barcode)),
+    ];
   }
 
   @override
@@ -122,6 +138,7 @@ class LocalMenuDataSource implements MenuDataSource {
       'item_desc': row['item_desc'],
       'item_status': row['item_status'],
       'is_available_in_web_table': row['is_available_in_web_table'],
+      'is_staff_only': row['is_staff_only'],
       'print_desc': row['print_desc'],
       'department_id': row['dept'] ?? 0,
       'category_id': row['category'] ?? 0,

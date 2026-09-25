@@ -8,7 +8,8 @@ import '../models/menu_group_model.dart';
 abstract class MenuDataSource {
   Future<List<DepartmentModel>> getDepartments();
   Future<List<CategoryModel>> getCategories({int? departmentId});
-  Future<List<ItemModel>> getItems({int? categoryId});
+  /// [includeStaffOnly]: also return `is_staff_only` items (staff logged in).
+  Future<List<ItemModel>> getItems({int? categoryId, bool includeStaffOnly = false});
   String getItemImageUrl(String imagePath);
 
   /// All orderable items (`item_status = 1`) regardless of web visibility, for

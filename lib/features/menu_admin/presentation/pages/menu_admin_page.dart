@@ -636,7 +636,20 @@ class _ItemTile extends StatelessWidget {
           child: _Thumbnail(url: item.displayImage),
         ),
       ),
-      title: Text(item.name, style: const TextStyle(color: Colors.white, fontSize: 14)),
+      title: Row(
+        children: [
+          Flexible(
+            child: Text(item.name, style: const TextStyle(color: Colors.white, fontSize: 14)),
+          ),
+          if (item.isStaffOnly) ...[
+            const SizedBox(width: 6),
+            const Tooltip(
+              message: 'Staff only: always visible to staff; ticking also shows it to customers',
+              child: Icon(Icons.badge, size: 16, color: Colors.amber),
+            ),
+          ],
+        ],
+      ),
       subtitle: Text(
         '₱${item.price.toStringAsFixed(2)}',
         style: const TextStyle(color: Colors.white54, fontSize: 12),
