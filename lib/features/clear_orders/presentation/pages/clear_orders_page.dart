@@ -14,13 +14,15 @@ import '../../../table/presentation/widgets/blueprint/layout_element_widget.dart
 import '../../../table/presentation/widgets/blueprint/table_shape_widget.dart';
 import '../bloc/clear_orders_bloc.dart';
 
-/// Staff-only screen (`/staff/tables`) to clear (settle) a table's open order.
+/// Staff-only screen (`/staff/tables`) to complete or cancel a table's open order.
 /// Modeled on the POS table picker: a ground (floor) pill selector, per-table
 /// status colors, search, an open-only toggle, and a spatial blueprint view for
 /// custom-layout grounds with a 90° rotate button for phones.
 ///
-/// Clearing sets `payment_status = 2` via the existing
-/// `OrdersDataSource.updatePaymentStatus`. Local-mode only.
+/// Tapping an open table asks whether to complete it (settle: `payment_status
+/// = 2` via `OrdersDataSource.updatePaymentStatus`) or cancel it (void, like the
+/// POS "Cancel Table", via `OrdersDataSource.cancelTableOrder`). Cancelling a
+/// table with a non-zero total requires typing the table name. Local-mode only.
 ///
 /// With [orderMode] (`/staff/order`) the same floor plan is a table picker for
 /// waiter ordering: every table is tappable and a tap opens its menu.
@@ -70,7 +72,7 @@ class _ClearOrdersPageState extends State<ClearOrdersPage> {
             ..showSnackBar(
               SnackBar(
                 backgroundColor: Colors.redAccent,
-                content: Text('Could not clear the order: ${state.clearError}'),
+                content: Text('Could not update the order: ${state.clearError}'),
               ),
             );
         }
@@ -294,12 +296,25 @@ class _ClearOrdersPageState extends State<ClearOrdersPage> {
     if (order == null) return; // empty table — nothing to clear
 
     final bloc = context.read<ClearOrdersBloc>();
+    final choice = await showDialog<_TableActionChoice>(
+      context: context,
+      builder: (dialogContext) => _TableActionDialog(table: table),
+    );
+    if (choice == null || !context.mounted) return;
+
+    if (choice.action == _TableAction.complete) {
+      bloc.add(ClearTable(tableId: table.id, salesOrderId: order.salesOrderId));
+      return;
+    }
+
+    final salesOrderId = order.salesOrderId;
+    if (salesOrderId == null) return;
     final confirmed = await showDialog<bool>(
       context: context,
-      builder: (dialogContext) => _ClearConfirmDialog(table: table),
+      builder: (dialogContext) => _CancelConfirmDialog(table: table, total: choice.total),
     );
     if (confirmed == true) {
-      bloc.add(ClearTable(tableId: table.id, salesOrderId: order.salesOrderId));
+      bloc.add(CancelTable(tableId: table.id, salesOrderId: salesOrderId));
     }
   }
 }
@@ -381,7 +396,7 @@ class _GridView extends StatelessWidget {
               table: t,
               colors: _TableColors.forTable(state, t),
               tappable: orderMode || state.isOpen(t.id),
-              hint: orderMode ? 'Tap to order' : 'Tap to clear',
+              hint: orderMode ? 'Tap to order' : 'Tap to complete / cancel',
               onTap: () => onTap(t),
             );
           },
@@ -648,69 +663,206 @@ class _BlueprintViewState extends State<_BlueprintView> {
   }
 }
 
-// ── Confirm dialog ───────────────────────────────────────────────────────────
+// ── Action + confirm dialogs ─────────────────────────────────────────────────
 
-/// Confirms clearing a table, fetching the running total lazily so the grid
-/// stays cheap.
-class _ClearConfirmDialog extends StatelessWidget {
+enum _TableAction { complete, cancel }
+
+/// What staff picked in [_TableActionDialog], plus the total it loaded so the
+/// cancel confirmation doesn't refetch.
+class _TableActionChoice {
+  final _TableAction action;
+  final double total;
+  const _TableActionChoice(this.action, this.total);
+}
+
+const _dialogBg = Color(0xff121212);
+const _dialogAccent = Color(0xfff25125);
+
+/// Asks whether to complete (settle) or cancel (void) a table, fetching the
+/// running total lazily so the grid stays cheap.
+class _TableActionDialog extends StatefulWidget {
   final TableModel table;
 
-  const _ClearConfirmDialog({required this.table});
+  const _TableActionDialog({required this.table});
 
-  static const _bg = Color(0xff121212);
-  static const _accent = Color(0xfff25125);
+  @override
+  State<_TableActionDialog> createState() => _TableActionDialogState();
+}
+
+class _TableActionDialogState extends State<_TableActionDialog> {
+  late final Future<double> _totalFuture = _total();
 
   Future<double> _total() async {
     final ds = GetIt.instance<OrdersDataSource>();
-    final order = await ds.getActiveOrder(tableId: table.id);
+    final order = await ds.getActiveOrder(tableId: widget.table.id);
     if (order == null) return 0;
     return order.items.fold<double>(0, (sum, it) => sum + it.totalPrice);
   }
 
   @override
   Widget build(BuildContext context) {
+    return FutureBuilder<double>(
+      future: _totalFuture,
+      builder: (context, snap) {
+        final loading = snap.connectionState == ConnectionState.waiting;
+        final total = snap.data ?? 0;
+        return AlertDialog(
+          backgroundColor: _dialogBg,
+          title: Text(widget.table.description, style: const TextStyle(color: Colors.white)),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              if (loading)
+                const Text('Loading total…', style: TextStyle(color: Colors.white38))
+              else
+                Text(
+                  'Running total: ₱${total.toStringAsFixed(2)}',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 16,
+                  ),
+                ),
+              const SizedBox(height: 16),
+              const Text(
+                'Complete settles the order and marks the table as paid.\n'
+                'Cancel voids all orders on this table and sends cancel slips to the kitchen.',
+                style: TextStyle(color: Colors.white70),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Close', style: TextStyle(color: Colors.white70)),
+            ),
+            TextButton(
+              // Wait for the total: it decides how strong the cancel confirm is.
+              onPressed: loading
+                  ? null
+                  : () => Navigator.pop(context, _TableActionChoice(_TableAction.cancel, total)),
+              child: const Text('Cancel table',
+                  style: TextStyle(color: Colors.redAccent, fontWeight: FontWeight.bold)),
+            ),
+            TextButton(
+              onPressed: () =>
+                  Navigator.pop(context, _TableActionChoice(_TableAction.complete, total)),
+              child: const Text('Complete',
+                  style: TextStyle(color: _dialogAccent, fontWeight: FontWeight.bold)),
+            ),
+          ],
+        );
+      },
+    );
+  }
+}
+
+/// Confirms cancelling a table. A non-zero total makes it a strong confirm:
+/// staff must type the table name before the button enables.
+class _CancelConfirmDialog extends StatefulWidget {
+  final TableModel table;
+  final double total;
+
+  const _CancelConfirmDialog({required this.table, required this.total});
+
+  @override
+  State<_CancelConfirmDialog> createState() => _CancelConfirmDialogState();
+}
+
+class _CancelConfirmDialogState extends State<_CancelConfirmDialog> {
+  final _controller = TextEditingController();
+
+  bool get _strong => widget.total != 0;
+
+  bool get _matches =>
+      _controller.text.trim().toLowerCase() == widget.table.description.trim().toLowerCase();
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final name = widget.table.description;
     return AlertDialog(
-      backgroundColor: _bg,
-      title: Text('Clear ${table.description}?',
-          style: const TextStyle(color: Colors.white)),
+      backgroundColor: _dialogBg,
+      title: Row(
+        children: [
+          const Icon(Icons.warning_amber_rounded, color: Colors.redAccent),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text('Cancel $name?', style: const TextStyle(color: Colors.white)),
+          ),
+        ],
+      ),
       content: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            'This settles the order and marks the table as paid. This cannot be undone here.',
-            style: TextStyle(color: Colors.white70),
+          Text(
+            'All orders for $name will be voided and removed. This cannot be undone.',
+            style: const TextStyle(color: Colors.white70),
           ),
-          const SizedBox(height: 16),
-          FutureBuilder<double>(
-            future: _total(),
-            builder: (context, snap) {
-              if (snap.connectionState == ConnectionState.waiting) {
-                return const Text('Loading total…',
-                    style: TextStyle(color: Colors.white38));
-              }
-              final total = snap.data ?? 0;
-              return Text(
-                'Running total: ₱${total.toStringAsFixed(2)}',
+          if (_strong) ...[
+            const SizedBox(height: 16),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.red.withValues(alpha: 0.12),
+                border: Border.all(color: Colors.redAccent),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Text(
+                '₱${widget.total.toStringAsFixed(2)} will be voided',
                 style: const TextStyle(
-                  color: Colors.white,
+                  color: Colors.redAccent,
                   fontWeight: FontWeight.bold,
                   fontSize: 16,
                 ),
-              );
-            },
-          ),
+              ),
+            ),
+            const SizedBox(height: 16),
+            Text('Type "$name" to confirm:', style: const TextStyle(color: Colors.white70)),
+            const SizedBox(height: 8),
+            TextField(
+              controller: _controller,
+              autofocus: true,
+              style: const TextStyle(color: Colors.white),
+              onChanged: (_) => setState(() {}),
+              decoration: InputDecoration(
+                hintText: name,
+                hintStyle: TextStyle(color: Colors.white.withValues(alpha: 0.3)),
+                filled: true,
+                fillColor: Colors.white.withValues(alpha: 0.05),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8),
+                  borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.15)),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8),
+                  borderSide: const BorderSide(color: Colors.redAccent, width: 1.5),
+                ),
+              ),
+            ),
+          ],
         ],
       ),
       actions: [
         TextButton(
           onPressed: () => Navigator.pop(context, false),
-          child: const Text('Cancel', style: TextStyle(color: Colors.white70)),
+          child: const Text('Back', style: TextStyle(color: Colors.white70)),
         ),
-        TextButton(
-          onPressed: () => Navigator.pop(context, true),
-          child: const Text('Clear order',
-              style: TextStyle(color: _accent, fontWeight: FontWeight.bold)),
+        FilledButton(
+          style: FilledButton.styleFrom(
+            backgroundColor: Colors.red.shade700,
+            disabledBackgroundColor: Colors.white12,
+          ),
+          onPressed: !_strong || _matches ? () => Navigator.pop(context, true) : null,
+          child: const Text('Yes, cancel table'),
         ),
       ],
     );

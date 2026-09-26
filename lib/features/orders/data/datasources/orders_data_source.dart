@@ -57,6 +57,12 @@ abstract class OrdersDataSource {
   /// cancelled/already-completed rows are left untouched.
   Future<void> completeKdsForSalesOrder(int salesOrderId);
 
+  /// Cancels (voids) an open order, mirroring the POS "Cancel Table": deletes
+  /// its items and header and un-combines joined orders, via the
+  /// `web_cancel_table_order` RPC (migration 0081). The KDS delete trigger
+  /// cancels the kitchen lines and prints cancel slips. Local-mode only.
+  Future<void> cancelTableOrder(int salesOrderId);
+
   Stream<List<Map<String, dynamic>>> subscribeToOrderUpdates({int? tableId});
 
   Stream<void> subscribeToActiveOrderChanges(

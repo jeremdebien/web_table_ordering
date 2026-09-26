@@ -11,8 +11,8 @@ part 'clear_orders_event.dart';
 part 'clear_orders_state.dart';
 
 /// Drives the staff "Clear Orders" floor plan (`/staff/tables`): lists grounds
-/// and tables, colors each table by its open order, and clears (settles) a
-/// table's order by setting `payment_status = 2`.
+/// and tables, colors each table by its open order, and either completes
+/// (settles, `payment_status = 2`) or cancels (voids) a table's order.
 ///
 /// Local-mode only — the underlying data-source methods (`getGrounds`,
 /// `getTables`, `getOpenOrders`) throw in online mode.
@@ -27,6 +27,7 @@ class ClearOrdersBloc extends Bloc<ClearOrdersEvent, ClearOrdersState> {
     on<SearchChanged>(_onSearch);
     on<ToggleOpenOnly>(_onToggleOpenOnly);
     on<ClearTable>(_onClearTable);
+    on<CancelTable>(_onCancelTable);
   }
 
   Future<void> _onLoad(LoadTables event, Emitter<ClearOrdersState> emit) async {
@@ -95,16 +96,34 @@ class ClearOrdersBloc extends Bloc<ClearOrdersEvent, ClearOrdersState> {
           await _ordersDataSource.completeKdsForSalesOrder(event.salesOrderId!);
         } catch (_) {}
       }
-      // Refresh open orders so the cleared table flips to available.
-      final openOrders = await _ordersDataSource.getOpenOrders();
-      emit(
-        s.copyWith(
-          isClearing: false,
-          openOrders: {for (final o in openOrders) o.tableId: o},
-        ),
-      );
+      await _emitRefreshed(s, emit);
     } catch (e) {
       emit(s.copyWith(isClearing: false, clearError: e.toString()));
     }
+  }
+
+  Future<void> _onCancelTable(CancelTable event, Emitter<ClearOrdersState> emit) async {
+    final s = state;
+    if (s is! ClearOrdersLoaded || s.isClearing) return;
+    emit(s.copyWith(isClearing: true, clearError: null));
+    try {
+      // Deletes the order + items; the DB trigger cancels its KDS lines and
+      // prints cancel slips, so no KDS call here (unlike complete).
+      await _ordersDataSource.cancelTableOrder(event.salesOrderId);
+      await _emitRefreshed(s, emit);
+    } catch (e) {
+      emit(s.copyWith(isClearing: false, clearError: e.toString()));
+    }
+  }
+
+  /// Refresh open orders so the cleared/cancelled table flips to available.
+  Future<void> _emitRefreshed(ClearOrdersLoaded s, Emitter<ClearOrdersState> emit) async {
+    final openOrders = await _ordersDataSource.getOpenOrders();
+    emit(
+      s.copyWith(
+        isClearing: false,
+        openOrders: {for (final o in openOrders) o.tableId: o},
+      ),
+    );
   }
 }

@@ -186,6 +186,11 @@ class OnlineOrdersDataSource implements OrdersDataSource {
     throw UnimplementedError('Open-order listing is only available in local mode.');
   }
 
+  @override
+  Future<void> cancelTableOrder(int salesOrderId) {
+    throw UnimplementedError('Cancelling a table is only available in local mode.');
+  }
+
   /// Get customer by device ID
   @override
   Future<String?> getNicknameByDeviceId(String deviceId) async {

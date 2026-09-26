@@ -203,6 +203,15 @@ class LocalOrdersDataSource implements OrdersDataSource {
   }
 
   @override
+  Future<void> cancelTableOrder(int salesOrderId) async {
+    try {
+      await _client.rpc('web_cancel_table_order', params: {'p_sales_order_id': salesOrderId});
+    } catch (e) {
+      throw Exception('Failed to cancel table order: $e');
+    }
+  }
+
+  @override
   Stream<List<Map<String, dynamic>>> subscribeToOrderUpdates({int? tableId}) {
     final builder = _client.from('sales_order_2').stream(primaryKey: ['sales_order_id']);
 
