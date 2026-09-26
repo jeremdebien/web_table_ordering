@@ -65,6 +65,8 @@ class _MenuPageState extends State<MenuPage> {
     super.initState();
     _heroStream = _heroImage.resolve(ImageConfiguration.empty)..addListener(_heroListener);
     if (widget.kiosk) return;
+    // Before the first load, so staff never see a device-filtered list first.
+    context.read<CartBloc>().add(SetShowAllOrders(_canViewAllOrders(context.read<AuthBloc>().state)));
     _loadActiveOrder();
     _loadNickname();
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -83,11 +85,23 @@ class _MenuPageState extends State<MenuPage> {
   static bool _canSeeStaffItems(AuthState auth) =>
       auth is AuthAuthenticated && auth.user.hasAccess(_staffItemsAccessKey);
 
+  /// Access key that lets staff see every order line on the table, not just
+  /// the ones placed from this device.
+  static const String _viewAllOrdersAccessKey = 'web_view_all_table_orders';
+
+  static bool _canViewAllOrders(AuthState auth) =>
+      auth is AuthAuthenticated && auth.user.hasAccess(_viewAllOrdersAccessKey);
+
   bool get _showStaffItems => !widget.kiosk && _canSeeStaffItems(context.read<AuthBloc>().state);
 
   void _syncStaffMode(AuthState auth) {
     if (widget.kiosk) return;
     context.read<MenuBloc>().add(SetStaffMode(_canSeeStaffItems(auth)));
+    final tableState = context.read<TableBloc>().state;
+    context.read<CartBloc>().add(SetShowAllOrders(
+          _canViewAllOrders(auth),
+          tableId: tableState is TableLoaded ? tableState.table.tableId : null,
+        ));
   }
 
   void _maybePromptNickname(CartState state) {
@@ -159,7 +173,8 @@ class _MenuPageState extends State<MenuPage> {
           listenWhen: (previous, current) =>
               !widget.kiosk &&
               ((previous is AuthAuthenticated) != (current is AuthAuthenticated) ||
-                  _canSeeStaffItems(previous) != _canSeeStaffItems(current)),
+                  _canSeeStaffItems(previous) != _canSeeStaffItems(current) ||
+                  _canViewAllOrders(previous) != _canViewAllOrders(current)),
           listener: (context, auth) {
             _syncStaffMode(auth);
             _maybePromptNickname(context.read<CartBloc>().state);

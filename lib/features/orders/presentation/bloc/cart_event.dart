@@ -40,6 +40,15 @@ class SubmitOrder extends CartEvent {
 /// state for the next customer.
 class ResetCart extends CartEvent {}
 
+/// Staff with the `web_view_all_table_orders` access key see every line on the
+/// table's order instead of only this device's. Reloads [tableId] on change.
+class SetShowAllOrders extends CartEvent {
+  final bool showAll;
+  final int? tableId;
+
+  SetShowAllOrders(this.showAll, {this.tableId});
+}
+
 class LoadActiveOrder extends CartEvent {
   final int tableId;
 

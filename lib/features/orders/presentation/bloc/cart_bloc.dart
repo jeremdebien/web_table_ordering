@@ -26,6 +26,9 @@ class CartBloc extends Bloc<CartEvent, CartState> {
   // double-taps of "Place Order"/"Confirm & Send" only place the order once.
   bool _isSubmitting = false;
 
+  // Staff override of the device filter (see SetShowAllOrders).
+  bool _showAllOrders = false;
+
   CartBloc(this._ordersDataSource, this._menuBloc, this._deviceIdService, this._orderFilterConfig, this._billedOrderConfig)
       : super(const CartState()) {
     on<AddToCart>(_onAddToCart);
@@ -34,6 +37,7 @@ class CartBloc extends Bloc<CartEvent, CartState> {
     on<ResetCart>(_onResetCart);
     on<SubmitOrder>(_onSubmitOrder);
     on<LoadActiveOrder>(_onLoadActiveOrder);
+    on<SetShowAllOrders>(_onSetShowAllOrders);
     on<UpdateCartItemNames>(_onUpdateCartItemNames);
     on<EnableOrdering>(_onEnableOrdering);
     on<RequestBill>(_onRequestBill);
@@ -91,6 +95,12 @@ class CartBloc extends Bloc<CartEvent, CartState> {
     });
   }
 
+  void _onSetShowAllOrders(SetShowAllOrders event, Emitter<CartState> emit) {
+    if (event.showAll == _showAllOrders) return;
+    _showAllOrders = event.showAll;
+    if (event.tableId != null) add(LoadActiveOrder(event.tableId!));
+  }
+
   Future<void> _onLoadActiveOrder(LoadActiveOrder event, Emitter<CartState> emit) async {
     final deviceId = _deviceIdService.getDeviceId();
     // A background refresh (realtime: POS edit, or the kitchen scanning a
@@ -117,7 +127,7 @@ class CartBloc extends Bloc<CartEvent, CartState> {
       final allowOrderWhenBilled = config[1];
       final order = await _ordersDataSource.getActiveOrder(
         tableId: event.tableId,
-        deviceId: filterByDevice ? deviceId : null,
+        deviceId: (filterByDevice && !_showAllOrders) ? deviceId : null,
       );
       if (order != null) {
         var items = [...order.items, ...unsubmitted];
