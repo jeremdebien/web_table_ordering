@@ -41,7 +41,7 @@ class _TableQrTokenPageState extends State<TableQrTokenPage> {
         children: [
           Container(
             decoration: const BoxDecoration(
-              image: DecorationImage(image: AssetImage('assets/images/nyx.jpg'), fit: BoxFit.cover),
+              image: DecorationImage(image: AssetImage('assets/images/ramen_ibuki.jpg'), fit: BoxFit.cover),
             ),
           ),
           Container(color: Colors.black.withValues(alpha: 0.45)),

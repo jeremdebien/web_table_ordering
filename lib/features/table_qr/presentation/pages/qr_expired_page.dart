@@ -25,7 +25,7 @@ class QrExpiredPage extends StatelessWidget {
             Container(
               decoration: const BoxDecoration(
                 image: DecorationImage(
-                  image: AssetImage('assets/images/nyx.jpg'),
+                  image: AssetImage('assets/images/ramen_ibuki.jpg'),
                   fit: BoxFit.cover,
                 ),
               ),

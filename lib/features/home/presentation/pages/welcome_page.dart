@@ -12,14 +12,14 @@ class WelcomePage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return SplashDismisser(
-      precache: const AssetImage('assets/images/nyx.jpg'),
+      precache: const AssetImage('assets/images/ramen_ibuki.jpg'),
       child: Scaffold(
         body: Stack(
           children: [
             Container(
               decoration: const BoxDecoration(
                 image: DecorationImage(
-                  image: AssetImage('assets/images/nyx.jpg'),
+                  image: AssetImage('assets/images/ramen_ibuki.jpg'),
                   fit: BoxFit.cover,
                 ),
               ),
@@ -53,7 +53,7 @@ class WelcomePage extends StatelessWidget {
                             ),
                             child: ClipOval(
                               child: Image.asset(
-                                'assets/images/nyx_logo.jpg',
+                                'assets/images/ramen_ibuki_logo.jpg',
                                 fit: BoxFit.contain,
                                 width: 140,
                                 height: 140,
@@ -65,7 +65,7 @@ class WelcomePage extends StatelessWidget {
                         Stack(
                           children: [
                             Text(
-                              'Welcome to Nyx',
+                              'Welcome to Ramen Ibuki',
                               textAlign: TextAlign.center,
                               style: TextStyle(
                                 fontSize: 26,
@@ -77,7 +77,7 @@ class WelcomePage extends StatelessWidget {
                               ),
                             ),
                             const Text(
-                              'Welcome to Nyx',
+                              'Welcome to Ramen Ibuki',
                               textAlign: TextAlign.center,
                               style: TextStyle(
                                 fontSize: 26,
@@ -91,7 +91,7 @@ class WelcomePage extends StatelessWidget {
                         Stack(
                           children: [
                             Text(
-                              'A place where gastronomy meets grandeur.',
+                              'The Essence of Japan. The Pinnacle of Dashi.',
                               textAlign: TextAlign.center,
                               style: TextStyle(
                                 fontSize: 16,
@@ -103,7 +103,7 @@ class WelcomePage extends StatelessWidget {
                               ),
                             ),
                             const Text(
-                              'A place where gastronomy meets grandeur.',
+                              'The Essence of Japan. The Pinnacle of Dashi.',
                               textAlign: TextAlign.center,
                               style: TextStyle(
                                 fontSize: 16,

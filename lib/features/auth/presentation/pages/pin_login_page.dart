@@ -42,7 +42,7 @@ class _PinLoginPageState extends State<PinLoginPage> {
           Container(
             decoration: const BoxDecoration(
               image: DecorationImage(
-                image: AssetImage('assets/images/nyx.jpg'),
+                image: AssetImage('assets/images/ramen_ibuki.jpg'),
                 fit: BoxFit.cover,
               ),
             ),
@@ -68,7 +68,7 @@ class _PinLoginPageState extends State<PinLoginPage> {
                         children: [
                           ClipOval(
                             child: Image.asset(
-                              'assets/images/nyx_logo.jpg',
+                              'assets/images/ramen_ibuki_logo.jpg',
                               width: 96,
                               height: 96,
                               fit: BoxFit.contain,

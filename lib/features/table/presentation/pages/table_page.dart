@@ -12,7 +12,7 @@ class TablePage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return SplashDismisser(
-      precache: const AssetImage('assets/images/nyx.jpg'),
+      precache: const AssetImage('assets/images/ramen_ibuki.jpg'),
       child: AnnotatedRegion<SystemUiOverlayStyle>(
         value: SystemUiOverlayStyle.light.copyWith(
           statusBarColor: Colors.transparent,
@@ -32,7 +32,7 @@ class TablePage extends StatelessWidget {
                 Container(
                   decoration: const BoxDecoration(
                     image: DecorationImage(
-                      image: AssetImage("assets/images/nyx.jpg"),
+                      image: AssetImage("assets/images/ramen_ibuki.jpg"),
                       fit: BoxFit.cover,
                     ),
                   ),
@@ -49,7 +49,7 @@ class TablePage extends StatelessWidget {
                           children: [
                             ClipOval(
                               child: Image.asset(
-                                'assets/images/nyx_logo.jpg',
+                                'assets/images/ramen_ibuki_logo.jpg',
                                 fit: BoxFit.contain,
                                 width: 150,
                                 height: 150,
@@ -69,7 +69,7 @@ class TablePage extends StatelessWidget {
                                     children: [
                                       // Stroke Layer
                                       Text(
-                                        "Welcome to Nyx",
+                                        "Welcome to Ramen Ibuki",
                                         style: TextStyle(
                                           fontSize: 14,
                                           fontWeight: FontWeight.bold,
@@ -82,7 +82,7 @@ class TablePage extends StatelessWidget {
                                       ),
                                       // Solid Text Layer
                                       Text(
-                                        "Welcome to Nyx",
+                                        "Welcome to Ramen Ibuki",
                                         style: TextStyle(
                                           fontSize: 14,
                                           fontWeight: FontWeight.bold,
@@ -95,7 +95,7 @@ class TablePage extends StatelessWidget {
                                     children: [
                                       // Stroke Layer
                                       Text(
-                                        "A place where gastronomy meets grandeur.",
+                                        "The Essence of Japan. The Pinnacle of Dashi.",
                                         textAlign: TextAlign.center,
                                         style: TextStyle(
                                           fontSize: 18,
@@ -108,7 +108,7 @@ class TablePage extends StatelessWidget {
                                       ),
                                       // Solid Text Layer
                                       Text(
-                                        "A place where gastronomy meets grandeur.",
+                                        "The Essence of Japan. The Pinnacle of Dashi.",
                                         textAlign: TextAlign.center,
                                         style: TextStyle(
                                           fontSize: 18,

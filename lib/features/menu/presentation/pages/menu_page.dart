@@ -50,7 +50,7 @@ class _MenuPageState extends State<MenuPage> {
   // Per-item cache of special-instruction groups (page lifetime).
   final Map<String, List<InstructionGroup>> _instructionCache = {};
 
-  static const AssetImage _heroImage = AssetImage("assets/images/menubg_v3.jpeg");
+  static const AssetImage _heroImage = AssetImage("assets/images/ramen_ibuki_menubg.jpg");
   // Hero height / width, read from the decoded asset so the header follows
   // whatever image is used. Null until the image has been decoded.
   double? _heroAspect;
