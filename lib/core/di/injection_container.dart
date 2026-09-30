@@ -32,6 +32,7 @@ final sl = GetIt.instance;
 Future<void> init() async {
   // External
   final sharedPreferences = await SharedPreferences.getInstance();
+  await _resetSessionsOnClientChange(sharedPreferences);
   sl.registerLazySingleton(() => sharedPreferences);
   sl.registerLazySingleton(() => Supabase.instance.client);
 
@@ -75,4 +76,18 @@ Future<void> init() async {
   // Core
 
   // External is registered at the top
+}
+
+/// Every store serves this app from the same LAN IP, so all stores share one
+/// browser origin (and one localStorage). When the build's CLIENT_ID differs
+/// from the one last seen, drop the previous store's sessions so a waiter
+/// login or table session never leaks across stores. Device id is kept.
+Future<void> _resetSessionsOnClientChange(SharedPreferences prefs) async {
+  const clientId = String.fromEnvironment('CLIENT_ID');
+  if (clientId.isEmpty) return;
+  const key = 'app_client_id';
+  if (prefs.getString(key) == clientId) return;
+  await prefs.remove('waiter_session');
+  await prefs.remove('table_qr_session');
+  await prefs.setString(key, clientId);
 }
