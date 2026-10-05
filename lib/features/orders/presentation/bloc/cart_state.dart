@@ -16,6 +16,9 @@ class CartState {
   // app_config 'allow_order_when_billed': guests may keep ordering while the
   // order is tempo billed (paymentStatus == 1).
   final bool allowOrderWhenBilled;
+  // POS service-charge setup (service_charge row). Starts at the legacy flat
+  // 10% until loaded.
+  final ServiceChargeConfig serviceCharge;
 
   const CartState({
     this.items = const [],
@@ -27,7 +30,11 @@ class CartState {
     this.nickname = '',
     this.nicknameLoaded = false,
     this.allowOrderWhenBilled = false,
+    this.serviceCharge = ServiceChargeConfig.legacy,
   });
+
+  /// Service charge on [subtotal], computed the way the POS does.
+  double serviceChargeFor(double subtotal) => serviceCharge.compute(subtotal);
 
   double get totalAmount => items.fold(0.0, (total, current) => total + current.totalPrice);
 
@@ -54,6 +61,7 @@ class CartState {
     String? nickname,
     bool? nicknameLoaded,
     bool? allowOrderWhenBilled,
+    ServiceChargeConfig? serviceCharge,
   }) {
     return CartState(
       items: items ?? this.items,
@@ -65,6 +73,7 @@ class CartState {
       nickname: nickname ?? this.nickname,
       nicknameLoaded: nicknameLoaded ?? this.nicknameLoaded,
       allowOrderWhenBilled: allowOrderWhenBilled ?? this.allowOrderWhenBilled,
+      serviceCharge: serviceCharge ?? this.serviceCharge,
     );
   }
 }

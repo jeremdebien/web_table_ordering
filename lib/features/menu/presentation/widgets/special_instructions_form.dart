@@ -14,10 +14,14 @@ class SpecialInstructionsForm extends StatefulWidget {
   /// (null when there are no answers).
   final void Function(bool isValid, String? answersJson) onChanged;
 
+  /// Edit flow: previously given answers (same JSON shape) to pre-fill.
+  final String? initialJson;
+
   const SpecialInstructionsForm({
     super.key,
     required this.groups,
     required this.onChanged,
+    this.initialJson,
   });
 
   @override
@@ -34,8 +38,26 @@ class _SpecialInstructionsFormState extends State<SpecialInstructionsForm> {
   @override
   void initState() {
     super.initState();
+    _seed();
     // Emit initial validity so the host can set the button state before any input.
     WidgetsBinding.instance.addPostFrameCallback((_) => _emit());
+  }
+
+  void _seed() {
+    final raw = widget.initialJson;
+    if (raw == null || raw.trim().isEmpty) return;
+    try {
+      final decoded = jsonDecode(raw);
+      if (decoded is! List) return;
+      for (final a in decoded.whereType<Map>()) {
+        final id = (a['group_id'] as num?)?.toInt();
+        if (id == null || !widget.groups.any((g) => g.id == id)) continue;
+        final choices = (a['choices'] as List?)?.map((e) => e.toString()) ?? const <String>[];
+        _selected[id] = choices.toSet();
+        final text = a['free_text'] as String?;
+        if (text != null && text.isNotEmpty) _freeText[id] = text;
+      }
+    } catch (_) {}
   }
 
   int _answerCount(InstructionGroup g) {
@@ -248,7 +270,8 @@ class _SpecialInstructionsFormState extends State<SpecialInstructionsForm> {
                 // Free text note
                 if (g.allowFreeText) ...[
                   const SizedBox(height: 10),
-                  TextField(
+                  TextFormField(
+                    initialValue: _freeText[g.id],
                     decoration: InputDecoration(
                       isDense: true,
                       filled: true,

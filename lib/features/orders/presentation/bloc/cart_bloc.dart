@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:rxdart/rxdart.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../data/models/sales_order_item_model.dart';
+import '../../data/models/line_customization.dart';
 import '../../../menu/data/models/item_model.dart';
 import '../../../menu/presentation/bloc/menu_bloc.dart';
 
@@ -9,6 +10,7 @@ import '../../data/datasources/orders_data_source.dart';
 import '../../../../core/utils/device_id_service.dart';
 import '../../../../core/services/order_filter_config_service.dart';
 import '../../../../core/services/billed_order_config_service.dart';
+import '../../../../core/services/service_charge_config_service.dart';
 
 part 'cart_event.dart';
 part 'cart_state.dart';
@@ -19,6 +21,7 @@ class CartBloc extends Bloc<CartEvent, CartState> {
   final DeviceIdService _deviceIdService;
   final OrderFilterConfigService _orderFilterConfig;
   final BilledOrderConfigService _billedOrderConfig;
+  final ServiceChargeConfigService _serviceChargeConfig;
   StreamSubscription? _menuSubscription;
   StreamSubscription? _realtimeSubscription;
   int? _subscribedSalesOrderId;
@@ -29,10 +32,12 @@ class CartBloc extends Bloc<CartEvent, CartState> {
   // Staff override of the device filter (see SetShowAllOrders).
   bool _showAllOrders = false;
 
-  CartBloc(this._ordersDataSource, this._menuBloc, this._deviceIdService, this._orderFilterConfig, this._billedOrderConfig)
+  CartBloc(this._ordersDataSource, this._menuBloc, this._deviceIdService, this._orderFilterConfig,
+      this._billedOrderConfig, this._serviceChargeConfig)
       : super(const CartState()) {
     on<AddToCart>(_onAddToCart);
     on<RemoveFromCart>(_onRemoveFromCart);
+    on<UpdateCartItem>(_onUpdateCartItem);
     on<ClearCart>(_onClearCart);
     on<ResetCart>(_onResetCart);
     on<SubmitOrder>(_onSubmitOrder);
@@ -43,10 +48,14 @@ class CartBloc extends Bloc<CartEvent, CartState> {
     on<RequestBill>(_onRequestBill);
     on<LoadNickname>(_onLoadNickname);
     on<UpdateNickname>(_onUpdateNickname);
+    on<LoadServiceCharge>(_onLoadServiceCharge);
     on<ExternalOrderUpdateReceived>(
       _onExternalOrderUpdateReceived,
       transformer: (events, mapper) => events.debounceTime(const Duration(milliseconds: 500)).asyncExpand(mapper),
     );
+
+    // Kiosk never loads an active order, so fetch the SC setup up front too.
+    add(LoadServiceCharge());
 
     _menuSubscription = _menuBloc.stream.listen((menuState) {
       if (menuState is MenuLoaded) {
@@ -119,12 +128,16 @@ class CartBloc extends Bloc<CartEvent, CartState> {
       // only their own lines or every line on the table.
       // app_config 'allow_order_when_billed' decides whether a tempo-billed
       // order still lets the guest order.
+      // The POS service_charge row is re-read too, so a change made on the
+      // POS shows up on the next refresh.
+      final scFuture = _serviceChargeConfig.load();
       final config = await Future.wait([
         _orderFilterConfig.filterByDevice(),
         _billedOrderConfig.allowOrderWhenBilled(),
       ]);
       final filterByDevice = config[0];
       final allowOrderWhenBilled = config[1];
+      final serviceCharge = await scFuture;
       final order = await _ordersDataSource.getActiveOrder(
         tableId: event.tableId,
         deviceId: (filterByDevice && !_showAllOrders) ? deviceId : null,
@@ -156,6 +169,7 @@ class CartBloc extends Bloc<CartEvent, CartState> {
             paymentStatus: order.paymentStatus,
             salesOrderId: sOrderId,
             allowOrderWhenBilled: allowOrderWhenBilled,
+            serviceCharge: serviceCharge,
           ),
         );
       } else {
@@ -168,6 +182,7 @@ class CartBloc extends Bloc<CartEvent, CartState> {
           paymentStatus: 0,
           salesOrderId: null,
           allowOrderWhenBilled: allowOrderWhenBilled,
+          serviceCharge: serviceCharge,
         ));
       }
     } catch (e) {
@@ -224,17 +239,21 @@ class CartBloc extends Bloc<CartEvent, CartState> {
     }
   }
 
+  /// Same orderable line: barcode, orderer, special-instruction answers, note
+  /// AND customization picks all match, so the same item configured differently
+  /// (or by a different guest) stays a separate line.
+  bool _sameLine(SalesOrderItemModel a, SalesOrderItemModel b) =>
+      a.itemBarcode == b.itemBarcode &&
+      a.nickname == b.nickname &&
+      (a.specialInstructions ?? '') == (b.specialInstructions ?? '') &&
+      (a.note ?? '') == (b.note ?? '') &&
+      LineCustomization.fingerprint(a.customization) == LineCustomization.fingerprint(b.customization);
+
   void _onAddToCart(AddToCart event, Emitter<CartState> emit) {
-    // Find existing "New" item (originalQuantity == 0). Only merge when the
-    // orderer, special-instruction answers, AND note also match, so the same item
-    // with different instructions or notes (or a different guest) stays a separate line.
+    // Find existing "New" item (originalQuantity == 0) configured the same way.
+    final incoming = event.item.copyWith(nickname: state.nickname);
     final existingNewIndex = state.items.indexWhere(
-      (i) =>
-          i.itemBarcode == event.item.itemBarcode &&
-          i.originalQuantity == 0 &&
-          i.nickname == state.nickname &&
-          (i.specialInstructions ?? '') == (event.item.specialInstructions ?? '') &&
-          (i.note ?? '') == (event.item.note ?? ''),
+      (i) => i.originalQuantity == 0 && _sameLine(i, incoming),
     );
 
     if (existingNewIndex >= 0) {
@@ -262,6 +281,11 @@ class CartBloc extends Bloc<CartEvent, CartState> {
       );
       emit(state.copyWith(items: [...state.items, itemWithOwner]));
     }
+  }
+
+  Future<void> _onLoadServiceCharge(LoadServiceCharge event, Emitter<CartState> emit) async {
+    final config = await _serviceChargeConfig.load();
+    emit(state.copyWith(serviceCharge: config));
   }
 
   Future<void> _onLoadNickname(LoadNickname event, Emitter<CartState> emit) async {
@@ -311,6 +335,28 @@ class CartBloc extends Bloc<CartEvent, CartState> {
     final updatedItems = List<SalesOrderItemModel>.from(state.items);
     updatedItems.remove(event.item);
     emit(state.copyWith(items: updatedItems));
+  }
+
+  /// Edit-in-cart: replace an unsubmitted line with its re-configured version,
+  /// folding it into another unsubmitted line if it now matches one.
+  void _onUpdateCartItem(UpdateCartItem event, Emitter<CartState> emit) {
+    final index = state.items.indexOf(event.original);
+    if (index < 0 || event.original.originalQuantity != 0) return;
+    final items = List<SalesOrderItemModel>.from(state.items);
+    final updated = event.updated.copyWith(
+      nickname: event.original.nickname,
+      webDeviceId: event.original.webDeviceId,
+    );
+    final mergeIndex = items.indexWhere(
+      (i) => !identical(i, event.original) && i.originalQuantity == 0 && _sameLine(i, updated),
+    );
+    if (mergeIndex >= 0) {
+      items[mergeIndex] = items[mergeIndex].copyWith(quantity: items[mergeIndex].quantity + updated.quantity);
+      items.removeAt(index);
+    } else {
+      items[index] = updated;
+    }
+    emit(state.copyWith(items: items));
   }
 
   void _onClearCart(ClearCart event, Emitter<CartState> emit) {

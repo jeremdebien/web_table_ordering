@@ -5,6 +5,7 @@ import '../models/category_model.dart';
 import '../models/item_model.dart';
 import '../models/instruction_group_model.dart';
 import '../models/menu_group_model.dart';
+import '../models/option_group_model.dart';
 import 'menu_data_source.dart';
 
 /// Online (hosted) menu catalog: plural, branch-scoped tables.
@@ -86,6 +87,10 @@ class OnlineMenuDataSource implements MenuDataSource {
   // Special instructions are a local-mode feature; online path is unchanged.
   @override
   Future<List<InstructionGroup>> getItemInstructions(String barcode, {int? categoryId}) async => [];
+
+  // Product customization is local-mode only.
+  @override
+  Future<List<OptionGroup>> getItemCustomization(String barcode) async => [];
 
   // ── Menu groups ────────────────────────────────────────────────────────────
   // TODO(online): menu groups are a local-mode feature for now (migration 0052).

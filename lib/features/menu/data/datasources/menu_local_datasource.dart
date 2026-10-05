@@ -1,10 +1,12 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
+import '../../../../core/config/app_config.dart';
 import '../models/department_model.dart';
 import '../models/category_model.dart';
 import '../models/item_model.dart';
 import '../models/instruction_group_model.dart';
 import '../models/instruction_choice_model.dart';
 import '../models/menu_group_model.dart';
+import '../models/option_group_model.dart';
 import 'menu_data_source.dart';
 
 /// Local (self-hosted) menu catalog targeting the local_supabase_migration
@@ -220,6 +222,146 @@ class LocalMenuDataSource implements MenuDataSource {
         return a.id.compareTo(b.id);
       });
 
+      return groups;
+    } catch (_) {
+      return [];
+    }
+  }
+
+  /// Ports kwikpos_lite `CustomizationHelper.getAllAssignedOptionValuesByBarcode`
+  /// with batched `in()` reads: assignments → (preset →) groups → values (by
+  /// group or value preset) → per-product overrides, plus the value items for
+  /// names/prices. Values whose item is inactive are dropped (sold out).
+  @override
+  Future<List<OptionGroup>> getItemCustomization(String barcode) async {
+    try {
+      final assignmentRows = List<Map<String, dynamic>>.from(await _client
+          .from('product_option_group_assignments')
+          .select('group_preset_id, option_group_id, display_order')
+          .eq('barcode', barcode)
+          // supabase-dart orders DESC by default — the POS reads ASC.
+          .order('display_order', ascending: true)
+          // sqlite breaks display_order ties by rowid; mirror that.
+          .order('id', ascending: true));
+      if (assignmentRows.isEmpty) return [];
+
+      int? asInt(dynamic v) => (v as num?)?.toInt();
+
+      final presetIds = assignmentRows.map((a) => asInt(a['group_preset_id'])).whereType<int>().toSet().toList();
+      final presetGroupRows = presetIds.isEmpty
+          ? <Map<String, dynamic>>[]
+          : List<Map<String, dynamic>>.from(await _client
+              .from('option_group_preset_groups')
+              .select('group_preset_id, option_group_id, display_order')
+              .inFilter('group_preset_id', presetIds)
+              .order('display_order', ascending: true)
+              .order('id', ascending: true));
+
+      // Group ids in display order: assignment order, then preset member order.
+      final orderedGroupIds = <int>[];
+      for (final a in assignmentRows) {
+        final presetId = asInt(a['group_preset_id']);
+        if (presetId != null) {
+          for (final pg in presetGroupRows.where((r) => asInt(r['group_preset_id']) == presetId)) {
+            final gid = asInt(pg['option_group_id']);
+            if (gid != null && !orderedGroupIds.contains(gid)) orderedGroupIds.add(gid);
+          }
+        } else {
+          final gid = asInt(a['option_group_id']);
+          if (gid != null && !orderedGroupIds.contains(gid)) orderedGroupIds.add(gid);
+        }
+      }
+      if (orderedGroupIds.isEmpty) return [];
+
+      final groupRows = List<Map<String, dynamic>>.from(
+          await _client.from('option_groups').select().inFilter('id', orderedGroupIds));
+      final groupById = {for (final g in groupRows) asInt(g['id'])!: g};
+
+      final valuePresetIds =
+          groupRows.map((g) => asInt(g['value_preset_id'])).whereType<int>().toSet().toList();
+      final valueFilter = [
+        'option_group_id.in.(${orderedGroupIds.join(',')})',
+        if (valuePresetIds.isNotEmpty) 'value_preset_id.in.(${valuePresetIds.join(',')})',
+      ].join(',');
+      final valueRows = List<Map<String, dynamic>>.from(await _client
+          .from('option_values')
+          .select('id, value_preset_id, option_group_id, alias, barcode, price_delta, quantity, unit, display_order')
+          .or(valueFilter));
+
+      final valueBarcodes = valueRows.map((v) => v['barcode'] as String).toSet().toList();
+      final itemRows = valueBarcodes.isEmpty
+          ? <Map<String, dynamic>>[]
+          : List<Map<String, dynamic>>.from(await _client
+              .from('item')
+              .select('barcode, item_desc, print_desc, price, item_status, image_object')
+              .inFilter('barcode', valueBarcodes));
+      final itemByBarcode = {
+        for (final i in itemRows)
+          if (_flag(i['item_status'])) i['barcode'] as String: i,
+      };
+
+      // Overrides for the base product AND each size it can switch to, so add-on
+      // prices follow the chosen size like the POS's per-size repricing.
+      final valueIds = valueRows.map((v) => asInt(v['id'])!).toList();
+      final overrideRows = valueIds.isEmpty
+          ? <Map<String, dynamic>>[]
+          : List<Map<String, dynamic>>.from(await _client
+              .from('product_option_value_overrides')
+              .select('product_barcode, option_value_id, option_group_id, alias, price_delta')
+              .inFilter('product_barcode', {barcode, ...valueBarcodes}.toList())
+              .inFilter('option_value_id', valueIds));
+
+      final groups = <OptionGroup>[];
+      for (final gid in orderedGroupIds) {
+        final g = groupById[gid];
+        if (g == null) continue;
+        final valuePresetId = asInt(g['value_preset_id']);
+        final rows = valueRows.where((v) => valuePresetId != null
+            ? asInt(v['value_preset_id']) == valuePresetId
+            : asInt(v['option_group_id']) == gid);
+
+        final values = <OptionValue>[];
+        for (final v in rows) {
+          final item = itemByBarcode[v['barcode']];
+          if (item == null) continue; // inactive / missing item → hidden
+          final vid = asInt(v['id'])!;
+          // Group-specific override wins over the NULL-group fallback row.
+          final overrides = <String, ({double? priceDelta, String? alias})>{};
+          for (final specific in [false, true]) {
+            for (final o in overrideRows.where((o) =>
+                asInt(o['option_value_id']) == vid &&
+                (specific ? asInt(o['option_group_id']) == gid : o['option_group_id'] == null))) {
+              overrides[o['product_barcode'] as String] = (
+                priceDelta: (o['price_delta'] as num?)?.toDouble(),
+                alias: o['alias'] as String?,
+              );
+            }
+          }
+          values.add(OptionValue(
+            id: vid,
+            barcode: v['barcode'] as String,
+            alias: v['alias'] as String?,
+            priceDelta: (v['price_delta'] as num?)?.toDouble(),
+            quantity: (v['quantity'] as num?)?.toDouble() ?? 1,
+            unit: asInt(v['unit']) ?? 1,
+            displayOrder: asInt(v['display_order']) ?? 0,
+            itemName: (item['item_desc'] as String?) ?? '',
+            receiptName: (item['print_desc'] as String?) ?? (item['item_desc'] as String?),
+            itemPrice: (item['price'] as num?)?.toDouble() ?? 0,
+            imageUrl: item['image_object'] != null
+                ? '${AppConfig.imageStoragePath}$_imageBucket/${item['image_object']}'
+                : null,
+            overridesByProduct: overrides,
+          ));
+        }
+        values.sort((a, b) =>
+            a.displayOrder != b.displayOrder ? a.displayOrder.compareTo(b.displayOrder) : a.id.compareTo(b.id));
+        if (values.isEmpty) continue;
+        groups.add(OptionGroup.fromJson(g, values: values));
+      }
+
+      // Keep the POS picker's order (assignment → preset member → value
+      // display_order); sizes are not hoisted.
       return groups;
     } catch (_) {
       return [];

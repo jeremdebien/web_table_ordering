@@ -4,6 +4,7 @@ import '../utils/device_id_service.dart';
 import '../services/reload_signal_service.dart';
 import '../services/order_filter_config_service.dart';
 import '../services/billed_order_config_service.dart';
+import '../services/service_charge_config_service.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../config/app_config.dart';
 import '../../features/menu/data/datasources/menu_data_source.dart';
@@ -41,6 +42,7 @@ Future<void> init() async {
   sl.registerLazySingleton(() => ReloadSignalService(sl()));
   sl.registerLazySingleton(() => OrderFilterConfigService(sl()));
   sl.registerLazySingleton(() => BilledOrderConfigService(sl()));
+  sl.registerLazySingleton(() => ServiceChargeConfigService(sl()));
   sl.registerLazySingleton(() => TableQrSession(sl(), sl()));
   // Features - Home
   sl.registerLazySingleton(() => MenuBloc(sl()));
@@ -70,7 +72,7 @@ Future<void> init() async {
   sl.registerFactory(() => TableBloc(sl()));
   sl.registerFactory(() => MenuAdminBloc(sl()));
   sl.registerFactory(() => ClearOrdersBloc(sl(), sl()));
-  sl.registerFactory(() => CartBloc(sl(), sl(), sl(), sl(), sl()));
+  sl.registerFactory(() => CartBloc(sl(), sl(), sl(), sl(), sl(), sl()));
   sl.registerLazySingleton(() => AuthBloc(sl(), sl()));
 
   // Core

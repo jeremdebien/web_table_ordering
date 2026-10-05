@@ -11,6 +11,7 @@ import '../../../../core/router/staff_routes.dart';
 import '../../../auth/presentation/bloc/auth_bloc.dart';
 import '../../data/datasources/menu_data_source.dart';
 import '../../data/models/instruction_group_model.dart';
+import '../../data/models/option_group_model.dart';
 import '../../data/models/item_model.dart';
 import '../../../../features/orders/presentation/widgets/cart_summary.dart';
 import '../widgets/menu_item_card.dart';
@@ -49,6 +50,8 @@ class _MenuPageState extends State<MenuPage> {
   bool _staffPromptShown = false;
   // Per-item cache of special-instruction groups (page lifetime).
   final Map<String, List<InstructionGroup>> _instructionCache = {};
+  // Per-item cache of POS customization option groups (page lifetime).
+  final Map<String, List<OptionGroup>> _customizationCache = {};
 
   static const AssetImage _heroImage = AssetImage("assets/images/ramen_ibuki_menubg.jpg");
   // Hero height / width, read from the decoded asset so the header follows
@@ -790,7 +793,7 @@ class _MenuPageState extends State<MenuPage> {
                     (sum, item) => sum + item.quantity,
                   );
                   final subtotal = state.totalAmount;
-                  final totalAmountWithService = subtotal * 1.10;
+                  final totalAmountWithService = subtotal + state.serviceChargeFor(subtotal);
                   final hasNewDrafts = state.newOrders.isNotEmpty;
                   final draftCount = state.newOrdersCount;
                   final submittedCount = totalCount - draftCount;
@@ -1014,6 +1017,17 @@ class _MenuPageState extends State<MenuPage> {
     }).catchError((_) => <InstructionGroup>[]);
   }
 
+  /// Loads an item's POS option groups, cached like [_loadInstructions].
+  Future<List<OptionGroup>> _loadCustomization(dynamic item) {
+    final String barcode = item.barcode;
+    final cached = _customizationCache[barcode];
+    if (cached != null) return Future.value(cached);
+    return sl<MenuDataSource>().getItemCustomization(barcode).then((groups) {
+      _customizationCache[barcode] = groups;
+      return groups;
+    }).catchError((_) => <OptionGroup>[]);
+  }
+
   void _showAddItemConfirmation(
     BuildContext context,
     dynamic item,
@@ -1032,6 +1046,7 @@ class _MenuPageState extends State<MenuPage> {
       builder: (_) => AddItemBottomSheet(
         item: item,
         instructionsFuture: _loadInstructions(item),
+        customizationFuture: _loadCustomization(item),
       ),
     ).whenComplete(() => _isAddItemSheetOpen = false);
   }

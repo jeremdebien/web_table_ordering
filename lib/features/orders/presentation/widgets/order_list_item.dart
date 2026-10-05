@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../data/models/sales_order_item_model.dart';
+import '../../data/models/line_customization.dart';
 import '../bloc/cart_bloc.dart';
 import 'serving_status_badge.dart';
 
@@ -141,12 +142,21 @@ class OrderListItem extends StatelessWidget {
                 )
               : Text('₱${item.amount.toStringAsFixed(2)}');
 
-          if (instructions == null && !hasNote) return priceLine;
+          final customization = LineCustomization.displayLines(item.customization);
+          if (instructions == null && !hasNote && customization.isEmpty) return priceLine;
 
           return Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               priceLine,
+              for (final line in customization)
+                Padding(
+                  padding: const EdgeInsets.only(top: 2),
+                  child: Text(
+                    line,
+                    style: TextStyle(fontSize: 11, color: isCancelled ? Colors.grey : Colors.grey.shade800),
+                  ),
+                ),
               if (instructions != null)
                 Padding(
                   padding: const EdgeInsets.only(top: 2),

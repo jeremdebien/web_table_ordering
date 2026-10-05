@@ -3,6 +3,7 @@ import '../models/category_model.dart';
 import '../models/item_model.dart';
 import '../models/instruction_group_model.dart';
 import '../models/menu_group_model.dart';
+import '../models/option_group_model.dart';
 
 /// Read contract for the menu catalog, implemented per app mode.
 abstract class MenuDataSource {
@@ -24,6 +25,10 @@ abstract class MenuDataSource {
   /// User-defined special-instruction questions for an item (empty if none).
   /// Fetches Global + Category + Item level questions sorted by priority.
   Future<List<InstructionGroup>> getItemInstructions(String barcode, {int? categoryId});
+
+  /// POS product-customization option groups assigned to an item (empty if
+  /// none), in the POS picker order. Local mode only.
+  Future<List<OptionGroup>> getItemCustomization(String barcode);
 
   // ── Menu groups (batch item-availability presets, migration 0052) ──────────
   // Named menu configurations staff can switch between. The active group is the
