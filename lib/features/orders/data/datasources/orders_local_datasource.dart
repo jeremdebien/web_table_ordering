@@ -219,6 +219,16 @@ class LocalOrdersDataSource implements OrdersDataSource {
   }
 
   @override
+  Future<int> enqueueOrderSummary(int salesOrderId) async {
+    try {
+      final queued = await _client.rpc('enqueue_order_summary', params: {'p_sales_order_id': salesOrderId});
+      return (queued as num?)?.toInt() ?? 0;
+    } catch (e) {
+      throw Exception('Failed to print order summary: $e');
+    }
+  }
+
+  @override
   Stream<List<Map<String, dynamic>>> subscribeToOrderUpdates({int? tableId}) {
     final builder = _client.from('sales_order_2').stream(primaryKey: ['sales_order_id']);
 

@@ -307,6 +307,25 @@ class _ClearOrdersPageState extends State<ClearOrdersPage> {
       return;
     }
 
+    if (choice.action == _TableAction.printSummary) {
+      final salesOrderId = order.salesOrderId;
+      if (salesOrderId == null) return;
+      final messenger = ScaffoldMessenger.of(context);
+      String message;
+      try {
+        final queued = await GetIt.instance<OrdersDataSource>().enqueueOrderSummary(salesOrderId);
+        message = queued > 0
+            ? 'Order summary sent to $queued printer${queued == 1 ? '' : 's'}.'
+            : 'Order summary slip is not set up (POS Device Settings → Order Slips).';
+      } catch (e) {
+        message = 'Could not print the order summary: $e';
+      }
+      messenger
+        ..hideCurrentSnackBar()
+        ..showSnackBar(SnackBar(content: Text(message)));
+      return;
+    }
+
     final salesOrderId = order.salesOrderId;
     if (salesOrderId == null) return;
     final confirmed = await showDialog<bool>(
@@ -665,7 +684,7 @@ class _BlueprintViewState extends State<_BlueprintView> {
 
 // ── Action + confirm dialogs ─────────────────────────────────────────────────
 
-enum _TableAction { complete, cancel }
+enum _TableAction { complete, cancel, printSummary }
 
 /// What staff picked in [_TableActionDialog], plus the total it loaded so the
 /// cancel confirmation doesn't refetch.
@@ -736,6 +755,12 @@ class _TableActionDialogState extends State<_TableActionDialog> {
             TextButton(
               onPressed: () => Navigator.pop(context),
               child: const Text('Close', style: TextStyle(color: Colors.white70)),
+            ),
+            TextButton(
+              // Re-prints the latest placed order's summary slip (0087).
+              onPressed: () =>
+                  Navigator.pop(context, _TableActionChoice(_TableAction.printSummary, total)),
+              child: const Text('Print summary', style: TextStyle(color: Colors.white)),
             ),
             TextButton(
               // Wait for the total: it decides how strong the cancel confirm is.
