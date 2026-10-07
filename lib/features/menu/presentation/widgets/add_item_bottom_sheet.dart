@@ -868,7 +868,31 @@ class _AddItemBottomSheetState extends State<AddItemBottomSheet> {
           Expanded(
             child: SizedBox(
               height: 50,
-              child: ElevatedButton(
+              // Live POS availability: the item can sell out or leave its
+              // schedule while the sheet is open.
+              child: BlocBuilder<MenuBloc, MenuState>(
+                builder: (context, menuState) {
+                  final unavailableReason = menuState is MenuLoaded && item is ItemModel
+                      ? menuState.unavailableReason(item)
+                      : null;
+                  if (unavailableReason != null) {
+                    return ElevatedButton(
+                      style: ElevatedButton.styleFrom(
+                        disabledBackgroundColor: Colors.grey.shade300,
+                        disabledForegroundColor: Colors.grey.shade600,
+                        elevation: 0,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                      ),
+                      onPressed: null,
+                      child: Text(
+                        unavailableReason,
+                        style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w800),
+                      ),
+                    );
+                  }
+                  return ElevatedButton(
                 style: ElevatedButton.styleFrom(
                   backgroundColor: const Color(0xFFCEB38C),
                   foregroundColor: const Color(0xFF1A1A1A),
@@ -908,6 +932,8 @@ class _AddItemBottomSheetState extends State<AddItemBottomSheet> {
                     ),
                   ],
                 ),
+                  );
+                },
               ),
             ),
           ),

@@ -1,5 +1,6 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../../core/config/app_config.dart';
+import '../../domain/availability_snapshot.dart';
 import '../models/department_model.dart';
 import '../models/category_model.dart';
 import '../models/item_model.dart';
@@ -83,6 +84,26 @@ class OnlineMenuDataSource implements MenuDataSource {
   String getItemImageUrl(String imagePath) {
     return _client.storage.from('items').getPublicUrl(imagePath);
   }
+
+  // POS availability (sold out / hidden / schedules) is local-mode only: the
+  // hosted schema has no rule tables, so everything enabled stays orderable.
+  @override
+  Future<AvailabilitySnapshot> getAvailabilitySnapshot() async => AvailabilitySnapshot.empty;
+
+  @override
+  Future<Map<String, ItemModel>> getOrderableItemsByBarcodes(List<String> barcodes) async {
+    if (barcodes.isEmpty) return {};
+    final response = await _client
+        .from('items')
+        .select()
+        .eq('item_status', 1)
+        .eq('branch_id', _branchId)
+        .inFilter('barcode', barcodes);
+    return {for (final e in response as List) e['barcode'] as String: ItemModel.fromJson(e)};
+  }
+
+  @override
+  Stream<void> itemChanges() => const Stream.empty();
 
   // Special instructions are a local-mode feature; online path is unchanged.
   @override

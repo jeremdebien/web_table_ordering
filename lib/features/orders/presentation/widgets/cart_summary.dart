@@ -61,15 +61,17 @@ class _CartSummaryState extends State<CartSummary> {
           }
           // A split-table block is an expected, guest-facing condition — show its
           // message verbatim rather than dressing it as a generic failure.
-          final isSplitTable =
-              state.errorMessage == SplitTableException.friendlyMessage;
+          // Likewise for items the POS made unavailable since they were added.
+          final isGuestFacing =
+              state.errorMessage == SplitTableException.friendlyMessage ||
+                  state.errorMessage == CartBloc.unavailableItemsMessage;
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text(isSplitTable
+              content: Text(isGuestFacing
                   ? state.errorMessage!
                   : 'Failed to submit order: ${state.errorMessage}'),
               backgroundColor:
-                  isSplitTable ? Colors.orange.shade800 : Colors.red.shade700,
+                  isGuestFacing ? Colors.orange.shade800 : Colors.red.shade700,
               behavior: SnackBarBehavior.floating,
             ),
           );

@@ -761,6 +761,7 @@ class _MenuPageState extends State<MenuPage> {
                                                       return MenuItemCard(
                                                         item: item,
                                                         showStaffBadge: _showStaffItems && item.isStaffOnly == true,
+                                                        unavailableReason: state.unavailableReason(item),
                                                         onTap: () => _showAddItemConfirmation(
                                                           context,
                                                           item,

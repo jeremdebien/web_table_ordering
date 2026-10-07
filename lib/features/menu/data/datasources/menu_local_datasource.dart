@@ -1,5 +1,9 @@
+import 'dart:async';
+
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../../core/config/app_config.dart';
+import '../../domain/availability_snapshot.dart';
+import '../../domain/item_availability_rule.dart';
 import '../models/department_model.dart';
 import '../models/category_model.dart';
 import '../models/item_model.dart';
@@ -24,6 +28,10 @@ class LocalMenuDataSource implements MenuDataSource {
   static const String _imageBucket = 'master-file';
 
   static bool _flag(dynamic v) => v == 1 || v == true;
+
+  // POS "hidden" items (`item.is_hidden`, INTEGER) never reach the web menu.
+  // NULL counts as not hidden.
+  static const String _notHidden = 'is_hidden.is.null,is_hidden.eq.0';
 
   static String _now() => DateTime.now().toIso8601String();
 
@@ -76,7 +84,7 @@ class LocalMenuDataSource implements MenuDataSource {
     // (migration 0047) so the menu keeps working before any group is created.
     final activeId = await _activeMenuGroupId();
 
-    var query = _client.from('item').select().eq('item_status', 1);
+    var query = _client.from('item').select().eq('item_status', 1).or(_notHidden);
 
     if (activeId != null) {
       final config = await getMenuGroupItems(activeId);
@@ -103,7 +111,7 @@ class LocalMenuDataSource implements MenuDataSource {
 
     // Staff logged in: add every staff-only item, regardless of the active
     // menu group or the per-item web flag.
-    var staffQuery = _client.from('item').select().eq('item_status', 1).eq('is_staff_only', 1);
+    var staffQuery = _client.from('item').select().eq('item_status', 1).or(_notHidden).eq('is_staff_only', 1);
     if (categoryId != null) {
       staffQuery = staffQuery.eq('category', categoryId);
     }
@@ -141,6 +149,7 @@ class LocalMenuDataSource implements MenuDataSource {
       'item_status': row['item_status'],
       'is_available_in_web_table': row['is_available_in_web_table'],
       'is_staff_only': row['is_staff_only'],
+      'is_sold_out': _flag(row['is_sold_out']),
       'print_desc': row['print_desc'],
       'department_id': row['dept'] ?? 0,
       'category_id': row['category'] ?? 0,
@@ -170,6 +179,59 @@ class LocalMenuDataSource implements MenuDataSource {
   @override
   String getItemImageUrl(String imagePath) {
     return _client.storage.from(_imageBucket).getPublicUrl(imagePath);
+  }
+
+  @override
+  Future<AvailabilitySnapshot> getAvailabilitySnapshot() async {
+    final results = await Future.wait([
+      _client.from('item_availability').select().eq('is_active', 1),
+      _client.from('holidays').select('holiday_date').eq('is_active', 1),
+    ]);
+    final rules = (results[0] as List)
+        .map((row) => ItemAvailabilityRule.fromJson(row as Map<String, dynamic>))
+        .toList();
+    final holidays = [for (final row in results[1] as List) row['holiday_date'] as String];
+    return AvailabilitySnapshot.fromRules(rules, holidays);
+  }
+
+  @override
+  Future<Map<String, ItemModel>> getOrderableItemsByBarcodes(List<String> barcodes) async {
+    if (barcodes.isEmpty) return {};
+    final response = await _client
+        .from('item')
+        .select()
+        .eq('item_status', 1)
+        .or(_notHidden)
+        .inFilter('barcode', barcodes);
+    return {for (final row in response as List) row['barcode'] as String: _mapItemRow(row)};
+  }
+
+  @override
+  Stream<void> itemChanges() {
+    // A bare change ping on the realtime-published `item` table (0000-0025);
+    // listeners re-fetch what they need. Lighter than `.stream()`, which would
+    // resend every item row on each change.
+    late final StreamController<void> controller;
+    RealtimeChannel? channel;
+    controller = StreamController<void>(
+      onListen: () {
+        channel = _client
+            .channel('web_item_changes_${DateTime.now().microsecondsSinceEpoch}')
+            .onPostgresChanges(
+              event: PostgresChangeEvent.all,
+              schema: 'public',
+              table: 'item',
+              callback: (_) => controller.add(null),
+            )
+            .subscribe();
+      },
+      onCancel: () async {
+        final c = channel;
+        channel = null;
+        if (c != null) await _client.removeChannel(c);
+      },
+    );
+    return controller.stream;
   }
 
   @override

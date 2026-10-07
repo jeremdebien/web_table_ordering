@@ -5,6 +5,8 @@ import '../../data/models/sales_order_item_model.dart';
 import '../../data/models/line_customization.dart';
 import '../../../menu/data/models/item_model.dart';
 import '../../../menu/presentation/bloc/menu_bloc.dart';
+import '../../../menu/data/datasources/menu_data_source.dart';
+import '../../../menu/domain/availability_snapshot.dart';
 
 import '../../data/datasources/orders_data_source.dart';
 import '../../../../core/utils/device_id_service.dart';
@@ -22,6 +24,8 @@ class CartBloc extends Bloc<CartEvent, CartState> {
   final OrderFilterConfigService _orderFilterConfig;
   final BilledOrderConfigService _billedOrderConfig;
   final ServiceChargeConfigService _serviceChargeConfig;
+  // Fresh item rows + POS schedule rules for the pre-submit availability check.
+  final MenuDataSource _menuDataSource;
   StreamSubscription? _menuSubscription;
   StreamSubscription? _realtimeSubscription;
   int? _subscribedSalesOrderId;
@@ -33,7 +37,7 @@ class CartBloc extends Bloc<CartEvent, CartState> {
   bool _showAllOrders = false;
 
   CartBloc(this._ordersDataSource, this._menuBloc, this._deviceIdService, this._orderFilterConfig,
-      this._billedOrderConfig, this._serviceChargeConfig)
+      this._billedOrderConfig, this._serviceChargeConfig, this._menuDataSource)
       : super(const CartState()) {
     on<AddToCart>(_onAddToCart);
     on<RemoveFromCart>(_onRemoveFromCart);
@@ -204,6 +208,20 @@ class CartBloc extends Bloc<CartEvent, CartState> {
           ? state.newOrders
           : state.newOrders.map((i) => i.copyWith(nickname: customerName)).toList();
 
+      // The POS may have sold out, hidden, disabled or scheduled out an item
+      // since it went into the cart: re-check against fresh rows and block.
+      if (itemsToSubmit.isNotEmpty) {
+        final blocked = await _unorderableBarcodes(itemsToSubmit);
+        if (blocked.isNotEmpty) {
+          emit(state.copyWith(
+            status: CartStatus.failure,
+            errorMessage: unavailableItemsMessage,
+            unavailableBarcodes: blocked,
+          ));
+          return;
+        }
+      }
+
       if (itemsToSubmit.isNotEmpty) {
         await _ordersDataSource.submitSalesOrder(
           tableId: event.tableId,
@@ -237,6 +255,33 @@ class CartBloc extends Bloc<CartEvent, CartState> {
     } finally {
       _isSubmitting = false;
     }
+  }
+
+  /// Shown verbatim when a submit is blocked by [_unorderableBarcodes].
+  static const unavailableItemsMessage =
+      'Some items are no longer available. Please remove them to place your order.';
+
+  /// A line's base product: the menu item the guest tapped (a size pick swaps
+  /// [SalesOrderItemModel.itemBarcode] to a size item, which the POS may keep
+  /// disabled or hidden on purpose).
+  static String _baseBarcode(SalesOrderItemModel line) => line.baseVariantBarcode ?? line.itemBarcode;
+
+  Future<Set<String>> _unorderableBarcodes(List<SalesOrderItemModel> lines) async {
+    final barcodes = lines.map(_baseBarcode).toSet().toList();
+    final results = await Future.wait([
+      _menuDataSource.getOrderableItemsByBarcodes(barcodes),
+      _menuDataSource.getAvailabilitySnapshot(),
+    ]);
+    final current = results[0] as Map<String, ItemModel>;
+    final availability = results[1] as AvailabilitySnapshot;
+    return availability.unorderable(barcodes, current, DateTime.now());
+  }
+
+  /// Drops flags for lines the guest has removed, so the warning clears.
+  Set<String> _prunedUnavailable(List<SalesOrderItemModel> items) {
+    if (state.unavailableBarcodes.isEmpty) return const {};
+    final remaining = items.where((i) => i.originalQuantity == 0).map(_baseBarcode).toSet();
+    return state.unavailableBarcodes.intersection(remaining);
   }
 
   /// Same orderable line: barcode, orderer, special-instruction answers, note
@@ -334,7 +379,7 @@ class CartBloc extends Bloc<CartEvent, CartState> {
     // If the event.item is the exact object from the list:
     final updatedItems = List<SalesOrderItemModel>.from(state.items);
     updatedItems.remove(event.item);
-    emit(state.copyWith(items: updatedItems));
+    emit(state.copyWith(items: updatedItems, unavailableBarcodes: _prunedUnavailable(updatedItems)));
   }
 
   /// Edit-in-cart: replace an unsubmitted line with its re-configured version,
@@ -356,11 +401,11 @@ class CartBloc extends Bloc<CartEvent, CartState> {
     } else {
       items[index] = updated;
     }
-    emit(state.copyWith(items: items));
+    emit(state.copyWith(items: items, unavailableBarcodes: _prunedUnavailable(items)));
   }
 
   void _onClearCart(ClearCart event, Emitter<CartState> emit) {
-    emit(state.copyWith(items: []));
+    emit(state.copyWith(items: [], unavailableBarcodes: const {}));
   }
 
   void _onResetCart(ResetCart event, Emitter<CartState> emit) {

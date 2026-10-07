@@ -72,7 +72,7 @@ Future<void> init() async {
   sl.registerFactory(() => TableBloc(sl()));
   sl.registerFactory(() => MenuAdminBloc(sl()));
   sl.registerFactory(() => ClearOrdersBloc(sl(), sl()));
-  sl.registerFactory(() => CartBloc(sl(), sl(), sl(), sl(), sl(), sl()));
+  sl.registerFactory(() => CartBloc(sl(), sl(), sl(), sl(), sl(), sl(), sl()));
   sl.registerLazySingleton(() => AuthBloc(sl(), sl()));
 
   // Core
