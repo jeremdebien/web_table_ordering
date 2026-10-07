@@ -84,7 +84,8 @@ class _KioskCheckoutDialogState extends State<_KioskCheckoutDialog> {
       } else {
         setState(() {
           _submitting = false;
-          _error = state.errorMessage == SplitTableException.friendlyMessage
+          _error = state.errorMessage == SplitTableException.friendlyMessage ||
+                  state.errorMessage == CartBloc.unavailableItemsMessage
               ? state.errorMessage
               : 'Failed to place order: ${state.errorMessage}';
         });
