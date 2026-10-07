@@ -5,6 +5,7 @@ import '../models/category_model.dart';
 import '../models/item_model.dart';
 import '../models/instruction_group_model.dart';
 import '../models/menu_group_model.dart';
+import '../models/option_group_model.dart';
 import 'menu_data_source.dart';
 
 /// Online (hosted) menu catalog: plural, branch-scoped tables.
@@ -43,7 +44,9 @@ class OnlineMenuDataSource implements MenuDataSource {
 
   // Items
   @override
-  Future<List<ItemModel>> getItems({int? categoryId}) async {
+  Future<List<ItemModel>> getItems({int? categoryId, bool includeStaffOnly = false}) async {
+    // `is_staff_only` (migration 0080) is likewise not on the hosted schema yet,
+    // so [includeStaffOnly] is ignored here.
     // Web-visibility flag `is_available_in_web_table` (migration 0046) is a
     // consolidator/local-mode column; the hosted `items` schema may not have it
     // yet, so we intentionally do NOT filter on it here to avoid breaking the
@@ -84,6 +87,10 @@ class OnlineMenuDataSource implements MenuDataSource {
   // Special instructions are a local-mode feature; online path is unchanged.
   @override
   Future<List<InstructionGroup>> getItemInstructions(String barcode, {int? categoryId}) async => [];
+
+  // Product customization is local-mode only.
+  @override
+  Future<List<OptionGroup>> getItemCustomization(String barcode) async => [];
 
   // ── Menu groups ────────────────────────────────────────────────────────────
   // TODO(online): menu groups are a local-mode feature for now (migration 0052).

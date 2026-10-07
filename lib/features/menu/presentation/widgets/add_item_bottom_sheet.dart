@@ -2,10 +2,16 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:web_table_ordering/features/menu/data/datasources/menu_data_source.dart';
 import 'package:web_table_ordering/features/menu/data/models/instruction_group_model.dart';
+import 'package:web_table_ordering/features/menu/data/models/item_model.dart';
+import 'package:web_table_ordering/features/menu/data/models/option_group_model.dart';
+import 'package:web_table_ordering/features/menu/presentation/bloc/menu_bloc.dart';
+import '../../../../core/di/injection_container.dart';
 import 'package:web_table_ordering/features/orders/data/models/sales_order_item_model.dart';
 import 'package:web_table_ordering/features/orders/presentation/bloc/cart_bloc.dart';
 import 'special_instructions_form.dart';
+import 'customization_form.dart';
 
 /// Bottom sheet shown when a user taps an item card to customize and add it to the cart.
 /// Features adaptive hero height, hold-to-peek image preview, quick note chips, and collapsible sections.
@@ -13,11 +19,51 @@ class AddItemBottomSheet extends StatefulWidget {
   final dynamic item;
   final Future<List<InstructionGroup>> instructionsFuture;
 
+  /// POS option groups for [item] (local mode); null/empty → none.
+  final Future<List<OptionGroup>>? customizationFuture;
+
+  /// Edit-in-cart: the unsubmitted line being re-configured. [item] is then its
+  /// BASE product (the one option groups are assigned to).
+  final SalesOrderItemModel? editing;
+
   const AddItemBottomSheet({
     super.key,
     required this.item,
     required this.instructionsFuture,
+    this.customizationFuture,
+    this.editing,
   });
+
+  /// Re-opens an unsubmitted cart [line] for editing. No-op when its base
+  /// item is no longer on the loaded menu.
+  static void showEdit(BuildContext context, SalesOrderItemModel line) {
+    if (line.originalQuantity != 0) return;
+    final menuState = context.read<MenuBloc>().state;
+    if (menuState is! MenuLoaded) return;
+    final baseBarcode = line.baseVariantBarcode ?? line.itemBarcode;
+    final ItemModel? item = menuState.items.where((i) => i.barcode == baseBarcode).firstOrNull;
+    if (item == null) return;
+    final ds = sl<MenuDataSource>();
+    final cartBloc = context.read<CartBloc>();
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      barrierColor: Colors.black.withValues(alpha: 0.5),
+      constraints: const BoxConstraints(maxWidth: 500),
+      builder: (_) => BlocProvider.value(
+        value: cartBloc,
+        child: AddItemBottomSheet(
+          item: item,
+          editing: line,
+          instructionsFuture: ds
+              .getItemInstructions(item.barcode, categoryId: item.categoryId)
+              .catchError((_) => <InstructionGroup>[]),
+          customizationFuture: ds.getItemCustomization(item.barcode).catchError((_) => <OptionGroup>[]),
+        ),
+      ),
+    );
+  }
 
   @override
   State<AddItemBottomSheet> createState() => _AddItemBottomSheetState();
@@ -35,9 +81,20 @@ class _AddItemBottomSheetState extends State<AddItemBottomSheet> {
   List<InstructionGroup> _groups = const [];
   bool _loadingInstructions = true;
 
+  // POS customization (option groups), loaded alongside the instructions.
+  List<OptionGroup> _optionGroups = const [];
+  CustomizationResult? _customization;
+  bool _instructionsValid = false;
+
   @override
   void initState() {
     super.initState();
+    final editing = widget.editing;
+    if (editing != null) {
+      _quantity = editing.quantity;
+      _instructionsJson = editing.specialInstructions;
+      _noteController.text = editing.note ?? '';
+    }
     // Can't submit until instructions have loaded (a required group may exist).
     _isValid = false;
     _noteController.addListener(() {
@@ -47,16 +104,34 @@ class _AddItemBottomSheetState extends State<AddItemBottomSheet> {
   }
 
   Future<void> _loadInstructions() async {
-    final groups = await widget.instructionsFuture;
+    final results = await Future.wait([
+      widget.instructionsFuture,
+      widget.customizationFuture ?? Future.value(<OptionGroup>[]),
+    ]);
     if (!mounted) return;
+    final groups = results[0] as List<InstructionGroup>;
+    final optionGroups = results[1] as List<OptionGroup>;
     setState(() {
       _groups = groups;
+      _optionGroups = optionGroups;
       _loadingInstructions = false;
       // If there are no instruction groups, the form is always valid.
-      _isValid = groups.isEmpty;
-      // For items with many instruction groups, default note section to
+      _instructionsValid = groups.isEmpty;
+      _isValid = _instructionsValid && optionGroups.isEmpty;
+      // For items with many option/instruction groups, default note section to
       // collapsed to keep view clean.
-      _isNoteExpanded = groups.length <= 2;
+      _isNoteExpanded = groups.length + optionGroups.length <= 2;
+    });
+  }
+
+  bool get _customizationValid => _optionGroups.isEmpty || (_customization?.isValid ?? false);
+
+  double get _unitPrice => _customization?.unitPrice ?? (widget.item.price as num).toDouble();
+
+  void _onCustomizationChanged(CustomizationResult result) {
+    setState(() {
+      _customization = result;
+      _isValid = _instructionsValid && _customizationValid;
     });
   }
 
@@ -69,7 +144,8 @@ class _AddItemBottomSheetState extends State<AddItemBottomSheet> {
 
   void _onInstructionsChanged(bool isValid, String? json) {
     setState(() {
-      _isValid = isValid;
+      _instructionsValid = isValid;
+      _isValid = isValid && _customizationValid;
       _instructionsJson = json;
     });
   }
@@ -79,20 +155,24 @@ class _AddItemBottomSheetState extends State<AddItemBottomSheet> {
     final noteText = _noteController.text.trim();
     final note = noteText.isNotEmpty ? noteText : null;
 
-    Navigator.pop(context);
-    context.read<CartBloc>().add(
-      AddToCart(
-        SalesOrderItemModel(
-          itemBarcode: widget.item.barcode,
-          itemName: widget.item.name,
-          quantity: _quantity,
-          amount: widget.item.price,
-          originalQuantity: 0,
-          specialInstructions: _instructionsJson,
-          note: note,
-        ),
-      ),
+    final c = _customization;
+    final line = SalesOrderItemModel(
+      itemBarcode: c?.barcode ?? widget.item.barcode,
+      itemName: c?.itemName ?? widget.item.name,
+      quantity: _quantity,
+      // Unit price incl. option deltas, as the POS prices customized lines.
+      amount: _unitPrice,
+      originalQuantity: 0,
+      specialInstructions: _instructionsJson,
+      note: note,
+      customization: c?.customizationJson,
+      baseVariantBarcode: c?.baseVariantBarcode,
     );
+
+    final cartBloc = context.read<CartBloc>();
+    Navigator.pop(context);
+    final editing = widget.editing;
+    cartBloc.add(editing != null ? UpdateCartItem(editing, line) : AddToCart(line));
   }
 
   // Persistent modal dialog with InteractiveViewer zoom
@@ -173,11 +253,11 @@ class _AddItemBottomSheetState extends State<AddItemBottomSheet> {
   @override
   Widget build(BuildContext context) {
     final item = widget.item;
-    final totalPrice = item.price * _quantity;
+    final totalPrice = _unitPrice * _quantity;
     final hasImage = item.displayImage != null && item.displayImage!.toString().isNotEmpty;
     // While loading, reserve the compact hero so layout doesn't jump once the
     // instructions area appears; treat "loading" like "has instructions".
-    final hasSpecialInstructions = _groups.isNotEmpty;
+    final hasSpecialInstructions = _groups.isNotEmpty || _optionGroups.isNotEmpty;
     final showInstructionsSection = _loadingInstructions || hasSpecialInstructions;
 
     // Adaptive hero image height:
@@ -373,7 +453,7 @@ class _AddItemBottomSheetState extends State<AddItemBottomSheet> {
                                     borderRadius: BorderRadius.circular(14),
                                   ),
                                   child: Text(
-                                    '₱${_formatPrice(item.price.toDouble())}',
+                                    '₱${_formatPrice(_unitPrice)}',
                                     style: const TextStyle(
                                       fontSize: 18,
                                       fontWeight: FontWeight.w800,
@@ -399,8 +479,38 @@ class _AddItemBottomSheetState extends State<AddItemBottomSheet> {
 
                             const SizedBox(height: 20),
 
-                            // 1. Predefined Special Instructions (rendered first)
-                            if (showInstructionsSection) ...[
+                            // 0. POS customization (sizes, add-ons) — priced, so first.
+                            if (!_loadingInstructions && _optionGroups.isNotEmpty) ...[
+                              const Row(
+                                children: [
+                                  Icon(Icons.restaurant_menu_rounded, size: 18, color: Color(0xFF1A1A1A)),
+                                  SizedBox(width: 6),
+                                  Text(
+                                    'Customize',
+                                    style: TextStyle(
+                                      fontSize: 15,
+                                      fontWeight: FontWeight.w700,
+                                      color: Color(0xFF1A1A1A),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 12),
+                              CustomizationForm(
+                                groups: _optionGroups,
+                                baseBarcode: item.barcode,
+                                baseName: item.name,
+                                basePrice: (item.price as num).toDouble(),
+                                baseImageUrl: item.displayImage as String?,
+                                initialBarcode: widget.editing?.itemBarcode,
+                                initialCustomization: widget.editing?.customization,
+                                onChanged: _onCustomizationChanged,
+                              ),
+                              const SizedBox(height: 8),
+                            ],
+
+                            // 1. Predefined Special Instructions
+                            if (_loadingInstructions || _groups.isNotEmpty) ...[
                               Row(
                                 children: [
                                   const Icon(
@@ -425,6 +535,7 @@ class _AddItemBottomSheetState extends State<AddItemBottomSheet> {
                               else
                                 SpecialInstructionsForm(
                                   groups: _groups,
+                                  initialJson: widget.editing?.specialInstructions,
                                   onChanged: _onInstructionsChanged,
                                 ),
                               const SizedBox(height: 16),
@@ -772,8 +883,8 @@ class _AddItemBottomSheetState extends State<AddItemBottomSheet> {
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    const Text(
-                      'Add to Order',
+                    Text(
+                      widget.editing != null ? 'Update' : 'Add to Cart',
                       style: TextStyle(
                         fontSize: 15,
                         fontWeight: FontWeight.w800,

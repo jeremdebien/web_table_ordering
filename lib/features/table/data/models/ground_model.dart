@@ -14,6 +14,16 @@ class GroundModel {
   final double canvasHeight;
   final double initialZoom;
 
+  /// Blueprint sizing multipliers (migration 0068); tables may override.
+  final double tableNameScale;
+  final double chairWidthScale;
+  final double chairHeightScale;
+
+  /// Admin-chosen position in the area list (migration 0071). Null for
+  /// grounds never reordered in the POS — those sort last and keep creation
+  /// order, matching kwikpos_lite.
+  final int? orderingIndex;
+
   GroundModel({
     required this.id,
     required this.description,
@@ -25,6 +35,10 @@ class GroundModel {
     this.canvasWidth = 1200.0,
     this.canvasHeight = 800.0,
     this.initialZoom = 1.0,
+    this.tableNameScale = 1.0,
+    this.chairWidthScale = 1.0,
+    this.chairHeightScale = 1.0,
+    this.orderingIndex,
   });
 
   factory GroundModel.fromJson(Map<String, dynamic> json) {
@@ -45,6 +59,10 @@ class GroundModel {
       canvasWidth: (json['canvas_width'] as num?)?.toDouble() ?? 1200.0,
       canvasHeight: (json['canvas_height'] as num?)?.toDouble() ?? 800.0,
       initialZoom: (json['initial_zoom'] as num?)?.toDouble() ?? 1.0,
+      tableNameScale: (json['table_name_scale'] as num?)?.toDouble() ?? 1.0,
+      chairWidthScale: (json['chair_width_scale'] as num?)?.toDouble() ?? 1.0,
+      chairHeightScale: (json['chair_height_scale'] as num?)?.toDouble() ?? 1.0,
+      orderingIndex: (json['ordering_index'] as num?)?.toInt(),
     );
   }
 
@@ -60,6 +78,10 @@ class GroundModel {
       'canvas_width': canvasWidth,
       'canvas_height': canvasHeight,
       'initial_zoom': initialZoom,
+      'table_name_scale': tableNameScale,
+      'chair_width_scale': chairWidthScale,
+      'chair_height_scale': chairHeightScale,
+      'ordering_index': orderingIndex,
     };
   }
 }

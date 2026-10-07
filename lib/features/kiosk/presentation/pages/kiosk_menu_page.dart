@@ -1,6 +1,8 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import '../../../../core/di/injection_container.dart' as di;
+import '../../../../core/services/reload_signal_service.dart';
 import '../../../menu/presentation/pages/menu_page.dart';
 import '../../../orders/presentation/bloc/cart_bloc.dart';
 import '../widgets/kiosk_checkout_dialog.dart';
@@ -24,15 +26,20 @@ class _KioskMenuPageState extends State<KioskMenuPage> {
   KioskOrderResult? _placed;
   // Bumped on every reset so the menu rebuilds from scratch (search, scroll).
   int _session = 0;
+  StreamSubscription<void>? _reloadSub;
 
   @override
   void initState() {
     super.initState();
     _resetCart();
+    // Staff "Reload all devices": the app re-fetches the masterfile; drop the
+    // current cart so no line points at a removed or repriced item.
+    _reloadSub = di.sl<ReloadSignalService>().signals.listen((_) => _onReloadSignal());
   }
 
   @override
   void dispose() {
+    _reloadSub?.cancel();
     _idleTimer?.cancel();
     _successTimer?.cancel();
     super.dispose();
@@ -49,6 +56,13 @@ class _KioskMenuPageState extends State<KioskMenuPage> {
     if (!mounted || _placed != null) return;
     if (context.read<CartBloc>().state.items.isEmpty) return;
     // Close any open sheet/dialog left by the previous customer.
+    Navigator.of(context).popUntil((route) => route.isFirst);
+    _startFresh();
+  }
+
+  void _onReloadSignal() {
+    if (!mounted) return;
+    _idleTimer?.cancel();
     Navigator.of(context).popUntil((route) => route.isFirst);
     _startFresh();
   }

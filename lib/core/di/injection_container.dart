@@ -3,6 +3,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../utils/device_id_service.dart';
 import '../services/reload_signal_service.dart';
 import '../services/order_filter_config_service.dart';
+import '../services/billed_order_config_service.dart';
+import '../services/service_charge_config_service.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../config/app_config.dart';
 import '../../features/menu/data/datasources/menu_data_source.dart';
@@ -31,6 +33,7 @@ final sl = GetIt.instance;
 Future<void> init() async {
   // External
   final sharedPreferences = await SharedPreferences.getInstance();
+  await _resetSessionsOnClientChange(sharedPreferences);
   sl.registerLazySingleton(() => sharedPreferences);
   sl.registerLazySingleton(() => Supabase.instance.client);
 
@@ -38,6 +41,8 @@ Future<void> init() async {
   sl.registerLazySingleton(() => DeviceIdService(sl()));
   sl.registerLazySingleton(() => ReloadSignalService(sl()));
   sl.registerLazySingleton(() => OrderFilterConfigService(sl()));
+  sl.registerLazySingleton(() => BilledOrderConfigService(sl()));
+  sl.registerLazySingleton(() => ServiceChargeConfigService(sl()));
   sl.registerLazySingleton(() => TableQrSession(sl(), sl()));
   // Features - Home
   sl.registerLazySingleton(() => MenuBloc(sl()));
@@ -67,10 +72,24 @@ Future<void> init() async {
   sl.registerFactory(() => TableBloc(sl()));
   sl.registerFactory(() => MenuAdminBloc(sl()));
   sl.registerFactory(() => ClearOrdersBloc(sl(), sl()));
-  sl.registerFactory(() => CartBloc(sl(), sl(), sl(), sl()));
+  sl.registerFactory(() => CartBloc(sl(), sl(), sl(), sl(), sl(), sl()));
   sl.registerLazySingleton(() => AuthBloc(sl(), sl()));
 
   // Core
 
   // External is registered at the top
+}
+
+/// Every store serves this app from the same LAN IP, so all stores share one
+/// browser origin (and one localStorage). When the build's CLIENT_ID differs
+/// from the one last seen, drop the previous store's sessions so a waiter
+/// login or table session never leaks across stores. Device id is kept.
+Future<void> _resetSessionsOnClientChange(SharedPreferences prefs) async {
+  const clientId = String.fromEnvironment('CLIENT_ID');
+  if (clientId.isEmpty) return;
+  const key = 'app_client_id';
+  if (prefs.getString(key) == clientId) return;
+  await prefs.remove('waiter_session');
+  await prefs.remove('table_qr_session');
+  await prefs.setString(key, clientId);
 }

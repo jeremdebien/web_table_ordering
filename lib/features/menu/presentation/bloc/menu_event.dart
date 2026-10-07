@@ -9,6 +9,17 @@ abstract class MenuEvent extends Equatable {
 
 class LoadMenu extends MenuEvent {}
 
+/// Whether a staff member is logged in on this device. Staff-only items are
+/// included in the menu while true; reloads the menu when it changes.
+class SetStaffMode extends MenuEvent {
+  final bool isStaff;
+
+  const SetStaffMode(this.isStaff);
+
+  @override
+  List<Object?> get props => [isStaff];
+}
+
 class SelectDepartment extends MenuEvent {
   final int departmentId;
 

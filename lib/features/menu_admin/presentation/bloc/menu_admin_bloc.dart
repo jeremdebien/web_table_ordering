@@ -30,7 +30,17 @@ class MenuAdminBloc extends Bloc<MenuAdminEvent, MenuAdminState> {
     on<RenameGroup>(_onRenameGroup);
     on<DeleteGroup>(_onDeleteGroup);
     on<SelectActiveGroup>(_onSelectActiveGroup);
+    on<SaveAndActivate>(_onSaveAndActivate);
     on<EditGroup>(_onEditGroup);
+  }
+
+  /// The group the editor should open on: the active one (it drives the
+  /// customer menu), else the first group, else null (legacy per-item flags).
+  static int? _preferredGroupId(List<MenuGroupModel> groups) {
+    for (final g in groups) {
+      if (g.isActive) return g.id;
+    }
+    return groups.isEmpty ? null : groups.first.id;
   }
 
   Future<void> _onLoad(LoadCuration event, Emitter<MenuAdminState> emit) async {
@@ -42,13 +52,22 @@ class MenuAdminBloc extends Bloc<MenuAdminEvent, MenuAdminState> {
         _menuDataSource.getAllItemsForCuration(),
         _menuDataSource.getMenuGroups(),
       ]);
+      final groups = results[3] as List<MenuGroupModel>;
+
+      // Open straight onto the active group so staff edit what customers see.
+      final startId = _preferredGroupId(groups);
+      final config = startId == null
+          ? const <String, bool>{}
+          : await _menuDataSource.getMenuGroupItems(startId);
 
       emit(
         MenuAdminLoaded(
           departments: results[0] as List<DepartmentModel>,
           categories: results[1] as List<CategoryModel>,
           items: results[2] as List<ItemModel>,
-          groups: results[3] as List<MenuGroupModel>,
+          groups: groups,
+          editingGroupId: startId,
+          groupConfig: config,
         ),
       );
     } catch (e) {
@@ -87,7 +106,11 @@ class MenuAdminBloc extends Bloc<MenuAdminEvent, MenuAdminState> {
     if (current is! MenuAdminLoaded || current.pending.isEmpty || current.isSaving) {
       return;
     }
+    await _save(current, emit);
+  }
 
+  /// Writes [current]'s staged edits. Returns true only if everything saved.
+  Future<bool> _save(MenuAdminLoaded current, Emitter<MenuAdminState> emit) async {
     emit(current.copyWith(isSaving: true, clearError: true));
 
     // Editing a menu group: write the whole staged batch in one upsert and, on
@@ -104,10 +127,10 @@ class MenuAdminBloc extends Bloc<MenuAdminEvent, MenuAdminState> {
             errorMessage: 'Could not save the group. Please retry.',
           ));
         }
-        return;
+        return false;
       }
       final s = state;
-      if (s is! MenuAdminLoaded) return;
+      if (s is! MenuAdminLoaded) return false;
       final newConfig = Map<String, bool>.from(s.groupConfig)..addAll(current.pending);
       emit(s.copyWith(
         groupConfig: newConfig,
@@ -115,22 +138,27 @@ class MenuAdminBloc extends Bloc<MenuAdminEvent, MenuAdminState> {
         isSaving: false,
         clearError: true,
       ));
-      return;
+      return true;
     }
 
-    // Legacy per-item flag path.
+    // Legacy per-item flag path: one update per item, run concurrently in
+    // small chunks so a large batch doesn't flood the consolidator.
+    const chunkSize = 8;
     final entries = current.pending.entries.toList();
     final failed = <String, bool>{};
-    for (final e in entries) {
-      try {
-        await _menuDataSource.setItemWebVisibility(e.key, e.value);
-      } catch (_) {
-        failed[e.key] = e.value;
-      }
+    for (var start = 0; start < entries.length; start += chunkSize) {
+      final chunk = entries.skip(start).take(chunkSize);
+      await Future.wait(chunk.map((e) async {
+        try {
+          await _menuDataSource.setItemWebVisibility(e.key, e.value);
+        } catch (_) {
+          failed[e.key] = e.value;
+        }
+      }));
     }
 
     final s = state;
-    if (s is! MenuAdminLoaded) return;
+    if (s is! MenuAdminLoaded) return false;
 
     // Commit successful writes into the base list; keep failures staged.
     final committed = {
@@ -150,25 +178,34 @@ class MenuAdminBloc extends Bloc<MenuAdminEvent, MenuAdminState> {
       errorMessage: failed.isEmpty ? null : 'Some items could not be saved. Please retry.',
       clearError: failed.isEmpty,
     ));
+    return failed.isEmpty;
   }
 
   /// Reloads the group list from the datasource, preserving the rest of state.
-  Future<void> _reloadGroups(Emitter<MenuAdminState> emit) async {
-    final s = state;
-    if (s is! MenuAdminLoaded) return;
+  Future<List<MenuGroupModel>> _reloadGroups(Emitter<MenuAdminState> emit) async {
     final groups = await _menuDataSource.getMenuGroups();
-    emit(s.copyWith(groups: groups));
+    final s = state;
+    if (s is MenuAdminLoaded) emit(s.copyWith(groups: groups));
+    return groups;
   }
 
   Future<void> _onCreateGroup(CreateGroup event, Emitter<MenuAdminState> emit) async {
     final current = state;
-    if (current is! MenuAdminLoaded) return;
+    if (current is! MenuAdminLoaded || current.isSaving) return;
     final name = event.name.trim();
     if (name.isEmpty) return;
     try {
       final created = await _menuDataSource.createMenuGroup(name);
+      if (event.copyCurrent) {
+        // Seed with exactly what's on screen (including any staged edits).
+        final seed = {
+          for (final i in current.items)
+            if (i.barcode.isNotEmpty) i.barcode: current.visibilityOf(i),
+        };
+        await _menuDataSource.setMenuGroupItems(created.id, seed);
+      }
       await _reloadGroups(emit);
-      // Drop straight into editing the new (empty) group.
+      // Drop straight into editing the new group.
       add(EditGroup(created.id));
     } catch (_) {
       final s = state;
@@ -180,7 +217,7 @@ class MenuAdminBloc extends Bloc<MenuAdminEvent, MenuAdminState> {
 
   Future<void> _onRenameGroup(RenameGroup event, Emitter<MenuAdminState> emit) async {
     final current = state;
-    if (current is! MenuAdminLoaded) return;
+    if (current is! MenuAdminLoaded || current.isSaving) return;
     final name = event.name.trim();
     if (name.isEmpty) return;
     try {
@@ -196,14 +233,19 @@ class MenuAdminBloc extends Bloc<MenuAdminEvent, MenuAdminState> {
 
   Future<void> _onDeleteGroup(DeleteGroup event, Emitter<MenuAdminState> emit) async {
     final current = state;
-    if (current is! MenuAdminLoaded) return;
+    if (current is! MenuAdminLoaded || current.isSaving) return;
     try {
       await _menuDataSource.deleteMenuGroup(event.id);
+      final wasEditing = current.editingGroupId == event.id;
       // If we were editing the deleted group, exit editing (and drop its edits).
-      if (current.editingGroupId == event.id) {
+      if (wasEditing) {
         emit(current.copyWith(clearEditing: true, pending: const {}));
       }
-      await _reloadGroups(emit);
+      final groups = await _reloadGroups(emit);
+      // Move on to the active/first remaining group; with none left, stay on
+      // the legacy per-item flags (which drive the menu again).
+      final next = _preferredGroupId(groups);
+      if (wasEditing && next != null) add(EditGroup(next));
     } catch (_) {
       final s = state;
       if (s is MenuAdminLoaded) {
@@ -215,9 +257,21 @@ class MenuAdminBloc extends Bloc<MenuAdminEvent, MenuAdminState> {
   Future<void> _onSelectActiveGroup(
       SelectActiveGroup event, Emitter<MenuAdminState> emit) async {
     final current = state;
-    if (current is! MenuAdminLoaded) return;
+    if (current is! MenuAdminLoaded || current.isSaving) return;
+    await _activate(event.id, emit);
+  }
+
+  Future<void> _onSaveAndActivate(
+      SaveAndActivate event, Emitter<MenuAdminState> emit) async {
+    final current = state;
+    if (current is! MenuAdminLoaded || current.isSaving) return;
+    if (current.isDirty && !await _save(current, emit)) return;
+    await _activate(event.id, emit);
+  }
+
+  Future<void> _activate(int id, Emitter<MenuAdminState> emit) async {
     try {
-      await _menuDataSource.setActiveMenuGroup(event.id);
+      await _menuDataSource.setActiveMenuGroup(id);
       await _reloadGroups(emit);
     } catch (_) {
       final s = state;

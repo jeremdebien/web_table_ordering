@@ -10,6 +10,15 @@ class CartState {
   final int? salesOrderId;
   final String? deviceId;
   final String nickname;
+  // True once LoadNickname has resolved (local storage / backend). Until then
+  // an empty nickname means "not loaded yet", not "no nickname".
+  final bool nicknameLoaded;
+  // app_config 'allow_order_when_billed': guests may keep ordering while the
+  // order is tempo billed (paymentStatus == 1).
+  final bool allowOrderWhenBilled;
+  // POS service-charge setup (service_charge row). Starts at the legacy flat
+  // 10% until loaded.
+  final ServiceChargeConfig serviceCharge;
 
   const CartState({
     this.items = const [],
@@ -19,7 +28,13 @@ class CartState {
     this.salesOrderId,
     this.deviceId,
     this.nickname = '',
+    this.nicknameLoaded = false,
+    this.allowOrderWhenBilled = false,
+    this.serviceCharge = ServiceChargeConfig.legacy,
   });
+
+  /// Service charge on [subtotal], computed the way the POS does.
+  double serviceChargeFor(double subtotal) => serviceCharge.compute(subtotal);
 
   double get totalAmount => items.fold(0.0, (total, current) => total + current.totalPrice);
 
@@ -44,6 +59,9 @@ class CartState {
     int? salesOrderId,
     String? deviceId,
     String? nickname,
+    bool? nicknameLoaded,
+    bool? allowOrderWhenBilled,
+    ServiceChargeConfig? serviceCharge,
   }) {
     return CartState(
       items: items ?? this.items,
@@ -53,6 +71,9 @@ class CartState {
       salesOrderId: salesOrderId ?? this.salesOrderId,
       deviceId: deviceId ?? this.deviceId,
       nickname: nickname ?? this.nickname,
+      nicknameLoaded: nicknameLoaded ?? this.nicknameLoaded,
+      allowOrderWhenBilled: allowOrderWhenBilled ?? this.allowOrderWhenBilled,
+      serviceCharge: serviceCharge ?? this.serviceCharge,
     );
   }
 }

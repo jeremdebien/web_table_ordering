@@ -11,7 +11,9 @@ import '../utils/web_reload.dart';
 /// Transport: a single `reload_signal` row in the realtime-published `app_config`
 /// table (see `local_supabase_migration/.../0027_app_config.sql`). Staff bump the
 /// row's `nonce`; every client holds an always-on `.stream()` on the table and
-/// reloads when it sees a nonce it hasn't already seen.
+/// reloads when it sees a nonce it hasn't already seen. On web that is a full
+/// page reload; on native (Android kiosk) it emits on [signals] so the app
+/// re-fetches the masterfile in place.
 ///
 /// Loop guard: the first emission after connecting only records the current
 /// nonce as a baseline — it never reloads. A client that connects *after* a
@@ -25,15 +27,20 @@ class ReloadSignalService {
 
   final SupabaseClient _client;
 
+  final _signals = StreamController<void>.broadcast();
   StreamSubscription<List<Map<String, dynamic>>>? _subscription;
   String? _baselineNonce;
   bool _hasBaseline = false;
+
+  /// Fires on each new signal on native platforms (e.g. the Android kiosk),
+  /// where a page reload isn't possible — listeners re-fetch their data instead.
+  Stream<void> get signals => _signals.stream;
 
   /// Opens the always-on subscription. Safe to call once at app startup; a
   /// second call is a no-op. Errors are swallowed (e.g. the table is absent in
   /// online mode) so a missing signal channel never breaks the app.
   void start() {
-    if (!kIsWeb || _subscription != null) return;
+    if (_subscription != null) return;
     try {
       _subscription = _client
           .from(_table)
@@ -61,7 +68,11 @@ class ReloadSignalService {
 
     if (nonce != _baselineNonce) {
       _baselineNonce = nonce;
-      reloadWebApp();
+      if (kIsWeb) {
+        reloadWebApp();
+      } else {
+        _signals.add(null);
+      }
     }
   }
 
@@ -84,5 +95,6 @@ class ReloadSignalService {
   void dispose() {
     _subscription?.cancel();
     _subscription = null;
+    _signals.close();
   }
 }

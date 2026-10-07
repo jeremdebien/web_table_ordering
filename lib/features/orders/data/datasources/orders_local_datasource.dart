@@ -6,6 +6,7 @@ import '../../../../core/config/app_config.dart';
 import '../../../table_qr/data/table_qr_session.dart';
 import '../models/sales_order_model.dart';
 import '../models/sales_order_item_model.dart';
+import '../models/line_customization.dart';
 import 'orders_data_source.dart';
 
 /// Local (self-hosted) orders backend targeting the local_supabase_migration
@@ -96,7 +97,7 @@ class LocalOrdersDataSource implements OrdersDataSource {
         // Fetch existing items for this order to check for duplicates
         final existingItemsRes = await _client
             .from('sales_order_item')
-            .select('order_item_id, item_barcode, quantity, customer_name, web_device_id, special_instructions, note')
+            .select('order_item_id, item_barcode, quantity, customer_name, web_device_id, special_instructions, note, customization')
             .eq('sales_order_id', salesOrderId);
 
         final existingItems = List<Map<String, dynamic>>.from(existingItemsRes);
@@ -113,7 +114,9 @@ class LocalOrdersDataSource implements OrdersDataSource {
               (existing['web_device_id'] as String?) == item.webDeviceId &&
               _normalizeInstructions(existing['special_instructions'] as String?) ==
                   _normalizeInstructions(item.specialInstructions) &&
-              ((existing['note'] as String?)?.trim() ?? '') == (item.note?.trim() ?? ''));
+              ((existing['note'] as String?)?.trim() ?? '') == (item.note?.trim() ?? '') &&
+              LineCustomization.fingerprint(existing['customization'] as String?) ==
+                  LineCustomization.fingerprint(item.customization));
 
           if (matchIndex > -1) {
             final validMatch = existingItems[matchIndex];
@@ -151,6 +154,10 @@ class LocalOrdersDataSource implements OrdersDataSource {
               'web_device_id': item.webDeviceId,
               'special_instructions': item.specialInstructions,
               'note': item.note,
+              // POS product customization (consolidator 0082/0083); the KDS
+              // ingest + print_job triggers forward it to kitchen tickets.
+              'customization': ?item.customization,
+              'base_variant_barcode': ?item.baseVariantBarcode,
               'kds_batch_id': batchId,
               'qr_token': ?qrToken,
             });
@@ -199,6 +206,25 @@ class LocalOrdersDataSource implements OrdersDataSource {
       await _client.rpc('kds_complete_sales_order', params: {'p_sales_order_id': salesOrderId});
     } catch (e) {
       throw Exception('Failed to complete KDS orders for sales order: $e');
+    }
+  }
+
+  @override
+  Future<void> cancelTableOrder(int salesOrderId) async {
+    try {
+      await _client.rpc('web_cancel_table_order', params: {'p_sales_order_id': salesOrderId});
+    } catch (e) {
+      throw Exception('Failed to cancel table order: $e');
+    }
+  }
+
+  @override
+  Future<int> enqueueOrderSummary(int salesOrderId) async {
+    try {
+      final queued = await _client.rpc('enqueue_order_summary', params: {'p_sales_order_id': salesOrderId});
+      return (queued as num?)?.toInt() ?? 0;
+    } catch (e) {
+      throw Exception('Failed to print order summary: $e');
     }
   }
 
@@ -253,7 +279,8 @@ class LocalOrdersDataSource implements OrdersDataSource {
         itemQuery = itemQuery.eq('web_device_id', deviceId);
       }
       final items = await itemQuery;
-      finalOrderData['sales_order_item'] = items.map(_mapItem).toList();
+      final names = await _itemNames(items);
+      finalOrderData['sales_order_item'] = items.map((row) => _mapItem(row, names)).toList();
 
       return SalesOrderModel.fromJson(finalOrderData);
     } catch (e) {
@@ -277,7 +304,8 @@ class LocalOrdersDataSource implements OrdersDataSource {
     for (var order in orders) {
       final mapped = _mapHeader(order);
       final items = await _client.from('sales_order_item').select().eq('sales_order_id', mapped['sales_order_id']);
-      mapped['sales_order_item'] = items.map(_mapItem).toList();
+      final names = await _itemNames(items);
+      mapped['sales_order_item'] = items.map((row) => _mapItem(row, names)).toList();
       result.add(SalesOrderModel.fromJson(mapped));
     }
     return result;
@@ -313,10 +341,30 @@ class LocalOrdersDataSource implements OrdersDataSource {
     return data;
   }
 
+  /// `item_desc` for lines whose item isn't on the web menu (size/variant picks
+  /// swap the line to the size's own barcode), so they don't show as unknown.
+  Future<Map<String, String>> _itemNames(List<Map<String, dynamic>> rows) async {
+    final barcodes = rows
+        .where((r) => r['base_variant_barcode'] != null)
+        .map((r) => r['item_barcode'] as String?)
+        .whereType<String>()
+        .toSet()
+        .toList();
+    if (barcodes.isEmpty) return const {};
+    try {
+      final res = await _client.from('item').select('barcode, item_desc').inFilter('barcode', barcodes);
+      return {for (final r in res) r['barcode'] as String: (r['item_desc'] as String?) ?? ''};
+    } catch (_) {
+      return const {};
+    }
+  }
+
   /// Map a `sales_order_item` row to the JSON shape `SalesOrderItemModel`
   /// expects. Coerce NUMERIC quantity to int and tag as Accepted (no pending).
-  Map<String, dynamic> _mapItem(Map<String, dynamic> row) {
+  Map<String, dynamic> _mapItem(Map<String, dynamic> row, [Map<String, String> names = const {}]) {
     final item = Map<String, dynamic>.from(row);
+    final name = names[row['item_barcode']];
+    if (name != null) item['item_name'] = name;
     final quantity = (row['quantity'] as num).toInt();
     final amount = (row['amount'] as num).toDouble();
     item['quantity'] = quantity;

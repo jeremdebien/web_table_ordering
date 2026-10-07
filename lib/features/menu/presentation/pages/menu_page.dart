@@ -11,6 +11,7 @@ import '../../../../core/router/staff_routes.dart';
 import '../../../auth/presentation/bloc/auth_bloc.dart';
 import '../../data/datasources/menu_data_source.dart';
 import '../../data/models/instruction_group_model.dart';
+import '../../data/models/option_group_model.dart';
 import '../../data/models/item_model.dart';
 import '../../../../features/orders/presentation/widgets/cart_summary.dart';
 import '../widgets/menu_item_card.dart';
@@ -42,22 +43,79 @@ class _MenuPageState extends State<MenuPage> {
 
   // Guards against opening more than one "Add Item" sheet from rapid taps.
   bool _isAddItemSheetOpen = false;
+  // Same guard for the nickname dialog (auto prompt + manual edit).
+  bool _isNicknamePromptOpen = false;
+  // Staff logged in: the name is asked once per menu open (blank), so an order
+  // placed for another customer never reuses the previous customer's name.
+  bool _staffPromptShown = false;
   // Per-item cache of special-instruction groups (page lifetime).
   final Map<String, List<InstructionGroup>> _instructionCache = {};
+  // Per-item cache of POS customization option groups (page lifetime).
+  final Map<String, List<OptionGroup>> _customizationCache = {};
+
+  static const AssetImage _heroImage = AssetImage("assets/images/ikoka_header.png");
+  // Hero height / width, read from the decoded asset so the header follows
+  // whatever image is used. Null until the image has been decoded.
+  double? _heroAspect;
+  ImageStream? _heroStream;
+  late final ImageStreamListener _heroListener = ImageStreamListener((info, _) {
+    if (!mounted) return;
+    setState(() => _heroAspect = info.image.height / info.image.width);
+  });
 
   @override
   void initState() {
     super.initState();
+    _heroStream = _heroImage.resolve(ImageConfiguration.empty)..addListener(_heroListener);
     if (widget.kiosk) return;
+    // Before the first load, so staff never see a device-filtered list first.
+    context.read<CartBloc>().add(SetShowAllOrders(_canViewAllOrders(context.read<AuthBloc>().state)));
     _loadActiveOrder();
     _loadNickname();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
-      final state = context.read<CartBloc>().state;
-      if (state.nickname.isEmpty && state.deviceId != null) {
-        _showNicknamePrompt(context);
-      }
+      _syncStaffMode(context.read<AuthBloc>().state);
+      _maybePromptNickname(context.read<CartBloc>().state);
     });
+  }
+
+  bool get _isStaff => !widget.kiosk && context.read<AuthBloc>().state is AuthAuthenticated;
+
+  /// Access key (POS User Access > Web Table Ordering) that lets a logged-in
+  /// staff member see and punch staff-only items.
+  static const String _staffItemsAccessKey = 'web_staff_only_items';
+
+  static bool _canSeeStaffItems(AuthState auth) =>
+      auth is AuthAuthenticated && auth.user.hasAccess(_staffItemsAccessKey);
+
+  /// Access key that lets staff see every order line on the table, not just
+  /// the ones placed from this device.
+  static const String _viewAllOrdersAccessKey = 'web_view_all_table_orders';
+
+  static bool _canViewAllOrders(AuthState auth) =>
+      auth is AuthAuthenticated && auth.user.hasAccess(_viewAllOrdersAccessKey);
+
+  bool get _showStaffItems => !widget.kiosk && _canSeeStaffItems(context.read<AuthBloc>().state);
+
+  void _syncStaffMode(AuthState auth) {
+    if (widget.kiosk) return;
+    context.read<MenuBloc>().add(SetStaffMode(_canSeeStaffItems(auth)));
+    final tableState = context.read<TableBloc>().state;
+    context.read<CartBloc>().add(SetShowAllOrders(
+          _canViewAllOrders(auth),
+          tableId: tableState is TableLoaded ? tableState.table.tableId : null,
+        ));
+  }
+
+  void _maybePromptNickname(CartState state) {
+    if (!state.nicknameLoaded) return;
+    if (_isStaff) {
+      if (_staffPromptShown) return;
+      _staffPromptShown = true;
+      _showNicknamePrompt(context, forceNew: true, previousName: state.nickname);
+    } else if (state.nickname.isEmpty) {
+      _showNicknamePrompt(context);
+    }
   }
 
   void _onSearchChanged(String value) {
@@ -89,6 +147,7 @@ class _MenuPageState extends State<MenuPage> {
   @override
   void dispose() {
     _debounceTimer?.cancel();
+    _heroStream?.removeListener(_heroListener);
     _searchController.dispose();
     super.dispose();
   }
@@ -102,24 +161,38 @@ class _MenuPageState extends State<MenuPage> {
 
   @override
   Widget build(BuildContext context) {
-    return BlocListener<TableBloc, TableState>(
-      listenWhen: (previous, current) => !widget.kiosk,
-      listener: (context, state) {
-        if (state is TableLoaded) {
-          context.read<CartBloc>().add(LoadActiveOrder(state.table.tableId));
-        }
-      },
+    return MultiBlocListener(
+      listeners: [
+        BlocListener<TableBloc, TableState>(
+          listenWhen: (previous, current) => !widget.kiosk,
+          listener: (context, state) {
+            if (state is TableLoaded) {
+              context.read<CartBloc>().add(LoadActiveOrder(state.table.tableId));
+            }
+          },
+        ),
+        // Staff login/logout: toggle staff-only items and the name prompt.
+        BlocListener<AuthBloc, AuthState>(
+          listenWhen: (previous, current) =>
+              !widget.kiosk &&
+              ((previous is AuthAuthenticated) != (current is AuthAuthenticated) ||
+                  _canSeeStaffItems(previous) != _canSeeStaffItems(current) ||
+                  _canViewAllOrders(previous) != _canViewAllOrders(current)),
+          listener: (context, auth) {
+            _syncStaffMode(auth);
+            _maybePromptNickname(context.read<CartBloc>().state);
+          },
+        ),
+      ],
       child: Scaffold(
         backgroundColor: const Color(0xFFFAF7F2),
         body: BlocListener<CartBloc, CartState>(
+          // Only prompt once the stored nickname has been loaded; keying off
+          // deviceId raced with LoadActiveOrder and re-prompted on reload.
           listenWhen: (previous, current) =>
               !widget.kiosk &&
-              (previous.nickname != current.nickname || (previous.deviceId != current.deviceId)),
-          listener: (context, state) {
-            if (state.nickname.isEmpty && state.deviceId != null) {
-              _showNicknamePrompt(context);
-            }
-          },
+              (previous.nickname != current.nickname || previous.nicknameLoaded != current.nicknameLoaded),
+          listener: (context, state) => _maybePromptNickname(state),
           child: Column(
             children: [
               Expanded(
@@ -132,9 +205,12 @@ class _MenuPageState extends State<MenuPage> {
                       prev.paymentStatus != curr.paymentStatus ||
                       prev.salesOrderId != curr.salesOrderId ||
                       prev.status != curr.status ||
-                      prev.nickname != curr.nickname,
+                      prev.nickname != curr.nickname ||
+                      prev.allowOrderWhenBilled != curr.allowOrderWhenBilled,
                   builder: (context, cartState) {
-                    if (cartState.paymentStatus == 1) {
+                    // Tempo billed: block ordering unless the store allows it
+                    // (app_config 'allow_order_when_billed').
+                    if (cartState.paymentStatus == 1 && !cartState.allowOrderWhenBilled) {
                       return Center(
                         child: Padding(
                           padding: const EdgeInsets.all(20.0),
@@ -284,6 +360,11 @@ class _MenuPageState extends State<MenuPage> {
                               ? _selectedSearchCategoryId
                               : null;
 
+                          // Staff: mark categories that contain staff-only items.
+                          final Set<int> staffCategoryIds = _showStaffItems
+                              ? {for (final i in state.items) if (i.isStaffOnly) i.categoryId}
+                              : const {};
+
                           final List<dynamic> displayItems;
                           if (isSearching) {
                             if (effectiveSearchCatId == null) {
@@ -299,11 +380,12 @@ class _MenuPageState extends State<MenuPage> {
                                 .toList();
                           }
 
-                          // Hero image height derived from the asset's exact
-                          // aspect ratio (1536x1024) so the full image is shown
-                          // at screen width with no cropping when expanded.
+                          // Hero image height derived from the decoded asset's
+                          // aspect ratio so the full image is shown at screen
+                          // width with no cropping, whatever image is used.
+                          // Falls back to 0 until the image has decoded.
                           final double heroHeight =
-                              MediaQuery.of(context).size.width * (1024 / 1536);
+                              MediaQuery.of(context).size.width * (_heroAspect ?? 0);
 
                           return CustomScrollView(
                             slivers: [
@@ -329,9 +411,7 @@ class _MenuPageState extends State<MenuPage> {
                                             ? () => context.push('/staff')
                                             : null,
                                         child: const Image(
-                                          image: AssetImage(
-                                            "assets/images/ikoka_header.png",
-                                          ),
+                                          image: _heroImage,
                                           width: double.infinity,
                                           fit: BoxFit.fitWidth,
                                           alignment: Alignment.topCenter,
@@ -557,6 +637,7 @@ class _MenuPageState extends State<MenuPage> {
                                                         child: _buildCategoryChip(
                                                           label: label,
                                                           isSelected: isSelected,
+                                                          staff: staffCategoryIds.contains(category.categoryId),
                                                         ),
                                                       );
                                                     },
@@ -650,11 +731,16 @@ class _MenuPageState extends State<MenuPage> {
                                                   // Slightly > the real text block
                                                   // (~100px) to leave a hair of slack.
                                                   const double textBlock = 104;
+                                                  // Kiosk (tablet): 3 columns,
+                                                  // falling back to 2 on narrow
+                                                  // screens so cards stay usable.
+                                                  final int columns =
+                                                      widget.kiosk && constraints.maxWidth >= 500 ? 3 : 2;
                                                   final double itemWidth =
                                                       (constraints.maxWidth -
                                                               hPadding * 2 -
-                                                              crossSpacing) /
-                                                          2;
+                                                              crossSpacing * (columns - 1)) /
+                                                          columns;
                                                   final double ratio = itemWidth /
                                                       (itemWidth + textBlock);
                                                   return GridView.builder(
@@ -664,7 +750,7 @@ class _MenuPageState extends State<MenuPage> {
                                                       horizontal: hPadding,
                                                     ),
                                                     gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                                                      crossAxisCount: 2,
+                                                      crossAxisCount: columns,
                                                       childAspectRatio: ratio,
                                                       crossAxisSpacing: crossSpacing,
                                                       mainAxisSpacing: 12,
@@ -674,6 +760,7 @@ class _MenuPageState extends State<MenuPage> {
                                                       final item = displayItems[index];
                                                       return MenuItemCard(
                                                         item: item,
+                                                        showStaffBadge: _showStaffItems && item.isStaffOnly == true,
                                                         onTap: () => _showAddItemConfirmation(
                                                           context,
                                                           item,
@@ -706,8 +793,10 @@ class _MenuPageState extends State<MenuPage> {
                     (sum, item) => sum + item.quantity,
                   );
                   final subtotal = state.totalAmount;
-                  final totalAmountWithService = subtotal * 1.10;
+                  final totalAmountWithService = subtotal + state.serviceChargeFor(subtotal);
                   final hasNewDrafts = state.newOrders.isNotEmpty;
+                  final draftCount = state.newOrdersCount;
+                  final submittedCount = totalCount - draftCount;
 
                   return GestureDetector(
                     onTap: () => _showOrderSummary(context),
@@ -723,9 +812,9 @@ class _MenuPageState extends State<MenuPage> {
                         borderRadius: BorderRadius.circular(20),
                         border: Border.all(
                           color: hasNewDrafts
-                              ? const Color(0xFFC5A880).withValues(alpha: 0.5)
+                              ? const Color(0xFFC5A880)
                               : Colors.white.withValues(alpha: 0.1),
-                          width: 1,
+                          width: hasNewDrafts ? 1.5 : 1.0,
                         ),
                         boxShadow: [
                           BoxShadow(
@@ -744,12 +833,16 @@ class _MenuPageState extends State<MenuPage> {
                                 width: 40,
                                 height: 40,
                                 decoration: BoxDecoration(
-                                  color: Colors.white.withValues(alpha: 0.1),
+                                  color: hasNewDrafts
+                                      ? const Color(0xFFC5A880).withValues(alpha: 0.2)
+                                      : Colors.white.withValues(alpha: 0.1),
                                   shape: BoxShape.circle,
                                 ),
-                                child: const Icon(
-                                  Icons.shopping_bag_outlined,
-                                  color: Colors.white,
+                                child: Icon(
+                                  hasNewDrafts
+                                      ? Icons.shopping_cart_outlined
+                                      : Icons.receipt_long_outlined,
+                                  color: hasNewDrafts ? const Color(0xFFE8D5B5) : Colors.white,
                                   size: 22,
                                 ),
                               ),
@@ -759,7 +852,7 @@ class _MenuPageState extends State<MenuPage> {
                                 child: Container(
                                   padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
                                   decoration: BoxDecoration(
-                                    color: const Color(0xFFC5A880),
+                                    color: hasNewDrafts ? const Color(0xFFC5A880) : const Color(0xFF2E7D32),
                                     borderRadius: BorderRadius.circular(10),
                                     border: Border.all(color: const Color(0xFF141414), width: 1.5),
                                   ),
@@ -768,9 +861,9 @@ class _MenuPageState extends State<MenuPage> {
                                     minHeight: 18,
                                   ),
                                   child: Text(
-                                    '$totalCount',
-                                    style: const TextStyle(
-                                      color: Colors.black,
+                                    hasNewDrafts ? '$draftCount' : '$submittedCount',
+                                    style: TextStyle(
+                                      color: hasNewDrafts ? Colors.black : Colors.white,
                                       fontSize: 10,
                                       fontWeight: FontWeight.w800,
                                     ),
@@ -781,52 +874,62 @@ class _MenuPageState extends State<MenuPage> {
                             ],
                           ),
                           const SizedBox(width: 14),
-                          Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Row(
-                                children: [
-                                  const Text(
-                                    'View Order',
-                                    style: TextStyle(
-                                      color: Colors.white,
-                                      fontSize: 15,
-                                      fontWeight: FontWeight.bold,
-                                      letterSpacing: 0.2,
+                          Expanded(
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  children: [
+                                    Flexible(
+                                      child: Text(
+                                        hasNewDrafts ? 'Review Cart & Send' : 'Table Orders',
+                                        style: const TextStyle(
+                                          color: Colors.white,
+                                          fontSize: 15,
+                                          fontWeight: FontWeight.bold,
+                                          letterSpacing: 0.2,
+                                        ),
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
                                     ),
-                                  ),
-                                  if (hasNewDrafts) ...[
                                     const SizedBox(width: 6),
                                     Container(
                                       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1.5),
                                       decoration: BoxDecoration(
-                                        color: const Color(0xFFC5A880),
+                                        color: hasNewDrafts
+                                            ? const Color(0xFFC5A880)
+                                            : const Color(0xFF2E7D32),
                                         borderRadius: BorderRadius.circular(4),
                                       ),
-                                      child: const Text(
-                                        'Draft',
+                                      child: Text(
+                                        hasNewDrafts ? 'NOT SENT' : 'IN KITCHEN',
                                         style: TextStyle(
-                                          color: Colors.black,
-                                          fontSize: 9.5,
+                                          color: hasNewDrafts ? Colors.black : Colors.white,
+                                          fontSize: 9,
                                           fontWeight: FontWeight.w800,
+                                          letterSpacing: 0.3,
                                         ),
                                       ),
                                     ),
                                   ],
-                                ],
-                              ),
-                              const SizedBox(height: 2),
-                              Text(
-                                '$totalCount ${totalCount == 1 ? 'item' : 'items'} in order',
-                                style: TextStyle(
-                                  color: Colors.white.withValues(alpha: 0.6),
-                                  fontSize: 12,
                                 ),
-                              ),
-                            ],
+                                const SizedBox(height: 2),
+                                Text(
+                                  hasNewDrafts
+                                      ? (submittedCount > 0
+                                          ? '$draftCount in cart • $submittedCount in kitchen'
+                                          : '$draftCount ${draftCount == 1 ? 'item' : 'items'} ready to send')
+                                      : '$submittedCount ${submittedCount == 1 ? 'item' : 'items'} sent to kitchen',
+                                  style: TextStyle(
+                                    color: Colors.white.withValues(alpha: 0.7),
+                                    fontSize: 12,
+                                  ),
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ],
+                            ),
                           ),
-                          const Spacer(),
                           Column(
                             mainAxisAlignment: MainAxisAlignment.center,
                             crossAxisAlignment: CrossAxisAlignment.end,
@@ -852,13 +955,13 @@ class _MenuPageState extends State<MenuPage> {
                           Container(
                             width: 32,
                             height: 32,
-                            decoration: const BoxDecoration(
-                              color: Color(0xFFC5A880),
+                            decoration: BoxDecoration(
+                              color: hasNewDrafts ? const Color(0xFFC5A880) : Colors.white.withValues(alpha: 0.15),
                               shape: BoxShape.circle,
                             ),
-                            child: const Icon(
+                            child: Icon(
                               Icons.arrow_forward_rounded,
-                              color: Colors.black,
+                              color: hasNewDrafts ? Colors.black : Colors.white,
                               size: 18,
                             ),
                           ),
@@ -914,6 +1017,17 @@ class _MenuPageState extends State<MenuPage> {
     }).catchError((_) => <InstructionGroup>[]);
   }
 
+  /// Loads an item's POS option groups, cached like [_loadInstructions].
+  Future<List<OptionGroup>> _loadCustomization(dynamic item) {
+    final String barcode = item.barcode;
+    final cached = _customizationCache[barcode];
+    if (cached != null) return Future.value(cached);
+    return sl<MenuDataSource>().getItemCustomization(barcode).then((groups) {
+      _customizationCache[barcode] = groups;
+      return groups;
+    }).catchError((_) => <OptionGroup>[]);
+  }
+
   void _showAddItemConfirmation(
     BuildContext context,
     dynamic item,
@@ -932,17 +1046,28 @@ class _MenuPageState extends State<MenuPage> {
       builder: (_) => AddItemBottomSheet(
         item: item,
         instructionsFuture: _loadInstructions(item),
+        customizationFuture: _loadCustomization(item),
       ),
     ).whenComplete(() => _isAddItemSheetOpen = false);
   }
 
-  void _showNicknamePrompt(BuildContext context, {String initialValue = ''}) {
+  /// [forceNew]: staff ordering for a customer. Starts blank and cannot be
+  /// dismissed; [previousName] is shown as a hint.
+  void _showNicknamePrompt(
+    BuildContext context, {
+    String initialValue = '',
+    bool forceNew = false,
+    String previousName = '',
+  }) {
+    if (_isNicknamePromptOpen) return;
+    _isNicknamePromptOpen = true;
+    final canDismiss = !forceNew && initialValue.isNotEmpty;
     final controller = TextEditingController(text: initialValue);
     final formKey = GlobalKey<FormState>();
 
     showDialog(
       context: context,
-      barrierDismissible: initialValue.isNotEmpty,
+      barrierDismissible: canDismiss,
       builder: (context) {
         return Dialog(
           backgroundColor: const Color(0xFF121212),
@@ -981,7 +1106,9 @@ class _MenuPageState extends State<MenuPage> {
                         ),
                         const SizedBox(width: 12),
                         Text(
-                          initialValue.isEmpty ? 'Identify Yourself' : 'Edit Nickname',
+                          forceNew
+                              ? 'Who is this order for?'
+                              : (initialValue.isEmpty ? 'Identify Yourself' : 'Edit Nickname'),
                           style: const TextStyle(
                             color: Colors.white,
                             fontSize: 20,
@@ -993,7 +1120,9 @@ class _MenuPageState extends State<MenuPage> {
                     ),
                     const SizedBox(height: 16),
                     Text(
-                      'Your nickname will be used to label your items in the shared cart.',
+                      forceNew
+                          ? "Enter the customer's name for this order."
+                          : 'Your nickname will be used to label your items in the shared cart.',
                       style: TextStyle(
                         color: Colors.white.withValues(alpha: 0.7),
                         fontSize: 13,
@@ -1007,7 +1136,9 @@ class _MenuPageState extends State<MenuPage> {
                       autofocus: true,
                       style: const TextStyle(color: Colors.white, fontSize: 16),
                       decoration: InputDecoration(
-                        hintText: 'e.g. Joshua M.',
+                        hintText: forceNew && previousName.isNotEmpty
+                            ? 'Previous: $previousName'
+                            : 'e.g. Joshua M.',
                         hintStyle: TextStyle(
                           color: Colors.white.withValues(alpha: 0.3),
                         ),
@@ -1063,7 +1194,7 @@ class _MenuPageState extends State<MenuPage> {
                     Row(
                       mainAxisAlignment: MainAxisAlignment.end,
                       children: [
-                        if (initialValue.isNotEmpty)
+                        if (canDismiss)
                           TextButton(
                             onPressed: () => Navigator.pop(context),
                             style: TextButton.styleFrom(
@@ -1116,12 +1247,13 @@ class _MenuPageState extends State<MenuPage> {
           ),
         );
       },
-    );
+    ).whenComplete(() => _isNicknamePromptOpen = false);
   }
 
   Widget _buildCategoryChip({
     required String label,
     required bool isSelected,
+    bool staff = false,
   }) {
     return AnimatedContainer(
       duration: const Duration(milliseconds: 200),
@@ -1153,14 +1285,23 @@ class _MenuPageState extends State<MenuPage> {
         ],
       ),
       alignment: Alignment.center,
-      child: Text(
-        label,
-        style: TextStyle(
-          fontSize: 13,
-          fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
-          color: isSelected ? Colors.white : Colors.white70,
-          letterSpacing: 0.2,
-        ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (staff) ...[
+            const Icon(Icons.badge, size: 14, color: Colors.amber),
+            const SizedBox(width: 5),
+          ],
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 13,
+              fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+              color: isSelected ? Colors.white : Colors.white70,
+              letterSpacing: 0.2,
+            ),
+          ),
+        ],
       ),
     );
   }

@@ -1,7 +1,9 @@
-﻿import 'dart:convert';
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../data/models/sales_order_item_model.dart';
+import '../../data/models/line_customization.dart';
+import '../../../menu/presentation/widgets/add_item_bottom_sheet.dart';
 import '../bloc/cart_bloc.dart';
 import 'serving_status_badge.dart';
 
@@ -21,8 +23,9 @@ class CartItemTile extends StatelessWidget {
     final specialInstructions = _formatSpecialInstructions(item.specialInstructions);
     final hasNote = item.note != null && item.note!.trim().isNotEmpty;
     final isServed = item.isServed;
+    final customizationLines = LineCustomization.displayLines(item.customization);
 
-    return Container(
+    final tile = Container(
       margin: const EdgeInsets.symmetric(vertical: 4),
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
@@ -162,7 +165,7 @@ class CartItemTile extends StatelessWidget {
                             ),
                             SizedBox(width: 3.5),
                             Text(
-                              'To Order',
+                              'In Cart (Unsent)',
                               style: TextStyle(
                                 fontSize: 10.5,
                                 fontWeight: FontWeight.w700,
@@ -212,6 +215,19 @@ class CartItemTile extends StatelessWidget {
                       ),
                   ],
                 ),
+
+                // POS customization picks (sizes are part of the item name)
+                if (customizationLines.isNotEmpty) ...[
+                  const SizedBox(height: 6),
+                  for (final line in customizationLines)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 2),
+                      child: Text(
+                        line,
+                        style: const TextStyle(fontSize: 11.5, color: Color(0xFF4A453F), height: 1.25),
+                      ),
+                    ),
+                ],
 
                 // Special Instructions / Notes
                 if (specialInstructions != null || hasNote) ...[
@@ -396,6 +412,14 @@ class CartItemTile extends StatelessWidget {
           ),
         ],
       ),
+    );
+
+    if (!isDraft) return tile;
+    // Unsent lines can be re-opened to change qty, picks, instructions or note.
+    return InkWell(
+      borderRadius: BorderRadius.circular(16),
+      onTap: () => AddItemBottomSheet.showEdit(context, item),
+      child: tile,
     );
   }
 

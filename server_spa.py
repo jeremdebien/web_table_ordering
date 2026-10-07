@@ -26,9 +26,9 @@ class SPAHandler(http.server.SimpleHTTPRequestHandler):
 
 if __name__ == "__main__":
     # Allow address reuse
-    socketserver.TCPServer.allow_reuse_address = True
+    socketserver.ThreadingTCPServer.allow_reuse_address = True
     
-    with socketserver.TCPServer(("", PORT), SPAHandler) as httpd:
+    with socketserver.ThreadingTCPServer(("", PORT), SPAHandler) as httpd:
         print(f"Serving Flutter Web SPA at http://localhost:{PORT}")
         print(f"Mapping all unknown routes to {DIRECTORY}/index.html")
         httpd.serve_forever()
