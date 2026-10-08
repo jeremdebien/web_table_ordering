@@ -1,4 +1,20 @@
-flutter build web --release --no-web-resources-cdn --dart-define-from-file=.env --pwa-strategy=none
+# ============================================================
+# Web table ordering (IIS)  --  CHANGE THE CLIENT NAME EACH BUILD
+# ============================================================
+# CLIENT = ramen-ibuki      <-- change to this store (same as branch client/<name>)
+#
+# Before building, on the client/<name> branch:
+#   - .env is this store's
+#   - assets/images/<name>.jpg, <name>_logo.jpg, <name>_menubg.jpg
+#   - web/index.html splash logo, splash colours, <title>
+#   - web/manifest.json name, favicon, icons
+#   (full checklist at the top of scripts/build-web-offline.ps1)
+
+# RECOMMENDED: checks the list above, cache-busts, verifies offline build
+powershell -File scripts/build-web-offline.ps1 -Client ramen-ibuki
+
+# Manual build (NO cache-bust stamp or checks -- phones may show another store's cached UI)
+flutter build web --release --no-web-resources-cdn --dart-define-from-file=.env --pwa-strategy=none --dart-define=CLIENT_ID=ramen-ibuki
 
 # Android kiosk (self-order)
 flutter run -d windows -t lib/main_kiosk.dart --dart-define-from-file=.env

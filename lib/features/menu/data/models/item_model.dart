@@ -12,6 +12,11 @@ class ItemModel {
   /// Web-only (consolidator column `is_available_in_web_table`, migration 0046);
   /// independent of `isAvailable`/`item_status`. Defaults to visible.
   final bool isAvailableInWebTable;
+  // Web ordering: only shown when a staff member is logged in (migration 0080).
+  final bool isStaffOnly;
+  // POS Sold Out Maintenance (consolidator `item.is_sold_out`, migration 0035):
+  // still listed, but greyed out and not orderable.
+  final bool isSoldOut;
   final String? printDesc;
   final int departmentId;
   final int categoryId;
@@ -44,6 +49,8 @@ class ItemModel {
     this.description,
     this.isAvailable = false,
     this.isAvailableInWebTable = true,
+    this.isStaffOnly = false,
+    this.isSoldOut = false,
     this.printDesc,
     required this.departmentId,
     required this.categoryId,
@@ -74,6 +81,9 @@ class ItemModel {
       isAvailable: (json['item_status'] as int?) == 1,
       // Missing/null => visible (default 1). Only an explicit 0 hides it.
       isAvailableInWebTable: (json['is_available_in_web_table'] as int?) != 0,
+      isStaffOnly: (json['is_staff_only'] as int?) == 1,
+      // BOOLEAN in Supabase; accept 0/1 too.
+      isSoldOut: json['is_sold_out'] == true || json['is_sold_out'] == 1,
       printDesc: json['print_desc'] as String?,
       departmentId: json['department_id'] as int,
       categoryId: json['category_id'] as int,
@@ -108,6 +118,8 @@ class ItemModel {
       description: description,
       isAvailable: isAvailable ?? this.isAvailable,
       isAvailableInWebTable: isAvailableInWebTable ?? this.isAvailableInWebTable,
+      isStaffOnly: isStaffOnly,
+      isSoldOut: isSoldOut,
       printDesc: printDesc,
       departmentId: departmentId,
       categoryId: categoryId,
@@ -138,6 +150,8 @@ class ItemModel {
       'item_desc': description,
       'item_status': isAvailable ? 1 : 0,
       'is_available_in_web_table': isAvailableInWebTable ? 1 : 0,
+      'is_staff_only': isStaffOnly ? 1 : 0,
+      'is_sold_out': isSoldOut,
       'print_desc': printDesc,
       'department_id': departmentId,
       'category_id': categoryId,

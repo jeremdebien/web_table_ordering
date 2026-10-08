@@ -56,14 +56,17 @@ class DiscardChanges extends MenuAdminEvent {
 
 // ── Menu groups (batch item-availability presets) ────────────────────────────
 
-/// Create a new (inactive) menu group with the given name.
+/// Create a new (inactive) menu group with the given name. When [copyCurrent]
+/// is true the new group is seeded with the visibility currently on screen
+/// (the edited group's config, or the per-item flags) instead of starting empty.
 class CreateGroup extends MenuAdminEvent {
   final String name;
+  final bool copyCurrent;
 
-  const CreateGroup(this.name);
+  const CreateGroup(this.name, {this.copyCurrent = false});
 
   @override
-  List<Object?> get props => [name];
+  List<Object?> get props => [name, copyCurrent];
 }
 
 /// Rename an existing menu group.
@@ -92,6 +95,18 @@ class SelectActiveGroup extends MenuAdminEvent {
   final int id;
 
   const SelectActiveGroup(this.id);
+
+  @override
+  List<Object?> get props => [id];
+}
+
+/// Save the staged edits of the group being edited, then make [id] active —
+/// so a group never goes live with its stale saved config. Activation is
+/// skipped if the save fails.
+class SaveAndActivate extends MenuAdminEvent {
+  final int id;
+
+  const SaveAndActivate(this.id);
 
   @override
   List<Object?> get props => [id];

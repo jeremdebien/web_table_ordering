@@ -178,6 +178,31 @@
     window.setTimeout(function () { window.removeSplash(); }, 30000);
   </script>
 
-  <script src="flutter_bootstrap.js" async></script>
+  <script>
+    // One-time cleanup for phones that saw an older PWA build: a leftover
+    // service worker would keep serving the previous store's cached files
+    // (every store shares the same LAN IP / origin). Reload once if removed.
+    (function () {
+      if (!('serviceWorker' in navigator)) return;
+      navigator.serviceWorker.getRegistrations().then(function (regs) {
+        if (!regs.length) return;
+        var clearCaches = window.caches
+          ? caches.keys().then(function (ks) { return Promise.all(ks.map(function (k) { return caches.delete(k); })); })
+          : Promise.resolve();
+        Promise.all(regs.map(function (r) { return r.unregister(); }))
+          .then(function () { return clearCaches; })
+          .then(function () {
+            try {
+              if (sessionStorage.getItem('__swPurged')) return;
+              sessionStorage.setItem('__swPurged', '1');
+            } catch (e) { return; }
+            location.reload();
+          });
+      }).catch(function () {});
+    })();
+  </script>
+
+  <!-- ?v= is stamped with a per-client build id by scripts/build-web-offline.ps1 -->
+  <script src="flutter_bootstrap.js?v=__BUILD_ID__" async></script>
 </body>
 </html>

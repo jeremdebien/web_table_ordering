@@ -925,6 +925,527 @@ GRANT EXECUTE ON FUNCTION next_order_number() TO anon, authenticated;
 GRANT SELECT, INSERT, UPDATE ON TABLE order_number_counter TO anon, authenticated;
 
 -- ═══════════════════════════════════════════════════════════════════
+-- 0058  Kitchen slips for directly-inserted kitchen lines
+-- ═══════════════════════════════════════════════════════════════════
+-- THE GAP THIS FILLS
+-- ------------------
+-- Every server-side print path is anchored to sales_order_item: the ingest
+-- trigger (0028 → 0056) fires on it, and the reprint paths (0031 transfer,
+-- 0042 take-out, 0050 item transfer) act on lines that have one. Punch-and-
+-- settle orders NEVER write a sales_order_item (0028's header says so) — the
+-- POS inserts kds_orders / kds_order_items directly from newSendToKDS
+-- (kwikpos_lite lib/pages/order/order.dart). Those kitchen lines therefore
+-- reach the KDS board but no print_job is ever queued for them.
+--
+-- That was invisible while the POS printed punched slips itself. With the
+-- consolidator setting `kds_station_prints` ON, the POS deliberately stops:
+--
+--   order.dart          for (int i = 0; !kdsStationPrints && …) printOrderSlips(…)
+--   print_master:403    "KDS-station printing on — skipped queuing web order
+--                        slips; the owning station prints them."
+--
+-- Both assume the KDS prints these lines off the realtime feed. It does not —
+-- the KDS's only print path is the print_job drain (claim_print_jobs, 0024).
+-- So with the flag ON, a punched order's slip is printed by nobody. Turning the
+-- flag OFF is not a fix either: the POS then prints inline, which silently skips
+-- any line routed to a printer that terminal does not own — the exact loss 0024
+-- was written to end.
+--
+-- FIX
+-- ---
+-- An AFTER INSERT trigger on kds_order_items that queues a print_job for lines
+-- no other path covers. The payload is built from the kitchen row the same way
+-- 0042 / 0031 / 0050 build theirs, and the slot is resolved against
+-- device_printer exactly as the ingest does, so an item routed to a KDS's own
+-- printer is targeted at that device and drained by it.
+--
+-- WHICH ROWS
+--   order_item_id IS NULL  — the direct-insert signature. Trigger-ingested and
+--     web-order lines always carry it, so they keep their existing single job
+--     and can never be printed twice.
+--   status = 'preparing'   — excludes the cancelled copy the partial-void path
+--     inserts (kwikpos_lite consolidator_kds_repository.voidItems), which would
+--     otherwise print a slip for a cancellation.
+--
+-- WHAT THE SLIP SHOWS
+-- -------------------
+-- These are not table orders — there is no sales order and no table behind
+-- them — so the slip identifies the order by its ORDER NUMBER ('PC-11', the
+-- number the counter calls out) and carries no table line. The number rides in
+-- the payload as `orderNumber`; the KDS renderer's kOrderNumber section prints
+-- it (kwikpos_kds lib/helpers/order_slip_renderer.dart, generateFromPayload).
+-- Slips from the sales-order paths are unchanged and still show the table.
+--
+-- NOT DONE HERE, DELIBERATELY
+--   * No order_item_ticket is minted: its order_item_id is NOT NULL REFERENCES
+--     sales_order_item (0021), and these lines have no sales line to point at.
+--     The slip carries no servingBarcode, so it cannot be closed by scanning —
+--     ticket scanning has never covered punch-and-settle orders.
+--   * kds_order_items.target_client_id (the DISPLAY target) is left exactly as
+--     the POS wrote it. Stamping it here would risk the 0056 regression, where a
+--     display target that names a POS hides every card on every station.
+--
+-- Idempotent: CREATE OR REPLACE / DROP TRIGGER IF EXISTS make re-runs a no-op.
+--
+-- Applied MANUALLY against Supabase (see consolidator-migrations-manual).
+
+CREATE OR REPLACE FUNCTION kds_enqueue_direct_line_slip()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  h                        RECORD;   -- kds_orders header
+  m                        RECORD;   -- item catalog row (may be absent)
+  v_slot                   TEXT;
+  v_label                  TEXT;
+  v_print_target_client_id TEXT;     -- device that prints the slip (POS or KDS)
+  v_slip_mode              TEXT;
+  v_units                  INTEGER;  -- how many physical slips to emit
+  v_slip_qty               INTEGER;  -- quantity each slip covers
+  v_copies                 INTEGER := 1;
+  v_payload                JSONB;
+  i                        INTEGER;
+BEGIN
+  SELECT o.order_number, o.table_number, o.customer_name
+    INTO h
+    FROM kds_orders o
+   WHERE o.id = NEW.order_id;
+
+  -- Catalog lookup gives the device-aware routing key and the VAT flag. A line
+  -- whose barcode is not in the catalog still prints; it just routes by slot.
+  SELECT it.assigned_printer_client_id, it.non_vat
+    INTO m
+    FROM item it
+   WHERE it.barcode = NEW.barcode;
+
+  v_print_target_client_id := NULLIF(btrim(m.assigned_printer_client_id), '');
+
+  -- Resolve the slot exactly as the ingest does: within the target device's
+  -- printers when the item names one, else across all devices. NEW.assigned_printer
+  -- may be a canonical slot or a friendly alias.
+  IF v_print_target_client_id IS NOT NULL THEN
+    SELECT dp.slot, dp.label INTO v_slot, v_label
+      FROM device_printer dp
+     WHERE dp.client_id = v_print_target_client_id
+       AND (dp.slot = NEW.assigned_printer OR dp.label = NEW.assigned_printer)
+     ORDER BY (dp.slot = NEW.assigned_printer) DESC
+     LIMIT 1;
+  ELSE
+    SELECT dp.slot, dp.label INTO v_slot, v_label
+      FROM device_printer dp
+     WHERE dp.slot = NEW.assigned_printer OR dp.label = NEW.assigned_printer
+     ORDER BY (dp.slot = NEW.assigned_printer) DESC
+     LIMIT 1;
+  END IF;
+
+  IF v_slot IS NULL THEN
+    v_slot := COALESCE(NULLIF(btrim(NEW.assigned_printer), ''), 'Unassigned');
+  END IF;
+
+  -- Give the card the friendly name the POS could not resolve (it knows only its
+  -- own aliases). UPDATE does not re-fire this INSERT trigger.
+  IF v_label IS NOT NULL AND NEW.printer_label IS DISTINCT FROM v_label THEN
+    UPDATE kds_order_items SET printer_label = v_label WHERE id = NEW.id;
+  END IF;
+
+  -- Store-wide slip mode (0052). 'perQuantity' emits one slip per unit; any other
+  -- value (or no row) emits one slip for the whole line.
+  SELECT value->>'mode' INTO v_slip_mode FROM app_config WHERE key = 'web_order_slip_mode';
+
+  IF v_slip_mode = 'perQuantity' THEN
+    v_units    := GREATEST(COALESCE(NEW.quantity, 1), 1);
+    v_slip_qty := 1;
+  ELSE
+    v_units    := 1;
+    v_slip_qty := GREATEST(COALESCE(NEW.quantity, 1), 1);
+  END IF;
+
+  FOR i IN 1..v_units LOOP
+    -- ProductOrder-shaped, matching what the print-queue worker deserializes.
+    -- price is 0: a kitchen line carries no amount, and the slip does not render
+    -- one. servingBarcode is absent (see the header note on tickets).
+    v_payload := jsonb_build_object(
+      'orders', jsonb_build_array(jsonb_build_object(
+        'productBarcode',      NEW.barcode,
+        'productName',         NEW.name,
+        'receiptName',         NEW.name,
+        'quantity',            v_slip_qty,
+        'price',               0,
+        'orderTypeCode',       COALESCE(NEW.order_type, 1),
+        'orderType',           NEW.order_type_desc,
+        'assignedPrinter',     v_slot,
+        'nonVat',              (COALESCE(m.non_vat, 0) = 1),
+        'specialInstructions', NEW.notes,
+        'note',                NEW.note,
+        -- No table line: these orders have no sales order and no table (0058
+        -- fires precisely when there is no sales_order_item behind the line).
+        -- The ORDER NUMBER is what identifies them — it is what the counter
+        -- calls out — so the slip carries that instead. kds_orders.table_number
+        -- is an empty string on this path anyway; passing it would only put a
+        -- stray "Table:" line on slips for stores that punch with a display
+        -- identifier.
+        'assignedTableName',   NULL,
+        'customerName',        h.customer_name,
+        'orderNumber',         h.order_number
+      )),
+      'orderNumber',   h.order_number,
+      'simpleWebSlip', true
+    );
+
+    -- target_client_id != NULL sends the job ONLY to that device; NULL keeps the
+    -- slot-broadcast behavior (whichever device owns the slot drains it).
+    INSERT INTO print_job (sales_order_id, printer_name, target_client_id, copies, payload)
+    VALUES (NULL, v_slot, v_print_target_client_id, v_copies, v_payload);
+  END LOOP;
+
+  RETURN NULL;
+EXCEPTION WHEN OTHERS THEN
+  -- A print problem must never abort the kitchen send.
+  RAISE WARNING 'kds_enqueue_direct_line_slip failed for kds_order_items.id=%: %', NEW.id, SQLERRM;
+  RETURN NULL;
+END $$;
+
+DROP TRIGGER IF EXISTS trg_kds_enqueue_direct_line_slip ON kds_order_items;
+CREATE TRIGGER trg_kds_enqueue_direct_line_slip
+  AFTER INSERT ON kds_order_items
+  FOR EACH ROW
+  WHEN (NEW.order_item_id IS NULL AND NEW.status = 'preparing')
+  EXECUTE FUNCTION kds_enqueue_direct_line_slip();
+
+GRANT EXECUTE ON FUNCTION kds_enqueue_direct_line_slip() TO anon, authenticated;
+
+
+-- ═══════════════════════════════════════════════════════════════════
+-- 0059  Serving barcodes for directly-inserted kitchen lines
+-- ═══════════════════════════════════════════════════════════════════
+-- 0058 gave punch-and-settle orders their kitchen slip, but deliberately left
+-- the serving barcode off it: order_item_ticket.order_item_id was NOT NULL
+-- REFERENCES sales_order_item (0021), and these lines have no sales line to
+-- point at. So the slip prints with no barcode and nothing to scan — the KDS
+-- ticket flow (scan the slip when the food goes out → the line advances to
+-- dispatched) simply does not exist for punched orders.
+--
+-- This migration makes a ticket able to belong to a KITCHEN line alone.
+--
+-- 1. order_item_ticket.order_item_id becomes NULLABLE. The FK stays for the
+--    rows that do have one; a NULL means "this ticket belongs to a kitchen line
+--    only". kds_order_item_id (0023) is then the sole link, which is already how
+--    the reprint (0031) and recall (0034) paths look tickets up — both match on
+--    kds_order_item_id and guard their order_item_id fallback with
+--    IS NOT NULL, so they need no change.
+--
+-- 2. kds_enqueue_direct_line_slip (0058) mints one ticket per slip and puts its
+--    code in the payload as servingBarcode, so the slip prints a scannable
+--    CODE128 exactly like a sales-order slip. With slip mode 'perQuantity' each
+--    unit gets its own ticket and its own barcode, so units can be handed over
+--    one at a time.
+--
+-- 3. serve_ticket returns a result row for a KDS-only ticket. This is the part
+--    that would otherwise bite: the scan already advanced the kitchen line
+--    (kds_serve_units keys on kds_order_item_id and works fine), but both of the
+--    function's result queries read FROM sales_order_item WHERE order_item_id =
+--    the ticket's — which matches nothing when that is NULL. serve_tickets then
+--    returns no row for the code, and the KDS scan client reads a missing row as
+--    'not_found' (scan_service._drainOnce), reporting "unknown ticket" and
+--    deleting the scan even though the kitchen line HAD been served. Both
+--    branches now fall back to the kitchen line for their display fields.
+--
+-- Note on item_status: for a KDS-only ticket there is no sales_order_item, so
+-- the returned item_status is the KITCHEN line's status ('preparing', 'ready',
+-- 'dispatched') rather than the sales line's generated serving status. The scan
+-- client uses item_name, kds_matched and kds_item_status_before for its cues, so
+-- the distinction does not change any behavior it drives.
+--
+-- Idempotent: ALTER … DROP NOT NULL and CREATE OR REPLACE make re-runs a no-op.
+--
+-- Applied MANUALLY against Supabase (see consolidator-migrations-manual).
+
+-- ── A ticket may belong to a kitchen line alone ──────────────────
+ALTER TABLE order_item_ticket
+  ALTER COLUMN order_item_id DROP NOT NULL;
+
+-- Tickets are now looked up by their kitchen line on the KDS-only path.
+CREATE INDEX IF NOT EXISTS idx_order_item_ticket_kds_item
+  ON order_item_ticket (kds_order_item_id);
+
+-- ── 0058's enqueue, now minting a ticket per slip ────────────────
+CREATE OR REPLACE FUNCTION kds_enqueue_direct_line_slip()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  h                        RECORD;   -- kds_orders header
+  m                        RECORD;   -- item catalog row (may be absent)
+  v_slot                   TEXT;
+  v_label                  TEXT;
+  v_print_target_client_id TEXT;     -- device that prints the slip (POS or KDS)
+  v_slip_mode              TEXT;
+  v_units                  INTEGER;  -- how many physical slips to emit
+  v_slip_qty               INTEGER;  -- quantity each slip covers
+  v_ticket_code            TEXT;
+  v_copies                 INTEGER := 1;
+  v_payload                JSONB;
+  i                        INTEGER;
+BEGIN
+  SELECT o.order_number, o.table_number, o.customer_name
+    INTO h
+    FROM kds_orders o
+   WHERE o.id = NEW.order_id;
+
+  -- Catalog lookup gives the device-aware routing key and the VAT flag. A line
+  -- whose barcode is not in the catalog still prints; it just routes by slot.
+  SELECT it.assigned_printer_client_id, it.non_vat
+    INTO m
+    FROM item it
+   WHERE it.barcode = NEW.barcode;
+
+  v_print_target_client_id := NULLIF(btrim(m.assigned_printer_client_id), '');
+
+  -- Resolve the slot exactly as the ingest does: within the target device's
+  -- printers when the item names one, else across all devices. NEW.assigned_printer
+  -- may be a canonical slot or a friendly alias.
+  IF v_print_target_client_id IS NOT NULL THEN
+    SELECT dp.slot, dp.label INTO v_slot, v_label
+      FROM device_printer dp
+     WHERE dp.client_id = v_print_target_client_id
+       AND (dp.slot = NEW.assigned_printer OR dp.label = NEW.assigned_printer)
+     ORDER BY (dp.slot = NEW.assigned_printer) DESC
+     LIMIT 1;
+  ELSE
+    SELECT dp.slot, dp.label INTO v_slot, v_label
+      FROM device_printer dp
+     WHERE dp.slot = NEW.assigned_printer OR dp.label = NEW.assigned_printer
+     ORDER BY (dp.slot = NEW.assigned_printer) DESC
+     LIMIT 1;
+  END IF;
+
+  IF v_slot IS NULL THEN
+    v_slot := COALESCE(NULLIF(btrim(NEW.assigned_printer), ''), 'Unassigned');
+  END IF;
+
+  -- Give the card the friendly name the POS could not resolve (it knows only its
+  -- own aliases). UPDATE does not re-fire this INSERT trigger.
+  IF v_label IS NOT NULL AND NEW.printer_label IS DISTINCT FROM v_label THEN
+    UPDATE kds_order_items SET printer_label = v_label WHERE id = NEW.id;
+  END IF;
+
+  -- Store-wide slip mode (0052). 'perQuantity' emits one slip per unit; any other
+  -- value (or no row) emits one slip for the whole line.
+  SELECT value->>'mode' INTO v_slip_mode FROM app_config WHERE key = 'web_order_slip_mode';
+
+  IF v_slip_mode = 'perQuantity' THEN
+    v_units    := GREATEST(COALESCE(NEW.quantity, 1), 1);
+    v_slip_qty := 1;
+  ELSE
+    v_units    := 1;
+    v_slip_qty := GREATEST(COALESCE(NEW.quantity, 1), 1);
+  END IF;
+
+  FOR i IN 1..v_units LOOP
+    -- Mint this slip's ticket. order_item_id / sales_order_id stay NULL: the
+    -- ticket belongs to the kitchen line alone. The sequence DEFAULT generates
+    -- the scannable code. Every unit points at the same kitchen line, so each
+    -- scan draws its served_quantity down by v_slip_qty.
+    INSERT INTO order_item_ticket (order_item_id, sales_order_id, quantity, kds_order_item_id)
+    VALUES (NULL, NULL, v_slip_qty, NEW.id)
+    RETURNING ticket_code INTO v_ticket_code;
+
+    -- ProductOrder-shaped, matching what the print-queue worker deserializes.
+    -- price is 0: a kitchen line carries no amount, and the slip does not render
+    -- one.
+    v_payload := jsonb_build_object(
+      'orders', jsonb_build_array(jsonb_build_object(
+        'productBarcode',      NEW.barcode,
+        'productName',         NEW.name,
+        'receiptName',         NEW.name,
+        'quantity',            v_slip_qty,
+        'price',               0,
+        'orderTypeCode',       COALESCE(NEW.order_type, 1),
+        'orderType',           NEW.order_type_desc,
+        'assignedPrinter',     v_slot,
+        'nonVat',              (COALESCE(m.non_vat, 0) = 1),
+        'specialInstructions', NEW.notes,
+        'note',                NEW.note,
+        -- No table line: these orders have no sales order and no table (0058
+        -- fires precisely when there is no sales_order_item behind the line).
+        -- The ORDER NUMBER is what identifies them — it is what the counter
+        -- calls out — so the slip carries that instead.
+        'assignedTableName',   NULL,
+        'customerName',        h.customer_name,
+        'orderNumber',         h.order_number,
+        'servingBarcode',      v_ticket_code
+      )),
+      'orderNumber',   h.order_number,
+      'simpleWebSlip', true
+    );
+
+    -- target_client_id != NULL sends the job ONLY to that device; NULL keeps the
+    -- slot-broadcast behavior (whichever device owns the slot drains it).
+    INSERT INTO print_job (sales_order_id, printer_name, target_client_id, copies, payload)
+    VALUES (NULL, v_slot, v_print_target_client_id, v_copies, v_payload);
+  END LOOP;
+
+  RETURN NULL;
+EXCEPTION WHEN OTHERS THEN
+  -- A print problem must never abort the kitchen send.
+  RAISE WARNING 'kds_enqueue_direct_line_slip failed for kds_order_items.id=%: %', NEW.id, SQLERRM;
+  RETURN NULL;
+END $$;
+
+-- ── serve_ticket: answer for KDS-only tickets too ────────────────
+-- 0023's body, with each result query split: a ticket that has a sales line
+-- reports the sales line exactly as before; one that does not reports its
+-- kitchen line, so the scan client always receives a row for the code it sent.
+CREATE OR REPLACE FUNCTION serve_ticket(p_ticket_code TEXT, p_device_id TEXT DEFAULT NULL)
+RETURNS TABLE (
+  ticket_code            TEXT,
+  result                 TEXT,
+  ticket_quantity        NUMERIC,
+  order_item_id          BIGINT,
+  sales_order_id         BIGINT,
+  item_barcode           TEXT,
+  item_name              TEXT,
+  quantity               NUMERIC,
+  served_quantity        NUMERIC,
+  item_status            TEXT,
+  kds_matched            BOOLEAN,
+  kds_item_status_before TEXT
+)
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_ticket     order_item_ticket%ROWTYPE;
+  v_code       TEXT := trim(p_ticket_code);
+  v_kds_before TEXT;
+BEGIN
+  SELECT * INTO v_ticket
+    FROM order_item_ticket t
+   WHERE t.ticket_code = v_code
+     FOR UPDATE;
+
+  IF NOT FOUND THEN
+    RETURN QUERY SELECT v_code, 'not_found'::TEXT, NULL::NUMERIC, NULL::BIGINT,
+                        NULL::BIGINT, NULL::TEXT, NULL::TEXT, NULL::NUMERIC,
+                        NULL::NUMERIC, NULL::TEXT, FALSE, NULL::TEXT;
+    RETURN;
+  END IF;
+
+  IF v_ticket.ticket_status = 'served' THEN
+    -- Report the line's CURRENT totals so a replayed scan still renders a
+    -- correct confirmation screen. The kitchen is deliberately NOT touched: a
+    -- re-scan must never draw the line down twice.
+    IF v_ticket.order_item_id IS NOT NULL THEN
+      RETURN QUERY
+      SELECT v_ticket.ticket_code,
+             'already_served'::TEXT,
+             v_ticket.quantity,
+             i.order_item_id,
+             i.sales_order_id,
+             i.item_barcode,
+             COALESCE(m.print_desc, m.item_desc),
+             i.quantity,
+             i.served_quantity,
+             i.item_status,
+             FALSE,
+             NULL::TEXT
+        FROM sales_order_item i
+        LEFT JOIN item m ON m.barcode = i.item_barcode
+       WHERE i.order_item_id = v_ticket.order_item_id;
+    ELSE
+      RETURN QUERY
+      SELECT v_ticket.ticket_code,
+             'already_served'::TEXT,
+             v_ticket.quantity,
+             NULL::BIGINT,
+             NULL::BIGINT,
+             ki.barcode,
+             ki.name,
+             ki.quantity::NUMERIC,
+             ki.served_quantity,
+             ki.status,
+             FALSE,
+             NULL::TEXT
+        FROM kds_order_items ki
+       WHERE ki.id = v_ticket.kds_order_item_id;
+    END IF;
+    RETURN;
+  END IF;
+
+  UPDATE order_item_ticket t
+     SET ticket_status = 'served',
+         served_at     = now(),
+         served_by     = COALESCE(p_device_id, t.served_by)
+   WHERE t.id = v_ticket.id;
+
+  -- Advance the line by this ticket's quantity. LEAST() guards against a line
+  -- whose quantity was reduced after its tickets were printed. item_status is a
+  -- generated column and follows automatically — it must NOT be assigned here.
+  -- A KDS-only ticket has no sales line; the NULL simply matches nothing.
+  UPDATE sales_order_item i
+     SET served_quantity = LEAST(i.quantity, i.served_quantity + v_ticket.quantity),
+         served_at       = CASE
+                             WHEN LEAST(i.quantity, i.served_quantity + v_ticket.quantity) >= i.quantity
+                               THEN now()
+                             ELSE i.served_at
+                           END
+   WHERE i.order_item_id = v_ticket.order_item_id;
+
+  -- ...and the kitchen line, in the same transaction.
+  v_kds_before := kds_serve_units(
+    v_ticket.kds_order_item_id,
+    v_ticket.order_item_id,
+    v_ticket.quantity
+  );
+
+  IF v_ticket.order_item_id IS NOT NULL THEN
+    RETURN QUERY
+    SELECT v_ticket.ticket_code,
+           'served'::TEXT,
+           v_ticket.quantity,
+           i.order_item_id,
+           i.sales_order_id,
+           i.item_barcode,
+           COALESCE(m.print_desc, m.item_desc),
+           i.quantity,
+           i.served_quantity,
+           i.item_status,
+           v_kds_before IS NOT NULL,
+           v_kds_before
+      FROM sales_order_item i
+      LEFT JOIN item m ON m.barcode = i.item_barcode
+     WHERE i.order_item_id = v_ticket.order_item_id;
+  ELSE
+    -- Read the kitchen line AFTER kds_serve_units so the confirmation shows the
+    -- totals this scan produced.
+    RETURN QUERY
+    SELECT v_ticket.ticket_code,
+           'served'::TEXT,
+           v_ticket.quantity,
+           NULL::BIGINT,
+           NULL::BIGINT,
+           ki.barcode,
+           ki.name,
+           ki.quantity::NUMERIC,
+           ki.served_quantity,
+           ki.status,
+           v_kds_before IS NOT NULL,
+           v_kds_before
+      FROM kds_order_items ki
+     WHERE ki.id = v_ticket.kds_order_item_id;
+  END IF;
+END $$;
+
+GRANT EXECUTE ON FUNCTION serve_ticket(TEXT, TEXT) TO anon, authenticated;
+GRANT EXECUTE ON FUNCTION kds_enqueue_direct_line_slip() TO anon, authenticated;
+
+
+-- ═══════════════════════════════════════════════════════════════════
 -- 0060  Print Zones — route kitchen slips by the table's side
 -- ═══════════════════════════════════════════════════════════════════
 -- WHY
@@ -2770,4 +3291,563 @@ BEGIN
 EXCEPTION WHEN OTHERS THEN
   RAISE WARNING 'kds_enqueue_note_slip failed for kds_order_item_id=%: %',
     p_kds_item_id, SQLERRM;
+END $$;
+
+
+-- ═══════════════════════════════════════════════════════════════════
+-- 0066  Discount detail fields (dynamic discount details)
+-- ═══════════════════════════════════════════════════════════════════
+-- Per-discount setup of the details asked when a discount is applied /
+-- settled (name, ID, TIN, custom fields…). Configured in Discount
+-- Maintenance on any terminal; mirrored into each terminal's local sqlite
+-- `discount_detail_field` by DiscountDetailFieldDao + the maintenance-mirror
+-- realtime channel, so every POS asks the same fields.
+--
+-- Natural key (disc_code, field_key): clients upsert on it and never send
+-- `id`, so explicit-key seeding cannot strand the identity sequence.
+-- Rows are deactivated (status 0), not deleted, so past values keep labels.
+--
+-- Applied MANUALLY against Supabase (see consolidator-migrations-manual).
+
+CREATE TABLE IF NOT EXISTS discount_detail_field (
+  id               BIGINT GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY,
+  disc_code        BIGINT  NOT NULL,
+  field_key        TEXT    NOT NULL,
+  label            TEXT    NOT NULL,
+  field_type       TEXT    NOT NULL DEFAULT 'text',   -- text | number | date | select
+  is_required      INTEGER NOT NULL DEFAULT 0,
+  options          TEXT,                              -- JSON array (select)
+  min_length       INTEGER,
+  max_length       INTEGER,
+  pattern          TEXT,                              -- regex
+  derive_age_into  TEXT,                              -- field_key filled with age from this date
+  legacy_column    TEXT,                              -- name|id_no|tin|address|birthday|child_*
+  ordering_index   INTEGER NOT NULL DEFAULT 0,
+  print_on_receipt INTEGER NOT NULL DEFAULT 0,
+  status           INTEGER NOT NULL DEFAULT 1,
+  updated_at       TIMESTAMPTZ DEFAULT now(),
+  CONSTRAINT uq_discount_detail_field UNIQUE (disc_code, field_key)
+);
+
+CREATE INDEX IF NOT EXISTS idx_discount_detail_field_disc
+  ON discount_detail_field (disc_code);
+
+ALTER TABLE discount_detail_field REPLICA IDENTITY FULL;
+DO $$
+BEGIN
+  ALTER PUBLICATION supabase_realtime ADD TABLE discount_detail_field;
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
+
+-- Staged details (sales-order stage) carry the full dynamic value map and,
+-- for item / row-level discounts, the sales_order_item they belong to.
+ALTER TABLE staged_discount_details ADD COLUMN IF NOT EXISTS sales_order_item_id BIGINT;
+ALTER TABLE staged_discount_details ADD COLUMN IF NOT EXISTS extra_json TEXT;
+
+
+-- ═══════════════════════════════════════════════════════════════════
+-- 0067  Discount availability realtime mirror
+-- ═══════════════════════════════════════════════════════════════════
+-- discount_availability (created in 0009) was never published, so other
+-- terminals only saw rule changes on their next online read, and the local
+-- copy was never filled (offline terminals lost the rules). The app now
+-- mirrors it into local sqlite (DiscountAvailabilityDao.pullAllToLocal) and
+-- re-pulls on every change via the maintenance-mirror realtime channel.
+--
+-- Applied MANUALLY against Supabase (see consolidator-migrations-manual).
+
+ALTER TABLE discount_availability REPLICA IDENTITY FULL;
+DO $$
+BEGIN
+  ALTER PUBLICATION supabase_realtime ADD TABLE discount_availability;
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
+
+-- ═══════════════════════════════════════════════════════════════════
+-- 0068  Blueprint table-name size (ground-wide + per-table override)
+-- ═══════════════════════════════════════════════════════════════════
+-- ground.table_name_scale — multiplier on the auto table-name font size for
+--                           every blueprint table in the ground (1.0 = default).
+-- tables.name_scale       — per-table override; NULL = use the ground's scale.
+-- ground.chair_width_scale / chair_height_scale — chair width (along the edge)
+--                           and depth multipliers (1.0 = default).
+-- tables.chair_width_scale / chair_height_scale  — per-table overrides; NULL = ground.
+-- Must be applied BEFORE deploying POS db v74: the consolidator repository
+-- upserts every toMap() key, so a missing column fails ground/table saves.
+
+ALTER TABLE ground ADD COLUMN IF NOT EXISTS table_name_scale double precision DEFAULT 1.0;
+ALTER TABLE tables ADD COLUMN IF NOT EXISTS name_scale double precision;
+ALTER TABLE ground ADD COLUMN IF NOT EXISTS chair_width_scale double precision DEFAULT 1.0;
+ALTER TABLE ground ADD COLUMN IF NOT EXISTS chair_height_scale double precision DEFAULT 1.0;
+ALTER TABLE tables ADD COLUMN IF NOT EXISTS chair_width_scale double precision;
+ALTER TABLE tables ADD COLUMN IF NOT EXISTS chair_height_scale double precision;
+
+-- ═══════════════════════════════════════════════════════════════════
+-- 0069  Blueprint layout elements: text / area / marker props
+-- ═══════════════════════════════════════════════════════════════════
+-- table_layout_items.props — JSON (as text) holding the style of the new
+-- element types: fontSize, bold, italic, color, align, bg (text), fill (area),
+-- icon (marker). NULL for walls/doors/fills/cashier.
+-- Must be applied BEFORE deploying POS db v75: the consolidator repository
+-- upserts every toMap() key, so a missing column fails layout-item saves.
+
+ALTER TABLE table_layout_items ADD COLUMN IF NOT EXISTS props text;
+
+-- ═══════════════════════════════════════════════════════════════════
+-- 0070  device_printer: publish the printer's connection details
+-- ═══════════════════════════════════════════════════════════════════
+-- conn_type — 'network' (address is an IP, port 9100), 'usb' (a Windows
+-- spooler name, local to the publishing device), 'bluetooth', 'builtin' /
+-- 'kwikpos' (a KDS's own on-board head). address — the IP for 'network',
+-- NULL otherwise. paper_size already exists from 0028 and is now written too.
+-- Purely additive: no routing function reads these; ingest still resolves by
+-- slot. Lets a KDS station auto-fill its printer target instead of the
+-- operator re-typing every IP by hand.
+
+ALTER TABLE device_printer ADD COLUMN IF NOT EXISTS conn_type text;
+ALTER TABLE device_printer ADD COLUMN IF NOT EXISTS address   text;
+
+-- ═══════════════════════════════════════════════════════════════════
+-- 0071  ground: admin-chosen display order for areas/floors
+-- ═══════════════════════════════════════════════════════════════════
+-- 0-based position, rewritten as a clean 0..n-1 sequence when the area list
+-- is dragged in Table Layout Maintenance. Nullable so existing rows keep
+-- creation order until first reordered (PG ASC sorts NULLs last, matching
+-- the local sqlite order-by). Must be applied BEFORE POS db v76: the
+-- consolidator repository upserts every Ground.toMap() key.
+
+ALTER TABLE ground ADD COLUMN IF NOT EXISTS ordering_index integer;
+
+-- ═══════════════════════════════════════════════════════════════════
+-- 0072  Network print jobs: any device that reaches the printer prints
+-- ═══════════════════════════════════════════════════════════════════
+-- THE GAP
+-- -------
+-- Every print_job is stamped with target_client_id = the device the item's
+-- printer was picked from (0030 / kds_resolve_line_printer). claim_print_jobs
+-- lets ONLY that device claim a targeted job. So an item routed to a POS's
+-- 'Network Printer 1' whose paper actually sits next to a KDS station (or whose
+-- POS is switched off) reaches the KDS board but is printed by nobody -- the
+-- job sits 'pending' until it is purged.
+--
+-- FIX
+-- ---
+-- A network printer is a shared device: it is identified by its IP, not by
+-- which terminal happened to publish it, and slot names differ per device while
+-- the IP does not. So:
+--
+--   * print_job.printer_address -- the normalized IP of the job's printer,
+--     stamped by a BEFORE INSERT trigger from device_printer (0070). One
+--     trigger covers every job-creating path (ingest, reprint, direct line,
+--     take-out, note, transfer) without rewriting any of them.
+--   * claim_print_jobs gains p_printer_addresses: a device may claim ANY job
+--     whose printer_address it has configured locally, whoever the target is.
+--     FOR UPDATE SKIP LOCKED still guarantees exactly one claimer per job --
+--     whoever reads first prints.
+--   * release_print_job gains p_count_attempt: a "not mine after all" handback
+--     is not a print failure and must not burn one of the 20 attempts now that
+--     several devices compete for the same job.
+--
+-- USB / bluetooth / builtin printers have no address and keep the old
+-- owner-only routing (they are physically attached to one device).
+--
+-- Additive + backward compatible: old clients call claim_print_jobs with three
+-- arguments and release_print_job with two/three, both served by the defaults.
+
+-- ── Column + index ───────────────────────────────────────────────
+ALTER TABLE print_job ADD COLUMN IF NOT EXISTS printer_address text;
+
+CREATE INDEX IF NOT EXISTS print_job_status_address_idx
+  ON print_job (status, printer_address, id)
+  WHERE printer_address IS NOT NULL;
+
+-- ── Address normalization (mirrored in POS + KDS clients) ────────
+-- 'TCP://192.168.1.50:9100 ' -> '192.168.1.50'. Only the default raw port is
+-- stripped; a non-standard port stays part of the identity.
+CREATE OR REPLACE FUNCTION normalize_printer_address(p_address TEXT)
+RETURNS TEXT
+LANGUAGE sql
+IMMUTABLE
+AS $$
+  SELECT NULLIF(
+           regexp_replace(
+             regexp_replace(lower(btrim(COALESCE(p_address, ''))), '^[a-z]+://', ''),
+             ':9100$', ''),
+           '');
+$$;
+GRANT EXECUTE ON FUNCTION normalize_printer_address(TEXT) TO anon, authenticated;
+
+-- ── Resolve a job's network address ──────────────────────────────
+-- Prefer the targeted device's own row for the slot (its IP is authoritative),
+-- then any device that published an address for that slot or alias.
+CREATE OR REPLACE FUNCTION print_job_resolve_address(p_printer_name TEXT, p_target_client_id TEXT)
+RETURNS TEXT
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path = public
+AS $$
+  SELECT normalize_printer_address(dp.address)
+    FROM device_printer dp
+   WHERE (dp.slot = p_printer_name OR dp.label = p_printer_name)
+     AND dp.conn_type = 'network'
+     AND normalize_printer_address(dp.address) IS NOT NULL
+   ORDER BY (dp.client_id IS NOT DISTINCT FROM p_target_client_id) DESC,
+            (dp.slot = p_printer_name) DESC,
+            dp.updated_at DESC NULLS LAST
+   LIMIT 1;
+$$;
+
+CREATE OR REPLACE FUNCTION print_job_stamp_address()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+BEGIN
+  IF NEW.printer_address IS NULL AND NEW.printer_name IS NOT NULL THEN
+    NEW.printer_address := print_job_resolve_address(NEW.printer_name, NEW.target_client_id);
+  ELSE
+    NEW.printer_address := normalize_printer_address(NEW.printer_address);
+  END IF;
+  RETURN NEW;
+EXCEPTION WHEN OTHERS THEN
+  -- Never lose a job over the address lookup; it just stays owner-only.
+  RAISE WARNING 'print_job_stamp_address failed: %', SQLERRM;
+  RETURN NEW;
+END $$;
+
+DROP TRIGGER IF EXISTS print_job_stamp_address ON print_job;
+CREATE TRIGGER print_job_stamp_address
+  BEFORE INSERT ON print_job
+  FOR EACH ROW EXECUTE FUNCTION print_job_stamp_address();
+
+-- ── Backfill jobs that are stuck right now ───────────────────────
+-- Re-runnable (e.g. after a printer IP changes).
+UPDATE print_job j
+   SET printer_address = print_job_resolve_address(j.printer_name, j.target_client_id)
+ WHERE j.status IN ('pending', 'failed')
+   AND j.printer_address IS NULL;
+
+-- ── Claim ────────────────────────────────────────────────────────
+DROP FUNCTION IF EXISTS claim_print_jobs(TEXT, TEXT[], INTEGER);
+
+CREATE OR REPLACE FUNCTION claim_print_jobs(
+  p_client_id         TEXT,
+  p_printer_names     TEXT[],
+  p_limit             INTEGER DEFAULT 10,
+  p_printer_addresses TEXT[]  DEFAULT NULL
+)
+RETURNS SETOF print_job
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_addresses TEXT[];
+BEGIN
+  SELECT array_agg(DISTINCT a) INTO v_addresses
+    FROM (SELECT normalize_printer_address(x) AS a
+            FROM unnest(COALESCE(p_printer_addresses, '{}'::text[])) x) s
+   WHERE a IS NOT NULL;
+
+  RETURN QUERY
+  WITH claimable AS (
+    SELECT j.id
+      FROM print_job j
+     WHERE (
+             -- (a) targeted directly at this device
+             j.target_client_id = p_client_id
+             -- (b) untargeted broadcast for a slot this device owns
+             OR (j.target_client_id IS NULL AND j.printer_name = ANY (p_printer_names))
+             -- (c) a network printer this device can reach, whoever owns it
+             OR (j.printer_address IS NOT NULL AND j.printer_address = ANY (v_addresses))
+           )
+       AND (
+             j.status = 'pending'
+             -- Stuck: whoever claimed it never reported back.
+             OR (j.status = 'printing' AND j.claimed_at < now() - INTERVAL '2 minutes')
+           )
+     ORDER BY j.id
+     LIMIT p_limit
+     FOR UPDATE SKIP LOCKED
+  )
+  UPDATE print_job j
+     SET status     = 'printing',
+         claimed_by = p_client_id,
+         claimed_at = now()
+    FROM claimable c
+   WHERE j.id = c.id
+  RETURNING j.*;
+END $$;
+GRANT EXECUTE ON FUNCTION claim_print_jobs(TEXT, TEXT[], INTEGER, TEXT[]) TO anon, authenticated;
+
+-- ── Release ──────────────────────────────────────────────────────
+DROP FUNCTION IF EXISTS release_print_job(BIGINT, TEXT, INTEGER);
+
+CREATE OR REPLACE FUNCTION release_print_job(
+  p_id            BIGINT,
+  p_error         TEXT    DEFAULT NULL,
+  p_max_attempts  INTEGER DEFAULT 20,
+  p_count_attempt BOOLEAN DEFAULT TRUE
+)
+RETURNS SETOF print_job
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_inc INTEGER := CASE WHEN p_count_attempt THEN 1 ELSE 0 END;
+BEGIN
+  RETURN QUERY
+  UPDATE print_job
+     SET attempts   = attempts + v_inc,
+         status     = CASE WHEN attempts + v_inc >= p_max_attempts THEN 'failed' ELSE 'pending' END,
+         claimed_by = NULL,
+         claimed_at = NULL,
+         last_error = p_error
+   WHERE id = p_id
+  RETURNING *;
+END $$;
+GRANT EXECUTE ON FUNCTION release_print_job(BIGINT, TEXT, INTEGER, BOOLEAN) TO anon, authenticated;
+
+
+-- ═══════════════════════════════════════════════════════════════════
+-- 0073  Re-arrange table numbers (atomic layout swap)
+-- ═══════════════════════════════════════════════════════════════════
+-- The POS "Re-arrange Table Numbers" screen changes which table number sits
+-- at which spot on the floor plan WITHOUT moving the plan itself. A table's
+-- identity (table_id, table_uuid, table_desc) is what orders, locks, QR
+-- tokens, wristbands and printed static QR codes point at, so identities never
+-- change -- instead the LAYOUT columns are swapped between rows.
+--
+-- Each p_rows element is the full new layout for one table_id:
+--   { table_id, ground, x_loc, y_loc, rotation, table_shape, capacity, grid_width,
+--     grid_height, seat_layout, print_zone_id, name_scale,
+--     chair_width_scale, chair_height_scale }
+--
+-- All rows are applied in one transaction, so a half-swap is impossible.
+-- Tables with an open order (payment_status 0/1) are refused.
+--
+-- Idempotent: CREATE OR REPLACE.
+-- Applied MANUALLY against Supabase (see consolidator-migrations-manual).
+
+CREATE OR REPLACE FUNCTION rearrange_table_layout(p_rows JSONB, p_client_id TEXT)
+RETURNS INTEGER
+LANGUAGE plpgsql
+AS $$
+DECLARE
+  v_busy INTEGER;
+  v_count INTEGER;
+BEGIN
+  SELECT so.table_id INTO v_busy
+  FROM sales_order_2 so
+  WHERE so.payment_status IN (0, 1)
+    AND so.table_id IN (SELECT (r->>'table_id')::INTEGER FROM jsonb_array_elements(p_rows) r)
+  LIMIT 1;
+  IF v_busy IS NOT NULL THEN
+    RAISE EXCEPTION 'Table % has an open order and cannot be re-arranged', v_busy
+      USING ERRCODE = 'P0001';
+  END IF;
+
+  UPDATE tables t SET
+    ground             = (r->>'ground')::INTEGER,
+    x_loc              = (r->>'x_loc')::DOUBLE PRECISION,
+    y_loc              = (r->>'y_loc')::DOUBLE PRECISION,
+    rotation           = (r->>'rotation')::DOUBLE PRECISION,
+    table_shape        = r->>'table_shape',
+    capacity           = (r->>'capacity')::INTEGER,
+    grid_width         = (r->>'grid_width')::INTEGER,
+    grid_height        = (r->>'grid_height')::INTEGER,
+    seat_layout        = r->>'seat_layout',
+    print_zone_id      = (r->>'print_zone_id')::INTEGER,
+    name_scale         = (r->>'name_scale')::DOUBLE PRECISION,
+    chair_width_scale  = (r->>'chair_width_scale')::DOUBLE PRECISION,
+    chair_height_scale = (r->>'chair_height_scale')::DOUBLE PRECISION,
+    pos_client_id      = p_client_id,
+    updated_at         = now()
+  FROM jsonb_array_elements(p_rows) r
+  WHERE t.table_id = (r->>'table_id')::INTEGER;
+
+  GET DIAGNOSTICS v_count = ROW_COUNT;
+  RETURN v_count;
+END;
+$$;
+
+GRANT EXECUTE ON FUNCTION rearrange_table_layout(JSONB, TEXT) TO anon, authenticated;
+
+-- ═══════════════════════════════════════════════════════════════════
+-- 0074  Auto-complete stale KDS tickets
+-- ═══════════════════════════════════════════════════════════════════
+-- Lines nobody bumps stay 'preparing' forever (708 open lines measured on a
+-- live store). Every KDS refetches and redraws the whole open board on each
+-- realtime event, on the same isolate that renders and sends print slips, so a
+-- bloated board slows kitchen printing. It also pushes real open lines past
+-- PostgREST's 1000-row cap, so they vanish from the board.
+--
+-- kds_auto_complete_stale() completes every open (preparing/ready) line of an
+-- order whose NEWEST line is older than the cutoff. Keying on the newest line
+-- means an order that just had items added (a long banquet, a held course) is
+-- left alone. Cancelled lines are never touched. Order status is recomputed
+-- through kds_recalc_order_status (0022), the single source of truth.
+--
+-- Cutoff in minutes comes from app_config key 'kds_auto_complete_minutes'
+-- (JSON number); absent → 60, 0 or less → disabled.
+--
+-- Scheduled every 5 minutes when pg_cron is installed; otherwise run
+-- `SELECT kds_auto_complete_stale();` periodically.
+--
+-- Idempotent: CREATE OR REPLACE / ON CONFLICT DO NOTHING / unschedule-then-schedule.
+-- Applied MANUALLY against Supabase (see consolidator-migrations-manual).
+
+INSERT INTO app_config (key, value)
+VALUES ('kds_auto_complete_minutes', '60'::jsonb)
+ON CONFLICT (key) DO NOTHING;
+
+CREATE OR REPLACE FUNCTION kds_auto_complete_stale()
+RETURNS INTEGER
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_minutes INTEGER;
+  v_order   BIGINT;
+  v_count   INTEGER := 0;
+BEGIN
+  SELECT COALESCE((value #>> '{}')::INTEGER, 60) INTO v_minutes
+    FROM app_config WHERE key = 'kds_auto_complete_minutes';
+  v_minutes := COALESCE(v_minutes, 60);
+  IF v_minutes <= 0 THEN
+    RETURN 0;
+  END IF;
+
+  FOR v_order IN
+    SELECT i.order_id
+      FROM kds_order_items i
+     GROUP BY i.order_id
+    HAVING bool_or(i.status IN ('preparing', 'ready'))
+       AND max(i.created_at) < now() - make_interval(mins => v_minutes)
+  LOOP
+    UPDATE kds_order_items
+       SET status       = 'completed',
+           completed_at = COALESCE(completed_at, now())
+     WHERE order_id = v_order
+       AND status IN ('preparing', 'ready');
+    PERFORM kds_recalc_order_status(v_order);
+    v_count := v_count + 1;
+  END LOOP;
+
+  RETURN v_count;
+END $$;
+
+GRANT EXECUTE ON FUNCTION kds_auto_complete_stale() TO anon, authenticated;
+
+DO $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM pg_extension WHERE extname = 'pg_cron') THEN
+    PERFORM cron.unschedule(jobid) FROM cron.job WHERE jobname = 'kds-auto-complete-stale';
+    PERFORM cron.schedule('kds-auto-complete-stale', '*/5 * * * *', 'SELECT kds_auto_complete_stale()');
+  ELSE
+    RAISE NOTICE 'pg_cron not installed: run SELECT kds_auto_complete_stale() periodically';
+  END IF;
+END $$;
+
+-- ═══════════════════════════════════════════════════════════════════
+-- 0075  Fair per-printer print-job claiming + print_job realtime
+-- ═══════════════════════════════════════════════════════════════════
+-- claim_print_jobs (0072) takes the oldest N claimable jobs across ALL
+-- printers. One busy printer's backlog then fills the whole claim, while its
+-- slips print one at a time and other printers' jobs sit waiting (measured
+-- 2026-09-22: 69–108 s median wait on NP 2/3/4 behind one KDS).
+--
+--   * p_per_printer (new, DEFAULT NULL): when set, at most that many jobs per
+--     physical printer (printer_address, else printer_name) per claim, so a
+--     claim spreads over printers and leaves the rest of a backlog for other
+--     devices that reach the same printer (0072 any-claimer). NULL keeps the
+--     0072 behaviour exactly, so old POS / KDS builds are unaffected.
+--   * print_job joins the supabase_realtime publication so workers can drain on
+--     INSERT instead of waiting for their 2 s poll.
+--
+-- The old 4-arg signature is dropped first: keeping it beside the 5-arg one
+-- would make named-argument calls ambiguous.
+--
+-- Idempotent: DROP IF EXISTS / CREATE OR REPLACE / duplicate_object guard.
+-- Applied MANUALLY against Supabase (see consolidator-migrations-manual).
+
+DROP FUNCTION IF EXISTS claim_print_jobs(TEXT, TEXT[], INTEGER, TEXT[]);
+
+CREATE OR REPLACE FUNCTION claim_print_jobs(
+  p_client_id         TEXT,
+  p_printer_names     TEXT[],
+  p_limit             INTEGER DEFAULT 10,
+  p_printer_addresses TEXT[]  DEFAULT NULL,
+  p_per_printer       INTEGER DEFAULT NULL
+)
+RETURNS SETOF print_job
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_addresses TEXT[];
+BEGIN
+  SELECT array_agg(DISTINCT a) INTO v_addresses
+    FROM (SELECT normalize_printer_address(x) AS a
+            FROM unnest(COALESCE(p_printer_addresses, '{}'::text[])) x) s
+   WHERE a IS NOT NULL;
+
+  RETURN QUERY
+  WITH candidates AS (
+    SELECT j.id,
+           row_number() OVER (
+             PARTITION BY COALESCE(j.printer_address, j.printer_name)
+             ORDER BY j.id
+           ) AS rn
+      FROM print_job j
+     WHERE (
+             -- (a) targeted directly at this device
+             j.target_client_id = p_client_id
+             -- (b) untargeted broadcast for a slot this device owns
+             OR (j.target_client_id IS NULL AND j.printer_name = ANY (p_printer_names))
+             -- (c) a network printer this device can reach, whoever owns it
+             OR (j.printer_address IS NOT NULL AND j.printer_address = ANY (v_addresses))
+           )
+       AND (
+             j.status = 'pending'
+             -- Stuck: whoever claimed it never reported back.
+             OR (j.status = 'printing' AND j.claimed_at < now() - INTERVAL '2 minutes')
+           )
+  ),
+  -- A window function can't sit beside FOR UPDATE, so rank first, then lock.
+  claimable AS (
+    SELECT j.id
+      FROM print_job j
+     WHERE j.id IN (SELECT c.id FROM candidates c
+                     WHERE p_per_printer IS NULL OR c.rn <= p_per_printer)
+       -- Re-checked on the locked row, so a job another device claimed (and
+       -- committed) after the ranking snapshot isn't claimed twice.
+       AND (
+             j.status = 'pending'
+             OR (j.status = 'printing' AND j.claimed_at < now() - INTERVAL '2 minutes')
+           )
+     ORDER BY j.id
+     LIMIT p_limit
+     FOR UPDATE SKIP LOCKED
+  )
+  UPDATE print_job j
+     SET status     = 'printing',
+         claimed_by = p_client_id,
+         claimed_at = now()
+    FROM claimable c
+   WHERE j.id = c.id
+  RETURNING j.*;
+END $$;
+GRANT EXECUTE ON FUNCTION claim_print_jobs(TEXT, TEXT[], INTEGER, TEXT[], INTEGER) TO anon, authenticated;
+
+-- ── Realtime ─────────────────────────────────────────────────────
+DO $$
+BEGIN
+  ALTER PUBLICATION supabase_realtime ADD TABLE print_job;
+EXCEPTION WHEN duplicate_object THEN NULL;
 END $$;

@@ -12,6 +12,14 @@ class RemoveFromCart extends CartEvent {
   RemoveFromCart(this.item);
 }
 
+/// Replace an unsubmitted cart line ([original], by identity) with [updated]
+/// after the guest re-opened it to change qty, picks, instructions or note.
+class UpdateCartItem extends CartEvent {
+  final SalesOrderItemModel original;
+  final SalesOrderItemModel updated;
+  UpdateCartItem(this.original, this.updated);
+}
+
 class ClearCart extends CartEvent {
   ClearCart();
 }
@@ -39,6 +47,15 @@ class SubmitOrder extends CartEvent {
 /// Kiosk: drop everything (cart, order tracking, realtime) back to a fresh
 /// state for the next customer.
 class ResetCart extends CartEvent {}
+
+/// Staff with the `web_view_all_table_orders` access key see every line on the
+/// table's order instead of only this device's. Reloads [tableId] on change.
+class SetShowAllOrders extends CartEvent {
+  final bool showAll;
+  final int? tableId;
+
+  SetShowAllOrders(this.showAll, {this.tableId});
+}
 
 class LoadActiveOrder extends CartEvent {
   final int tableId;
@@ -72,6 +89,9 @@ class ExternalOrderUpdateReceived extends CartEvent {
 }
 
 class LoadNickname extends CartEvent {}
+
+/// Re-reads the POS `service_charge` config into [CartState.serviceCharge].
+class LoadServiceCharge extends CartEvent {}
 
 class UpdateNickname extends CartEvent {
   final String nickname;

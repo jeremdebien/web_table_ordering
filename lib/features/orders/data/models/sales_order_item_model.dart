@@ -19,6 +19,14 @@ class SalesOrderItemModel {
   final String? specialInstructions; // JSON: answers to per-item instruction questions
   final String? note; // Free-text kitchen note (sales_order_item.note)
 
+  /// POS product customization picks (sales_order_item.customization), JSON in
+  /// the POS ProductOrder shape — see [LineCustomization]. [amount] already
+  /// includes the option prices.
+  final String? customization;
+
+  /// Base product when [itemBarcode] is a size/variant pick (POS migration 0083).
+  final String? baseVariantBarcode;
+
   /// Kitchen serving state of the line: 'preparing' or 'served'. Distinct from
   /// [status], which tracks pending/accepted/cancelled submission. Derived on
   /// the consolidator from [servedQuantity] vs [quantity]
@@ -72,6 +80,8 @@ class SalesOrderItemModel {
     this.webDeviceId,
     this.specialInstructions,
     this.note,
+    this.customization,
+    this.baseVariantBarcode,
     this.servingStatus,
     this.servedQuantity = 0,
   });
@@ -90,6 +100,7 @@ class SalesOrderItemModel {
       orderItemId: json['order_item_id'] as int?,
       salesOrderId: json['sales_order_id'] as int?,
       itemBarcode: json['item_barcode'] as String,
+      itemName: json['item_name'] as String? ?? '',
       quantity: qty,
       amount: (json['amount'] as num).toDouble(),
       itemModifiers: json['item_modifiers'] as String?,
@@ -104,6 +115,8 @@ class SalesOrderItemModel {
       webDeviceId: json['web_device_id'] as String?,
       specialInstructions: json['special_instructions'] as String?,
       note: json['note'] as String?,
+      customization: json['customization'] as String?,
+      baseVariantBarcode: json['base_variant_barcode'] as String?,
       // Present only in local (consolidator) mode; absent online.
       servingStatus: json['item_status'] as String?,
       servedQuantity: (json['served_quantity'] as num?)?.toDouble() ?? 0,
@@ -130,6 +143,8 @@ class SalesOrderItemModel {
       if (webDeviceId != null) 'web_device_id': webDeviceId,
       'special_instructions': specialInstructions,
       if (note != null) 'note': note,
+      if (customization != null) 'customization': customization,
+      if (baseVariantBarcode != null) 'base_variant_barcode': baseVariantBarcode,
     };
   }
 
@@ -153,6 +168,8 @@ class SalesOrderItemModel {
     String? webDeviceId,
     String? specialInstructions,
     String? note,
+    String? customization,
+    String? baseVariantBarcode,
     String? servingStatus,
     double? servedQuantity,
   }) {
@@ -176,6 +193,8 @@ class SalesOrderItemModel {
       webDeviceId: webDeviceId ?? this.webDeviceId,
       specialInstructions: specialInstructions ?? this.specialInstructions,
       note: note ?? this.note,
+      customization: customization ?? this.customization,
+      baseVariantBarcode: baseVariantBarcode ?? this.baseVariantBarcode,
       servingStatus: servingStatus ?? this.servingStatus,
       servedQuantity: servedQuantity ?? this.servedQuantity,
     );

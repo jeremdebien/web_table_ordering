@@ -48,3 +48,14 @@ class ClearTable extends ClearOrdersEvent {
   @override
   List<Object?> get props => [tableId, salesOrderId];
 }
+
+/// Cancel (void) a table's open order, mirroring the POS "Cancel Table":
+/// the order and its items are deleted and the kitchen gets cancel slips.
+class CancelTable extends ClearOrdersEvent {
+  final int tableId;
+  final int salesOrderId;
+  const CancelTable({required this.tableId, required this.salesOrderId});
+
+  @override
+  List<Object?> get props => [tableId, salesOrderId];
+}

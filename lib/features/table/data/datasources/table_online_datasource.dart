@@ -2,6 +2,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../../core/config/app_config.dart';
 import '../../data/models/ground_model.dart';
 import '../../data/models/table_model.dart';
+import '../../data/models/layout_item_model.dart';
 import 'table_data_source.dart';
 
 /// Online (hosted) table lookup: branch-scoped, keyed by `table_uuid`.
@@ -44,5 +45,10 @@ class OnlineTableDataSource implements TableDataSource {
   @override
   Future<List<TableModel>> getTables() {
     throw UnimplementedError('Table listing is only available in local mode.');
+  }
+
+  @override
+  Future<List<LayoutItemModel>> getLayoutItems() {
+    throw UnimplementedError('Layout items are only available in local mode.');
   }
 }
