@@ -19,6 +19,9 @@ class CartState {
   // POS service-charge setup (service_charge row). Starts at the legacy flat
   // 10% until loaded.
   final ServiceChargeConfig serviceCharge;
+  // Base barcodes of new lines the last submit was blocked on: sold out,
+  // hidden, disabled or outside their POS schedule. The guest must remove them.
+  final Set<String> unavailableBarcodes;
 
   const CartState({
     this.items = const [],
@@ -31,7 +34,12 @@ class CartState {
     this.nicknameLoaded = false,
     this.allowOrderWhenBilled = false,
     this.serviceCharge = ServiceChargeConfig.legacy,
+    this.unavailableBarcodes = const {},
   });
+
+  /// Whether [line] was flagged unavailable by the last blocked submit.
+  bool isUnavailable(SalesOrderItemModel line) =>
+      line.originalQuantity == 0 && unavailableBarcodes.contains(line.baseVariantBarcode ?? line.itemBarcode);
 
   /// Service charge on [subtotal], computed the way the POS does.
   double serviceChargeFor(double subtotal) => serviceCharge.compute(subtotal);
@@ -62,6 +70,7 @@ class CartState {
     bool? nicknameLoaded,
     bool? allowOrderWhenBilled,
     ServiceChargeConfig? serviceCharge,
+    Set<String>? unavailableBarcodes,
   }) {
     return CartState(
       items: items ?? this.items,
@@ -74,6 +83,7 @@ class CartState {
       nicknameLoaded: nicknameLoaded ?? this.nicknameLoaded,
       allowOrderWhenBilled: allowOrderWhenBilled ?? this.allowOrderWhenBilled,
       serviceCharge: serviceCharge ?? this.serviceCharge,
+      unavailableBarcodes: unavailableBarcodes ?? this.unavailableBarcodes,
     );
   }
 }

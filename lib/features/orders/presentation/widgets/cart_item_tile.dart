@@ -24,6 +24,8 @@ class CartItemTile extends StatelessWidget {
     final hasNote = item.note != null && item.note!.trim().isNotEmpty;
     final isServed = item.isServed;
     final customizationLines = LineCustomization.displayLines(item.customization);
+    // Flagged by a blocked submit: sold out / no longer available on the POS.
+    final isUnavailable = context.select((CartBloc b) => b.state.isUnavailable(item));
 
     final tile = Container(
       margin: const EdgeInsets.symmetric(vertical: 4),
@@ -32,10 +34,12 @@ class CartItemTile extends StatelessWidget {
         color: isServed ? const Color(0xFFFAF9F6) : Colors.white,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
-          color: isDraft
-              ? const Color(0xFFC5A880).withValues(alpha: 0.35)
-              : const Color(0xFFE8E5DF),
-          width: isDraft ? 1.2 : 1.0,
+          color: isUnavailable
+              ? Colors.red.shade400
+              : isDraft
+                  ? const Color(0xFFC5A880).withValues(alpha: 0.35)
+                  : const Color(0xFFE8E5DF),
+          width: isUnavailable ? 1.6 : (isDraft ? 1.2 : 1.0),
         ),
         boxShadow: [
           BoxShadow(
@@ -143,6 +147,30 @@ class CartItemTile extends StatelessWidget {
                   runSpacing: 4,
                   crossAxisAlignment: WrapCrossAlignment.center,
                   children: [
+                    if (isUnavailable)
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+                        decoration: BoxDecoration(
+                          color: Colors.red.shade50,
+                          borderRadius: BorderRadius.circular(6),
+                          border: Border.all(color: Colors.red.shade300, width: 0.8),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(Icons.block_rounded, size: 11, color: Colors.red.shade700),
+                            const SizedBox(width: 3),
+                            Text(
+                              'Unavailable – please remove',
+                              style: TextStyle(
+                                fontSize: 10,
+                                fontWeight: FontWeight.w700,
+                                color: Colors.red.shade700,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
                     // Draft / To Order Badge
                     if (isDraft)
                       Container(

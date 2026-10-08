@@ -1,3 +1,4 @@
+import '../../domain/availability_snapshot.dart';
 import '../models/department_model.dart';
 import '../models/category_model.dart';
 import '../models/item_model.dart';
@@ -12,6 +13,20 @@ abstract class MenuDataSource {
   /// [includeStaffOnly]: also return `is_staff_only` items (staff logged in).
   Future<List<ItemModel>> getItems({int? categoryId, bool includeStaffOnly = false});
   String getItemImageUrl(String imagePath);
+
+  // ── POS item availability ──────────────────────────────────────────────────
+  // Sold-out (`item.is_sold_out`) rides on [ItemModel]; hidden items
+  // (`item.is_hidden`) are dropped by [getItems]; schedule rules come from here.
+
+  /// Active `item_availability` rules + active holidays (empty if none).
+  Future<AvailabilitySnapshot> getAvailabilitySnapshot();
+
+  /// Current rows for [barcodes] that are still enabled and not hidden, keyed
+  /// by barcode. A barcode missing from the result can't be ordered any more.
+  Future<Map<String, ItemModel>> getOrderableItemsByBarcodes(List<String> barcodes);
+
+  /// Fires whenever an `item` row changes (sold out, hidden, disabled...).
+  Stream<void> itemChanges();
 
   /// All orderable items (`item_status = 1`) regardless of web visibility, for
   /// the staff menu-curation screen — so items currently hidden from the web
