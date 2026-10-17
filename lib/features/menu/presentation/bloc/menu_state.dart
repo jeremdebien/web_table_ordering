@@ -21,6 +21,10 @@ class MenuLoaded extends MenuState {
   final List<ItemModel> items;
   final int? selectedDepartmentId;
   final int? selectedCategoryId;
+  /// POS schedule rules + holidays, evaluated against [now].
+  final AvailabilitySnapshot availability;
+  /// Clock the schedule is evaluated at; advanced by the minute tick.
+  final DateTime? now;
 
   const MenuLoaded({
     this.departments = const [],
@@ -28,7 +32,14 @@ class MenuLoaded extends MenuState {
     this.items = const [],
     this.selectedDepartmentId,
     this.selectedCategoryId,
+    this.availability = AvailabilitySnapshot.empty,
+    this.now,
   });
+
+  /// Why [item] can't be ordered right now (sold out / outside its POS
+  /// schedule), or null if it can.
+  String? unavailableReason(ItemModel item) =>
+      availability.unavailableReason(item, now ?? DateTime.now());
 
   MenuLoaded copyWith({
     List<DepartmentModel>? departments,
@@ -36,6 +47,8 @@ class MenuLoaded extends MenuState {
     List<ItemModel>? items,
     int? selectedDepartmentId,
     int? selectedCategoryId,
+    AvailabilitySnapshot? availability,
+    DateTime? now,
   }) {
     return MenuLoaded(
       departments: departments ?? this.departments,
@@ -43,6 +56,8 @@ class MenuLoaded extends MenuState {
       items: items ?? this.items,
       selectedDepartmentId: selectedDepartmentId ?? this.selectedDepartmentId,
       selectedCategoryId: selectedCategoryId ?? this.selectedCategoryId,
+      availability: availability ?? this.availability,
+      now: now ?? this.now,
     );
   }
 
@@ -53,6 +68,8 @@ class MenuLoaded extends MenuState {
     items,
     selectedDepartmentId,
     selectedCategoryId,
+    availability,
+    now,
   ];
 }
 

@@ -61,15 +61,17 @@ class _CartSummaryState extends State<CartSummary> {
           }
           // A split-table block is an expected, guest-facing condition — show its
           // message verbatim rather than dressing it as a generic failure.
-          final isSplitTable =
-              state.errorMessage == SplitTableException.friendlyMessage;
+          // Likewise for items the POS made unavailable since they were added.
+          final isGuestFacing =
+              state.errorMessage == SplitTableException.friendlyMessage ||
+                  state.errorMessage == CartBloc.unavailableItemsMessage;
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text(isSplitTable
+              content: Text(isGuestFacing
                   ? state.errorMessage!
                   : 'Failed to submit order: ${state.errorMessage}'),
               backgroundColor:
-                  isSplitTable ? Colors.orange.shade800 : Colors.red.shade700,
+                  isGuestFacing ? Colors.orange.shade800 : Colors.red.shade700,
               behavior: SnackBarBehavior.floating,
             ),
           );
@@ -88,7 +90,7 @@ class _CartSummaryState extends State<CartSummary> {
         final subtotal = state.activeOrderTotalAmount +
             state.pendingOrderTotalAmount +
             state.newOrderTotalAmount;
-        final serviceCharge = subtotal * 0.10;
+        final serviceCharge = state.serviceChargeFor(subtotal);
         final total = subtotal + serviceCharge;
         final totalCount = state.activeOrderCount +
             state.pendingOrdersCount +
@@ -296,11 +298,13 @@ class _CartSummaryState extends State<CartSummary> {
                                     'Subtotal',
                                     '₱${subtotal.toStringAsFixed(2)}',
                                   ),
-                                  const SizedBox(height: 6),
-                                  _buildSummaryRow(
-                                    'Service Charge (10%)',
-                                    '₱${serviceCharge.toStringAsFixed(2)}',
-                                  ),
+                                  if (state.serviceCharge.effectiveRate > 0) ...[
+                                    const SizedBox(height: 6),
+                                    _buildSummaryRow(
+                                      'Service Charge (${state.serviceCharge.rateLabel})',
+                                      '₱${serviceCharge.toStringAsFixed(2)}',
+                                    ),
+                                  ],
                                   const SizedBox(height: 10),
                                   const Divider(
                                     color: Color(0xFFE8E5DF),
@@ -462,7 +466,7 @@ class _CartSummaryState extends State<CartSummary> {
           final item = draftItems[index];
           return CartItemTile(
             item: item,
-            displayImage: getDisplayImage(item.itemBarcode),
+            displayImage: getDisplayImage(item.baseVariantBarcode ?? item.itemBarcode),
           );
         },
       );
@@ -476,7 +480,7 @@ class _CartSummaryState extends State<CartSummary> {
           final item = kitchenItems[index];
           return CartItemTile(
             item: item,
-            displayImage: getDisplayImage(item.itemBarcode),
+            displayImage: getDisplayImage(item.baseVariantBarcode ?? item.itemBarcode),
           );
         },
       );
@@ -490,7 +494,7 @@ class _CartSummaryState extends State<CartSummary> {
           final item = servedItems[index];
           return CartItemTile(
             item: item,
-            displayImage: getDisplayImage(item.itemBarcode),
+            displayImage: getDisplayImage(item.baseVariantBarcode ?? item.itemBarcode),
           );
         },
       );
@@ -514,7 +518,7 @@ class _CartSummaryState extends State<CartSummary> {
           const SizedBox(height: 6),
           ...draftItems.map((item) => CartItemTile(
                 item: item,
-                displayImage: getDisplayImage(item.itemBarcode),
+                displayImage: getDisplayImage(item.baseVariantBarcode ?? item.itemBarcode),
               )),
           const SizedBox(height: 16),
 
@@ -528,7 +532,7 @@ class _CartSummaryState extends State<CartSummary> {
           const SizedBox(height: 6),
           ...combinedSubmitted.map((item) => CartItemTile(
                 item: item,
-                displayImage: getDisplayImage(item.itemBarcode),
+                displayImage: getDisplayImage(item.baseVariantBarcode ?? item.itemBarcode),
               )),
         ],
       );
@@ -542,7 +546,7 @@ class _CartSummaryState extends State<CartSummary> {
         final item = allItems[index];
         return CartItemTile(
           item: item,
-          displayImage: getDisplayImage(item.itemBarcode),
+          displayImage: getDisplayImage(item.baseVariantBarcode ?? item.itemBarcode),
         );
       },
     );

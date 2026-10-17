@@ -12,6 +12,14 @@ class RemoveFromCart extends CartEvent {
   RemoveFromCart(this.item);
 }
 
+/// Replace an unsubmitted cart line ([original], by identity) with [updated]
+/// after the guest re-opened it to change qty, picks, instructions or note.
+class UpdateCartItem extends CartEvent {
+  final SalesOrderItemModel original;
+  final SalesOrderItemModel updated;
+  UpdateCartItem(this.original, this.updated);
+}
+
 class ClearCart extends CartEvent {
   ClearCart();
 }
@@ -81,6 +89,9 @@ class ExternalOrderUpdateReceived extends CartEvent {
 }
 
 class LoadNickname extends CartEvent {}
+
+/// Re-reads the POS `service_charge` config into [CartState.serviceCharge].
+class LoadServiceCharge extends CartEvent {}
 
 class UpdateNickname extends CartEvent {
   final String nickname;

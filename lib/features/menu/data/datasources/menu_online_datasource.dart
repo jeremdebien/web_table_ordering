@@ -1,10 +1,12 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../../core/config/app_config.dart';
+import '../../domain/availability_snapshot.dart';
 import '../models/department_model.dart';
 import '../models/category_model.dart';
 import '../models/item_model.dart';
 import '../models/instruction_group_model.dart';
 import '../models/menu_group_model.dart';
+import '../models/option_group_model.dart';
 import 'menu_data_source.dart';
 
 /// Online (hosted) menu catalog: plural, branch-scoped tables.
@@ -83,9 +85,33 @@ class OnlineMenuDataSource implements MenuDataSource {
     return _client.storage.from('items').getPublicUrl(imagePath);
   }
 
+  // POS availability (sold out / hidden / schedules) is local-mode only: the
+  // hosted schema has no rule tables, so everything enabled stays orderable.
+  @override
+  Future<AvailabilitySnapshot> getAvailabilitySnapshot() async => AvailabilitySnapshot.empty;
+
+  @override
+  Future<Map<String, ItemModel>> getOrderableItemsByBarcodes(List<String> barcodes) async {
+    if (barcodes.isEmpty) return {};
+    final response = await _client
+        .from('items')
+        .select()
+        .eq('item_status', 1)
+        .eq('branch_id', _branchId)
+        .inFilter('barcode', barcodes);
+    return {for (final e in response as List) e['barcode'] as String: ItemModel.fromJson(e)};
+  }
+
+  @override
+  Stream<void> itemChanges() => const Stream.empty();
+
   // Special instructions are a local-mode feature; online path is unchanged.
   @override
   Future<List<InstructionGroup>> getItemInstructions(String barcode, {int? categoryId}) async => [];
+
+  // Product customization is local-mode only.
+  @override
+  Future<List<OptionGroup>> getItemCustomization(String barcode) async => [];
 
   // ── Menu groups ────────────────────────────────────────────────────────────
   // TODO(online): menu groups are a local-mode feature for now (migration 0052).

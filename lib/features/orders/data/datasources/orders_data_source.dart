@@ -63,6 +63,12 @@ abstract class OrdersDataSource {
   /// cancels the kitchen lines and prints cancel slips. Local-mode only.
   Future<void> cancelTableOrder(int salesOrderId);
 
+  /// Re-queues the Order Summary Slip for the sales order's latest round on the
+  /// store's configured summary printers, via the `enqueue_order_summary` RPC
+  /// (consolidator migration 0087). Returns how many print jobs were queued —
+  /// 0 when the summary slip is not set up. Local-mode only.
+  Future<int> enqueueOrderSummary(int salesOrderId);
+
   Stream<List<Map<String, dynamic>>> subscribeToOrderUpdates({int? tableId});
 
   Stream<void> subscribeToActiveOrderChanges(

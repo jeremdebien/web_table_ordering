@@ -5,14 +5,26 @@ class MenuItemCard extends StatelessWidget {
   final VoidCallback onTap;
   // Staff logged in and this is a staff-only item.
   final bool showStaffBadge;
+  // POS sold out / outside its schedule ('Sold out', 'Not available now'): the
+  // card is dimmed, badged and can't be tapped, like the POS grid.
+  final String? unavailableReason;
 
-  const MenuItemCard({super.key, required this.item, required this.onTap, this.showStaffBadge = false});
+  const MenuItemCard({
+    super.key,
+    required this.item,
+    required this.onTap,
+    this.showStaffBadge = false,
+    this.unavailableReason,
+  });
 
   @override
   Widget build(BuildContext context) {
+    final unavailable = unavailableReason != null;
     return GestureDetector(
-      onTap: onTap,
-      child: Container(
+      onTap: unavailable ? null : onTap,
+      child: Opacity(
+        opacity: unavailable ? 0.45 : 1,
+        child: Container(
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(20),
@@ -54,6 +66,8 @@ class MenuItemCard extends StatelessWidget {
                         : const _Placeholder(),
                     if (showStaffBadge)
                       const Positioned(top: 8, left: 8, child: StaffBadge()),
+                    if (unavailable)
+                      Center(child: UnavailableBadge(label: unavailableReason!)),
                   ],
                 ),
               ),
@@ -96,24 +110,54 @@ class MenuItemCard extends StatelessWidget {
                           color: Color(0xFF1A1A1A),
                         ),
                       ),
-                      Container(
-                        padding: const EdgeInsets.all(6),
-                        decoration: const BoxDecoration(
-                          color: Color(0xFF1A1A1A),
-                          shape: BoxShape.circle,
+                      if (!unavailable)
+                        Container(
+                          padding: const EdgeInsets.all(6),
+                          decoration: const BoxDecoration(
+                            color: Color(0xFF1A1A1A),
+                            shape: BoxShape.circle,
+                          ),
+                          child: const Icon(
+                            Icons.add,
+                            color: Colors.white,
+                            size: 18,
+                          ),
                         ),
-                        child: const Icon(
-                          Icons.add,
-                          color: Colors.white,
-                          size: 18,
-                        ),
-                      ),
                     ],
                   ),
                 ],
               ),
             ),
           ],
+        ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Dark pill over an unavailable item's image ("SOLD OUT", "NOT AVAILABLE NOW").
+class UnavailableBadge extends StatelessWidget {
+  final String label;
+
+  const UnavailableBadge({super.key, required this.label});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+      decoration: BoxDecoration(
+        color: Colors.black.withValues(alpha: 0.8),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Text(
+        label.toUpperCase(),
+        textAlign: TextAlign.center,
+        style: const TextStyle(
+          fontSize: 11,
+          fontWeight: FontWeight.w800,
+          color: Colors.white,
+          letterSpacing: 0.5,
         ),
       ),
     );
